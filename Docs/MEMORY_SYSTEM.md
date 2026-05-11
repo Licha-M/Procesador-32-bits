@@ -262,26 +262,26 @@ Con página no presente:
 - Manejo de page faults
 - CR0, CR3, CR2 registros
 
-### ⚠️ Limitaciones
+### ⚠️ Limitaciones y Trabajo en Progreso
 
-**1. IF Stage No Usa Paginación**
+**1. Integración Pendiente de IF en MMU (Árbitro Unificado)**
 
 ```
-Actual:
+Diseño propuesto:
 ┌─────────┐
 │ IF      │
-│ PC      │ ← Dirección física
+│ PC      │ ← Dirección virtual
 │ Fetch   │
 └────┬────┘
+     │ Need_Instr
+     ▼
+   [Árbitro MMU] ← comparte con MEM
      │
      ▼
-   ROM/RAM (acceso directo)
-
-Problema:
-  - PC es dirección VIRTUAL, pero tratada como FÍSICA
-  - Si programa en memoria virtual @ 0x00000000
-    pero mapeado a físico @ 0x80000000 → Error
-  - No soporta memoria virtual para instrucciones
+   [Traducción MMU]
+     │
+     ▼
+   RAM / ROM
 ```
 
 **2. Sin TLB (Translation Lookaside Buffer)**
@@ -353,28 +353,38 @@ Arquitectura Propuesta:
 ┌─────────┐
 │  PC     │ (dirección virtual)
 └────┬────┘
+     │ Need_Instr
+     ▼
+┌───────────────────────────────┐
+│  Multiplexor / Árbitro         │
+│  (Prioridad a MEM sobre IF)    │
+│  Flip-flop: Serving_IF         │
+└────┬──────────────────────────┘
      │
      ▼
-┌──────────────────────┐
-│  Multiplexor          │
-│  (IF o MEM request?)  │
-└────┬─────────────────┘
-     │
-     ▼
-┌──────────────────────┐
-│  MMU                 │
-│  1. Busca CR3        │
-│  2. Accede PT        │
-│  3. Verifica P bit   │
-│  4. Calcula física   │
-└────┬─────────────────┘
+┌───────────────────────────────┐
+│  MMU (Pagewalker)              │
+│  1. Busca CR3                  │
+│  2. Accede PT (PDE / PTE)      │
+│  3. Verifica P bit             │
+│  4. Acceso Final (Addr / HIT)  │
+└────┬──────────────────────────┘
      │
      ├─ valid=0 → PAGE_FAULT
-     │           Exception handler
      │
      └─ valid=1 → physical_addr
-               ↓
-            Fetch instrucción
+                ↓
+             Fetch instrucción
+             
+Generación de IF_Ready:
+  IF_Ready = RAM_Ready AND Serving_IF AND (State == Addr OR State == HIT)
+  (Esta señal se conecta a En_Write en el buffer del IF)
+
+Comportamiento sin MMU (Bypass):
+  Si CR0.PG == 0:
+    Stall_Total = NOT RAM_Ready (passthrough directo desde RAM)
+  Si CR0.PG == 1:
+    Stall_Total = Pagewalk_Busy OR NOT RAM_Ready
 ```
 
 ### Paso 3: Manejo de IF Page Faults
@@ -579,14 +589,14 @@ Tabla de páginas inicial (CR3=0x80000000):
 
 ## 9. CHECKLIST DE IMPLEMENTACIÓN
 
-### Fase 1: IF Paginación Básica
+### Fase 1: IF Paginación y Arbitraje
 
-- [ ] Copiar MMU logic del MEM stage
-- [ ] Integrar traslador en IF stage
-- [ ] Selector de acceso (IF vs MEM)
+- [ ] Integrar traslador compartido (IF/MEM)
+- [ ] Selector de acceso y FF de arbitraje (`Serving_IF`)
+- [ ] Lógica para generar `IF_Ready` (evitar que PDEs/PTEs escriban en buffer IF)
+- [ ] Lógica de Bypass de MMU (`Stall` como passthrough de RAM cuando apagada)
 - [ ] Testing sin paginación (CR0.PG=0)
-- [ ] Testing con paginación simple (identidad)
-- [ ] Testing con saltos entre páginas
+- [ ] Testing con paginación simple y saltos
 
 ### Fase 2: Page Fault Handling en IF
 

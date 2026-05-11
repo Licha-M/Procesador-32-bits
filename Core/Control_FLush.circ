@@ -739,24 +739,24 @@
     <a name="circuitnamedboxfixedsize" val="true"/>
     <a name="simulationFrequency" val="2048000.0"/>
     <appear>
-      <rect fill="none" height="50" stroke="#000000" stroke-width="2" width="130" x="150" y="60"/>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="15" text-anchor="middle" x="168" y="85">IF</text>
+      <rect fill="none" height="50" stroke="#000000" stroke-width="2" width="180" x="100" y="60"/>
+      <text dominant-baseline="central" font-family="SansSerif" font-size="18" text-anchor="middle" x="120" y="79">IF</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="169" y="67">Data_In</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="230" y="68">Addr</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="265" y="78">Instr</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="260" y="99">PC</text>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="231" y="99">En_PC</text>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="190" y="101">RST</text>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="170" y="102">Clk</text>
+      <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="221" y="99">En_PC</text>
+      <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="130" y="101">RST</text>
+      <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="110" y="102">Clk</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="200" y="68">RAM</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="260" y="69">Need</text>
       <circ-anchor facing="east" x="280" y="80"/>
       <circ-port dir="in" pin="140,550" x="200" y="60"/>
-      <circ-port dir="in" pin="140,610" x="190" y="110"/>
-      <circ-port dir="in" pin="140,630" x="170" y="110"/>
+      <circ-port dir="in" pin="140,610" x="130" y="110"/>
+      <circ-port dir="in" pin="140,630" x="110" y="110"/>
       <circ-port dir="in" pin="190,270" x="260" y="110"/>
       <circ-port dir="in" pin="260,720" x="170" y="60"/>
-      <circ-port dir="out" pin="140,290" x="230" y="110"/>
+      <circ-port dir="out" pin="140,290" x="220" y="110"/>
       <circ-port dir="out" pin="710,300" x="230" y="60"/>
       <circ-port dir="out" pin="710,420" x="260" y="60"/>
       <circ-port dir="out" pin="750,760" x="280" y="80"/>

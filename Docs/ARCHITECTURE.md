@@ -95,11 +95,12 @@ Entrada:
   - Salto_detectado: Del stage EX (control hazard)
   - Dirección_salto: Destino si salto (32 bits)
   - Reset: Reinicia PC a 0x00000000
+  - IF_Ready: Señal combinada (RAM_Ready + MMU State + Arbiter) para autorizar carga de nueva instrucción en el buffer (conecta a En_Write)
 
 Salida:
   - Instrucción: 32-bit opcode + operandos
   - PC_próximo: Para ID (forwarding)
-  - Ready: Indica instrucción válida
+  - Need_Instr: Señal hacia la MMU pidiendo acceso a la RAM
 ```
 
 ### Flujo Ciclo a Ciclo
@@ -119,10 +120,10 @@ Ciclo N+1:
 
 ### Mejoras Pendientes
 
-- **MMU en IF**: Actualmente IF accede RAM directamente
-  - Necesita: Integración de traslador de direcciones
-  - Impacto: +1 ciclo de latencia si miss en TLB
-  - Beneficio: Soporte real de memoria virtual
+- **MMU unificada en IF y MEM**:
+  - Necesita: Árbitro que determine si el acceso actual a memoria pertenece al `IF` o a `MEM` (`Serving_IF`).
+  - Riesgo de Pagewalk: La señal global `RAM_Ready` sube varias veces durante un pagewalk (extrayendo PDEs y PTEs). Por esto, `En_Write` del IF debe conectarse a una señal dedicada `IF_Ready` generada en la MMU, asegurando que sólo se escriban instrucciones finales, no descriptores de tabla.
+  - Impacto: +1 a 4 ciclos de latencia en fetch si hay miss en TLB.
 
 ---
 
@@ -350,8 +351,9 @@ Ejemplo:
 **Estado Actual:**
 - ✅ Paginación básica funcional
 - ✅ Tabla de páginas en RAM
-- ⚠️ Sin TLB (cada acceso busca tabla)
-- ❌ IF stage no usa traslación
+- ⚠️ MMU compartida para IF y MEM en diseño (árbitro y señales `IF_Ready` planificados)
+- ⚠️ TLB en desarrollo
+- ⚠️ Lógica de bypass de MMU (`Stall` como passthrough de la RAM cuando `CR0.PG=0`) en proceso.
 
 **Registros de Control:**
 ```
@@ -715,6 +717,12 @@ Control word bit 6 = Kernel
   Si Kernel==0 (user mode) e instrucción intenta escribir SPR:
     → Exception (PRIV_VIOLATION)
     → Handler kernel maneja error
+
+Estado Kernel persistente:
+  - Mantenido por un flip-flop dedicado (etapa ID o REGE).
+  - Seteado a 1 por la instrucción de trap (SCL).
+  - Reseteado a 0 por el retorno de interrupción (SRT).
+  - Su salida se rutea directamente hacia la MMU y el Exception_Generator para validación de privilegios en cada acceso a memoria.
 ```
 
 ---

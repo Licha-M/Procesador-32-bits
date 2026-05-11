@@ -76,7 +76,7 @@ Procesador-32-bits/
 - Lee la instrucción de 32 bits desde la memoria de instrucciones (ROM/RAM).
 - Actualiza el Program Counter: `PC ← PC + 4`.
 - En caso de salto detectado en EX: `PC ← dirección_correcta` (tras flush).
-- **Pendiente:** integración de MMU para traslación de direcciones virtuales en IF.
+- **Pendiente:** Integración final de MMU bidireccional en IF. Se definió el diseño de `IF_Ready` como señal de handshake (RAM_Ready + MMU State + Arbiter) para evitar que IF cargue PTEs/PDEs erróneamente durante un pagewalk.
 
 ### Etapa ID — Instruction Decode
 
@@ -95,8 +95,9 @@ Procesador-32-bits/
 ### Etapa MEM — Memory Access
 
 - Accede a la RAM para instrucciones `LOD` (lectura) y `STR` (escritura).
-- La **MMU** traslada direcciones virtuales a físicas usando la tabla de páginas.
+- La **MMU** traslada direcciones virtuales a físicas compartiendo su lógica entre las etapas IF y MEM mediante un árbitro (prioridad a MEM).
 - Genera excepciones de **page fault** si la página no está mapeada.
+- Soporta bypass en Modo Real (`CR0.PG=0`), donde el `Stall` es un passthrough directo de la RAM física.
 - Proporciona datos para forwarding a la etapa EX.
 
 ### Etapa WB — Writeback
@@ -476,10 +477,11 @@ El archivo `Intr` (en la raíz del proyecto) es la tabla de la ROM PLA. Para car
 
 ### 🚧 En Desarrollo
 
-- [ ] **MMU para etapa IF** — actualmente IF accede RAM sin traslación de direcciones
+- [ ] **MMU unificada para etapa IF y MEM** — En proceso de implementación de la lógica de arbitraje (`Serving_IF`), handshake (`IF_Ready`) y bypass de `Stall` en modo real.
 - [ ] **TLB** (Translation Lookaside Buffer) — para optimizar accesos a memoria
 - [ ] Caché de instrucciones (I-cache)
 - [ ] Interrupciones totalmente anidadas
+- [ ] **Registro de Estado Kernel/Usuario** — Flip-Flop dedicado en ID o REGE (seteado por SCL, reseteado por SRT) para controlar permisos MMU.
 
 ### 📋 Planificado
 

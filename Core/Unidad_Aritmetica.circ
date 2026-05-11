@@ -438,7 +438,7 @@
       <a name="size" val="30"/>
     </comp>
     <comp lib="10" loc="(260,680)" name="PlaRom">
-      <a name="Contents" val="2 1*3 2 1 1 2 0 1 1 0 "/>
+      <a name="Contents" val="2 1 1 2 2 1 2 1 0 1 1 0 "/>
       <a name="Select" val="high"/>
       <a name="and" val="2"/>
       <a name="outputs" val="2"/>
