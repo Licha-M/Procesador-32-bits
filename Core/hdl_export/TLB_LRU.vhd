@@ -128,7 +128,7 @@ begin
             for i in 0 to NUM_ENTRIES-1 loop
                 if tlb_valid(i) = '1'
                    and tlb_vpn(i)  = v_vpn
-                   and tlb_pcid(i) = v_pcid
+                   and (tlb_pcid(i) = v_pcid or tlb_frame(i)(3) = '1')
                 then
                     v_found := '1';
                     v_frame := tlb_frame(i);

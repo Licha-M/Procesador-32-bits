@@ -20,7 +20,7 @@
       <a name="labelfont" val="SansSerif bold 8"/>
     </tool>
     <tool name="Pull Resistor">
-      <a name="facing" val="east"/>
+      <a name="facing" val="west"/>
     </tool>
     <tool name="Clock">
       <a name="facing" val="south"/>
@@ -695,6 +695,12 @@ x1x01 110 # ROn
       <a name="appearance" val="NewPins"/>
       <a name="label" val="Kernel"/>
     </comp>
+    <comp lib="0" loc="(1260,190)" name="Pull Resistor">
+      <a name="facing" val="west"/>
+    </comp>
+    <comp lib="0" loc="(1260,210)" name="Pull Resistor">
+      <a name="facing" val="west"/>
+    </comp>
     <comp lib="0" loc="(1270,100)" name="Tunnel">
       <a name="label" val="From_TLBs"/>
       <a name="labelfont" val="SansSerif bold 8"/>
@@ -1035,6 +1041,7 @@ x1x01 110 # ROn
     <wire from="(1230,130)" to="(1240,130)"/>
     <wire from="(1230,170)" to="(1230,210)"/>
     <wire from="(1230,210)" to="(1230,510)"/>
+    <wire from="(1230,210)" to="(1260,210)"/>
     <wire from="(1230,710)" to="(1230,810)"/>
     <wire from="(1230,710)" to="(1350,710)"/>
     <wire from="(1230,810)" to="(1240,810)"/>
@@ -1046,7 +1053,9 @@ x1x01 110 # ROn
     <wire from="(1240,560)" to="(1560,560)"/>
     <wire from="(1240,570)" to="(1440,570)"/>
     <wire from="(1240,580)" to="(1300,580)"/>
-    <wire from="(1250,170)" to="(1250,370)"/>
+    <wire from="(1250,170)" to="(1250,190)"/>
+    <wire from="(1250,190)" to="(1250,370)"/>
+    <wire from="(1250,190)" to="(1260,190)"/>
     <wire from="(1250,500)" to="(1250,800)"/>
     <wire from="(1270,820)" to="(1280,820)"/>
     <wire from="(1300,580)" to="(1300,810)"/>
