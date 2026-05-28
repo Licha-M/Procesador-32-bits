@@ -41,7 +41,7 @@ entity TLB_LRU is
         -- Reducimos la comparación a VPN y PCID pequeño (más realista)
         VPN_HIGH      : integer := 31;
         VPN_LOW       : integer := 12;  -- página de 4 KB → 20 bits de VPN
-        PCID_LOW_BITS : integer := 9    -- usamos 8 bits de PCID (bits 7..0)
+        PCID_LOW_BITS : integer := 7    -- usamos 8 bits de PCID (bits 7..0)
     );
     Port (
         clk           : in  STD_LOGIC;
