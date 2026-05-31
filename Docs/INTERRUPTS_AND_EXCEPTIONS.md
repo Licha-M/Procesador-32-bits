@@ -13,10 +13,21 @@ Este documento describe el ciclo de vida completo de un error, excepción de mem
 
 | Vector / Cause | Tipo de Excepción | Disparador de Hardware (*Trigger*) | Comportamiento y Aislamiento del Sistema |
 | :---: | :--- | :--- | :--- |
-| **0** | **Page Fault** | La MMU despierta la señal al fallar en traducir una dirección. | Almacena la dirección fallida en `CR2` (R5). Transfiere control a la rutina de paginación/swapping del SO. El direccionamiento físico total es de 32 bits enteros. |
-| **1** | **General Protection Fault** | Ejecución de instrucciones privilegiadas (`CYE`, `CYR`, `SRT`) con el bit de estado `Kernel = 0`. | Captura la instrucción infractora, genera un Flush en el programa de usuario y evita la vulneración del espacio de memoria protegido. |
-| **2** | **Invalid Opcode** | La Unidad de Control lee un patrón de bits (OpCode) que no está asignado en la ROM PLA. | Mecanismo automático de protección (*fallback*) que detiene la ejecución errática de binarios corruptos antes de que el bus de datos sufra inconsistencias críticas. |
-| **3** | **Double Fault** | Una excepción en cascada sucede mientras el hardware aún procesaba y limpiaba un fallo previo. | Captura fallos catastróficos. Forzará al Kernel a un volcado seguro o a la detención limpia de la máquina (Kernel Panic). |
+| **0** | **NOP (No Excepción)** | Estado de reposo o llamada explícita. | Usado por defecto. Al inyectar un `SCL` (SysCall), el registro Cause queda en 00. El Kernel entiende que es una SysCall limpia. |
+| **1** | **Page Fault LOD / Fetch** | La MMU detecta *Not Present* o acceso denegado al Kernel leyendo instrucciones o datos. | Guarda el PC o dirección fallida en `CR2`. Evita duplicar lógica de lectura en hardware. |
+| **2** | **Page Fault STR** | La MMU detecta un *Not Present*, acceso al Kernel o intento de escribir en página *Read-Only*. | Clave para detectar escrituras no permitidas, permitiendo al Kernel manejar *Copy-on-Write* o matar el proceso. |
+| **3** | **General Protection Fault** | Ejecución de instrucciones privilegiadas con el bit de estado `Kernel = 0`. | Genera un Flush en el programa de usuario y evita la vulneración del espacio de memoria protegido. |
+| **4** | **Invalid Opcode** | La Unidad de Control lee un patrón de bits (OpCode) que no está asignado. | Detiene la ejecución de binarios corruptos antes de causar estragos. |
+| **5** | **Double Fault** | Una excepción sucede mientras el hardware aún procesaba y limpiaba un fallo previo. | Forzará al Kernel a un volcado seguro o a la detención limpia (Kernel Panic). |
+| **6** | **Alignment Fault** | La ALU o controlador de memoria detecta que los últimos 2 bits de una dirección no son `00`. | Se dispara en la etapa `MEM` (para `LOD`/`STR`) o en `FETCH` (para saltos mal alineados). Evita accesos asimétricos a RAM. |
+
+> [!IMPORTANT]
+> **Distinción entre SysCalls, Excepciones e Interrupciones:**
+> Cuando ocurre un salto al Kernel por `SCL` (SysCall), el hardware delega el control. 
+> 1. Si el Kernel revisa el registro `Cause` y es `00`, asume que fue una llamada intencional por SysCall normal.
+> 2. Si `Cause` es distinto de `00`, el Kernel revisa el **bit 31** del registro `Cause`: 
+>    - Si es `0`, se trata de una Excepción síncrona (como las listadas en la tabla).
+>    - Si es `1`, se trata de una Interrupción externa asíncrona (Timer, Teclado, etc.), y redirige al manejador correspondiente.
 
 ## Diagrama de Flujo (Microarquitectura a Software)
 
