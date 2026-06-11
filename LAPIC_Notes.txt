@@ -1,0 +1,43 @@
+1. Entradas (Inputs)
+Interfaz de Bus (MMIO): Dado que en ARM todo periférico se accede mediante MMIO, el LAPIC necesita conectarse al bus de datos para que el software configure sus registros
+.
+Addr (32 bits): Para seleccionar qué registro interno (IRR, TPR, ISR) se está accediendo
+.
+Data_In (32 bits): Datos para escribir en los registros (ej. establecer la prioridad en el TPR)
+.
+Write_Enable: Señal para confirmar una operación de escritura desde la etapa de memoria (MEM)
+.
+Líneas de Interrupción Externas:
+IRQ_Lines: Pines físicos que vienen de periféricos o del futuro I/O APIC
+. En ARM, esto suele categorizarse como SPI (Shared Peripheral Interrupts)
+.
+Señales de Temporizador y Software:
+Timer_Event: Entrada proveniente de un temporizador local interno al LAPIC (LAPIC Timer) para generar ticks de reloj de precisión para el SO
+.
+SGI_In (Software Generated Interrupt): Entrada para que un núcleo pueda interrumpirse a sí mismo o a otros (IPI), fundamental en sistemas multiprocesador
+.
+Sincronización:
+Clock (CLK) y Reset (RST): Para sincronizar la lógica de priorización y limpiar los registros al arranque.
+2. Salidas (Outputs)
+Señales hacia el Núcleo (Pipeline):
+Interrupt_Request (IRQ): Esta señal debe conectarse directamente a tu Exception_Generator
+. Cuando el LAPIC decide que una interrupción es válida y tiene prioridad suficiente, activa esta línea para que el generador inyecte la instrucción SCL falsa
+.
+Interrupt_Vector (8-32 bits): Envía el identificador del evento (ID) al procesador para que el SO sepa exactamente qué driver ejecutar sin tener que sondear todos los periféricos
+.
+Interfaz de Bus (Lectura):
+Data_Out (32 bits): Permite al procesador leer el estado de los registros (ej. para saber qué bit está activo en el ISR)
+.
+Señales de Handshake:
+EOI_Ack: Una señal que notifica al I/O APIC o al periférico que la CPU ha terminado de procesar la interrupción (End of Interrupt), permitiendo que la línea física se libere
+.
+3. Lógica Interna Requerida
+El circuito debe contener tres registros fundamentales mencionados en tu documentación para procesar estas señales
+:
+IRR (Interrupt Request Register): Almacena las interrupciones recibidas por las entradas que aún no han sido aceptadas por la CPU
+.
+TPR (Task Priority Register): Actúa como un filtro; solo las entradas con prioridad superior a la escrita en este registro activarán la salida Interrupt_Request
+.
+ISR (In-Service Register): Marca la interrupción que se está ejecutando actualmente en el pipeline para evitar el anidamiento de interrupciones de menor prioridad
+.
+Conexión Estratégica: En tu diseño, la salida del LAPIC debe ser la que determine si el bit 31 del código de excepción será 0 (interrupción asincrónica), permitiendo que el hardware sepa que al inyectar el SCL debe guardar en el registro EPC la dirección de la siguiente instrucción y no la de la actual

@@ -27,7 +27,6 @@
       <a name="facing" val="south"/>
     </tool>
     <tool name="Constant">
-      <a name="facing" val="north"/>
       <a name="value" val="0x500"/>
       <a name="width" val="16"/>
     </tool>
@@ -329,10 +328,10 @@
       <a name="size" val="20"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="5" loc="(1324,206)" name="Text">
+    <comp lib="5" loc="(1320,205)" name="Text">
       <a name="text" val="1 = 8 bits"/>
     </comp>
-    <comp lib="5" loc="(1329,224)" name="Text">
+    <comp lib="5" loc="(1325,220)" name="Text">
       <a name="text" val="2 = 32 bits"/>
     </comp>
     <comp lib="5" loc="(1545,1020)" name="Text">
@@ -403,7 +402,8 @@
     <wire from="(1150,540)" to="(1160,540)"/>
     <wire from="(1150,580)" to="(1200,580)"/>
     <wire from="(1150,600)" to="(1230,600)"/>
-    <wire from="(1150,640)" to="(1440,640)"/>
+    <wire from="(1150,640)" to="(1450,640)"/>
+    <wire from="(1150,660)" to="(1430,660)"/>
     <wire from="(1150,740)" to="(1350,740)"/>
     <wire from="(1150,780)" to="(1230,780)"/>
     <wire from="(1150,800)" to="(1230,800)"/>
@@ -467,7 +467,8 @@
     <wire from="(1370,760)" to="(1370,1110)"/>
     <wire from="(1380,730)" to="(1410,730)"/>
     <wire from="(1410,730)" to="(1410,1110)"/>
-    <wire from="(1440,640)" to="(1440,1110)"/>
+    <wire from="(1430,660)" to="(1430,1110)"/>
+    <wire from="(1450,640)" to="(1450,1110)"/>
     <wire from="(1480,700)" to="(1490,700)"/>
     <wire from="(1480,950)" to="(1480,1110)"/>
     <wire from="(1480,950)" to="(1570,950)"/>
@@ -1382,6 +1383,7 @@
       <circ-port dir="out" pin="1020,760" x="140" y="160"/>
       <circ-port dir="out" pin="1020,790" x="140" y="400"/>
       <circ-port dir="out" pin="1020,820" x="140" y="100"/>
+      <circ-port dir="out" pin="1180,1000" x="140" y="220"/>
       <circ-port dir="out" pin="1180,950" x="140" y="340"/>
       <circ-port dir="out" pin="1180,980" x="140" y="200"/>
       <circ-port dir="out" pin="700,220" x="140" y="300"/>
@@ -1441,6 +1443,12 @@
     <comp lib="0" loc="(1110,880)" name="Tunnel">
       <a name="label" val="JMP_Flag"/>
       <a name="labelfont" val="SansSerif bold 8"/>
+    </comp>
+    <comp lib="0" loc="(1180,1000)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="facing" val="west"/>
+      <a name="label" val="SCL"/>
+      <a name="output" val="true"/>
     </comp>
     <comp lib="0" loc="(1180,950)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -1657,7 +1665,7 @@
     <comp lib="1" loc="(1010,790)" name="OR Gate">
       <a name="size" val="30"/>
     </comp>
-    <comp lib="1" loc="(1040,920)" name="AND Gate">
+    <comp lib="1" loc="(1030,920)" name="AND Gate">
       <a name="facing" val="south"/>
       <a name="size" val="30"/>
     </comp>
@@ -1751,12 +1759,14 @@ xxxxxx1xxxxxxxxx0 01 # RET
     <wire from="(1010,790)" to="(1020,790)"/>
     <wire from="(1010,820)" to="(1010,1000)"/>
     <wire from="(1010,820)" to="(1020,820)"/>
-    <wire from="(1030,880)" to="(1030,890)"/>
-    <wire from="(1030,880)" to="(1080,880)"/>
-    <wire from="(1040,920)" to="(1040,950)"/>
-    <wire from="(1040,950)" to="(1050,950)"/>
-    <wire from="(1050,860)" to="(1050,890)"/>
-    <wire from="(1050,860)" to="(1100,860)"/>
+    <wire from="(1020,880)" to="(1020,890)"/>
+    <wire from="(1020,880)" to="(1080,880)"/>
+    <wire from="(1030,1000)" to="(1180,1000)"/>
+    <wire from="(1030,920)" to="(1030,950)"/>
+    <wire from="(1030,950)" to="(1030,1000)"/>
+    <wire from="(1030,950)" to="(1050,950)"/>
+    <wire from="(1040,860)" to="(1040,890)"/>
+    <wire from="(1040,860)" to="(1100,860)"/>
     <wire from="(1080,880)" to="(1080,890)"/>
     <wire from="(1080,880)" to="(1110,880)"/>
     <wire from="(1080,960)" to="(1120,960)"/>
@@ -1876,8 +1886,8 @@ xxxxxx1xxxxxxxxx0 01 # RET
     <wire from="(960,800)" to="(980,800)"/>
     <wire from="(960,820)" to="(1010,820)"/>
     <wire from="(960,840)" to="(980,840)"/>
-    <wire from="(960,860)" to="(1050,860)"/>
-    <wire from="(960,880)" to="(1030,880)"/>
+    <wire from="(960,860)" to="(1040,860)"/>
+    <wire from="(960,880)" to="(1020,880)"/>
     <wire from="(980,1030)" to="(990,1030)"/>
     <wire from="(980,840)" to="(980,990)"/>
     <wire from="(980,990)" to="(980,1030)"/>

@@ -53,9 +53,7 @@
     <tool lib="5" name="Wiring Tool"/>
     <tool lib="5" name="Text Tool"/>
     <sep/>
-    <tool lib="0" name="Pin">
-      <a name="facing" val="south"/>
-    </tool>
+    <tool lib="0" name="Pin"/>
     <tool lib="0" name="Pin">
       <a name="facing" val="west"/>
       <a name="output" val="true"/>
@@ -68,7 +66,6 @@
       <a name="size" val="30"/>
     </tool>
     <tool lib="1" name="OR Gate">
-      <a name="facing" val="north"/>
       <a name="size" val="30"/>
     </tool>
     <tool lib="1" name="XOR Gate"/>
@@ -1268,17 +1265,18 @@
     <appear>
       <rect fill="none" height="60" stroke="#000000" stroke-width="2" width="120" x="40" y="50"/>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="69" y="101">Excp Gen</text>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="60" y="57">Cause</text>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="90" y="57">SCR</text>
+      <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="57" y="57">Cause</text>
+      <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="91" y="58">SCL/SRT</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="135" y="57">Cntrl</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="145" y="79">Out</text>
       <circ-anchor facing="east" x="160" y="80"/>
       <circ-port dir="in" pin="390,150" x="60" y="50"/>
       <circ-port dir="in" pin="460,270" x="140" y="50"/>
       <circ-port dir="in" pin="460,340" x="130" y="50"/>
-      <circ-port dir="in" pin="460,360" x="90" y="50"/>
-      <circ-port dir="out" pin="810,130" x="160" y="70"/>
-      <circ-port dir="out" pin="810,170" x="160" y="90"/>
+      <circ-port dir="in" pin="460,360" x="100" y="50"/>
+      <circ-port dir="in" pin="460,390" x="80" y="50"/>
+      <circ-port dir="out" pin="850,130" x="160" y="70"/>
+      <circ-port dir="out" pin="850,170" x="160" y="90"/>
     </appear>
     <comp lib="0" loc="(390,150)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -1301,19 +1299,23 @@
     </comp>
     <comp lib="0" loc="(460,360)" name="Pin">
       <a name="appearance" val="NewPins"/>
-      <a name="label" val="SCR"/>
+      <a name="label" val="SRT"/>
+    </comp>
+    <comp lib="0" loc="(460,390)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="SCL"/>
     </comp>
     <comp lib="0" loc="(740,180)" name="Constant">
       <a name="value" val="0x5"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="0" loc="(810,130)" name="Pin">
+    <comp lib="0" loc="(850,130)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
       <a name="label" val="W_Cause"/>
       <a name="output" val="true"/>
     </comp>
-    <comp lib="0" loc="(810,170)" name="Pin">
+    <comp lib="0" loc="(850,170)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
       <a name="label" val="Cause_Out"/>
@@ -1326,6 +1328,9 @@
       <a name="size" val="30"/>
     </comp>
     <comp lib="1" loc="(700,220)" name="AND Gate">
+      <a name="size" val="30"/>
+    </comp>
+    <comp lib="1" loc="(840,130)" name="OR Gate">
       <a name="size" val="30"/>
     </comp>
     <comp lib="2" loc="(520,170)" name="Demultiplexer">
@@ -1352,10 +1357,11 @@
     <wire from="(460,270)" to="(520,270)"/>
     <wire from="(460,340)" to="(540,340)"/>
     <wire from="(460,360)" to="(560,360)"/>
+    <wire from="(460,390)" to="(800,390)"/>
     <wire from="(510,200)" to="(510,230)"/>
     <wire from="(510,230)" to="(520,230)"/>
-    <wire from="(520,130)" to="(520,160)"/>
-    <wire from="(520,130)" to="(810,130)"/>
+    <wire from="(520,120)" to="(520,160)"/>
+    <wire from="(520,120)" to="(810,120)"/>
     <wire from="(520,160)" to="(520,170)"/>
     <wire from="(530,200)" to="(530,210)"/>
     <wire from="(530,210)" to="(670,210)"/>
@@ -1371,7 +1377,10 @@
     <wire from="(740,160)" to="(750,160)"/>
     <wire from="(740,180)" to="(750,180)"/>
     <wire from="(760,190)" to="(760,220)"/>
-    <wire from="(780,170)" to="(810,170)"/>
+    <wire from="(780,170)" to="(850,170)"/>
+    <wire from="(800,140)" to="(800,390)"/>
+    <wire from="(800,140)" to="(810,140)"/>
+    <wire from="(840,130)" to="(850,130)"/>
   </circuit>
   <circuit name="Pruebas">
     <a name="appearance" val="logisim_evolution"/>

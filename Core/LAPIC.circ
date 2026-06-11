@@ -5,7 +5,6 @@
   <lib desc="#Wiring" name="0">
     <tool name="Splitter">
       <a name="appear" val="center"/>
-      <a name="facing" val="west"/>
       <a name="fanout" val="3"/>
       <a name="incoming" val="3"/>
     </tool>
@@ -24,6 +23,7 @@
       <a name="facing" val="south"/>
     </tool>
     <tool name="Constant">
+      <a name="facing" val="west"/>
       <a name="value" val="0x500"/>
       <a name="width" val="16"/>
     </tool>
@@ -58,12 +58,12 @@
     <sep/>
     <tool lib="0" name="Pin"/>
     <tool lib="0" name="Pin">
+      <a name="facing" val="west"/>
       <a name="output" val="true"/>
     </tool>
     <sep/>
     <tool lib="1" name="NOT Gate"/>
     <tool lib="1" name="AND Gate">
-      <a name="facing" val="north"/>
       <a name="size" val="30"/>
     </tool>
     <tool lib="1" name="OR Gate">
@@ -82,19 +82,130 @@
     <a name="appearance" val="custom"/>
     <a name="circuit" val="Local_APIC"/>
     <a name="circuitnamedboxfixedsize" val="true"/>
+    <a name="downloadFrequency" val="500000.0"/>
     <a name="simulationFrequency" val="2048000.0"/>
-    <comp loc="(520,220)" name="Interrupt_Request_Register"/>
-    <comp loc="(650,210)" name="Task_Priority_Register"/>
-    <comp loc="(790,210)" name="In_Service_Register"/>
+    <boardmap boardname="ALCHITRY_AU_IO">
+      <mc key="/IO" map="658,97"/>
+      <mc key="/IO_A" pmap="658_120_0,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u,u"/>
+    </boardmap>
+    <comp lib="0" loc="(340,160)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="IO_A"/>
+      <a name="output" val="true"/>
+      <a name="radix" val="16"/>
+      <a name="width" val="32"/>
+    </comp>
+    <comp lib="0" loc="(340,180)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="IO_B"/>
+      <a name="output" val="true"/>
+      <a name="radix" val="16"/>
+      <a name="width" val="32"/>
+    </comp>
+    <comp lib="0" loc="(340,200)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="IO"/>
+      <a name="output" val="true"/>
+    </comp>
+    <comp lib="0" loc="(340,220)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="LVT_A"/>
+      <a name="output" val="true"/>
+      <a name="radix" val="16"/>
+      <a name="width" val="32"/>
+    </comp>
+    <comp lib="0" loc="(340,240)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="LVT_B"/>
+      <a name="output" val="true"/>
+      <a name="radix" val="16"/>
+      <a name="width" val="32"/>
+    </comp>
+    <comp lib="0" loc="(340,260)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="LVT"/>
+      <a name="output" val="true"/>
+    </comp>
+    <comp lib="0" loc="(340,280)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="IPI_A"/>
+      <a name="output" val="true"/>
+      <a name="radix" val="16"/>
+      <a name="width" val="32"/>
+    </comp>
+    <comp lib="0" loc="(340,300)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="IPI_B"/>
+      <a name="output" val="true"/>
+      <a name="radix" val="16"/>
+      <a name="width" val="32"/>
+    </comp>
+    <comp lib="0" loc="(340,320)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="IPI"/>
+      <a name="output" val="true"/>
+    </comp>
+    <comp lib="0" loc="(480,120)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="facing" val="west"/>
+      <a name="label" val="IRQ_Cant"/>
+      <a name="output" val="true"/>
+      <a name="width" val="7"/>
+    </comp>
+    <comp lib="0" loc="(840,210)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="facing" val="west"/>
+      <a name="label" val="Vector"/>
+      <a name="output" val="true"/>
+      <a name="width" val="6"/>
+    </comp>
+    <comp loc="(520,220)" name="Interrupt_Request_Register">
+      <a name="label" val="IRR"/>
+      <a name="labelvisible" val="false"/>
+    </comp>
+    <comp loc="(650,210)" name="Task_Priority_Register">
+      <a name="label" val="TSR"/>
+      <a name="labelvisible" val="false"/>
+    </comp>
+    <comp loc="(790,210)" name="In_Service_Register">
+      <a name="label" val="ISR"/>
+      <a name="labelvisible" val="false"/>
+    </comp>
+    <wire from="(340,160)" to="(420,160)"/>
+    <wire from="(340,180)" to="(350,180)"/>
+    <wire from="(340,200)" to="(360,200)"/>
+    <wire from="(340,220)" to="(360,220)"/>
+    <wire from="(340,240)" to="(370,240)"/>
+    <wire from="(340,260)" to="(380,260)"/>
+    <wire from="(340,280)" to="(390,280)"/>
+    <wire from="(340,300)" to="(400,300)"/>
+    <wire from="(340,320)" to="(410,320)"/>
+    <wire from="(350,170)" to="(350,180)"/>
+    <wire from="(350,170)" to="(420,170)"/>
+    <wire from="(360,180)" to="(360,200)"/>
+    <wire from="(360,180)" to="(420,180)"/>
+    <wire from="(360,210)" to="(360,220)"/>
+    <wire from="(360,210)" to="(420,210)"/>
+    <wire from="(370,220)" to="(370,240)"/>
+    <wire from="(370,220)" to="(420,220)"/>
+    <wire from="(380,230)" to="(380,260)"/>
+    <wire from="(380,230)" to="(420,230)"/>
+    <wire from="(390,260)" to="(390,280)"/>
+    <wire from="(390,260)" to="(420,260)"/>
+    <wire from="(400,270)" to="(400,300)"/>
+    <wire from="(400,270)" to="(420,270)"/>
+    <wire from="(410,280)" to="(410,320)"/>
+    <wire from="(410,280)" to="(420,280)"/>
     <wire from="(460,290)" to="(460,310)"/>
     <wire from="(460,310)" to="(760,310)"/>
+    <wire from="(470,120)" to="(470,150)"/>
+    <wire from="(470,120)" to="(480,120)"/>
     <wire from="(480,290)" to="(480,300)"/>
     <wire from="(480,300)" to="(730,300)"/>
     <wire from="(520,190)" to="(540,190)"/>
     <wire from="(520,210)" to="(540,210)"/>
     <wire from="(520,220)" to="(540,220)"/>
     <wire from="(520,230)" to="(540,230)"/>
-    <wire from="(520,240)" to="(540,240)"/>
     <wire from="(520,250)" to="(540,250)"/>
     <wire from="(650,200)" to="(670,200)"/>
     <wire from="(650,220)" to="(670,220)"/>
@@ -105,11 +216,13 @@
     <wire from="(700,250)" to="(700,260)"/>
     <wire from="(730,250)" to="(730,300)"/>
     <wire from="(760,250)" to="(760,310)"/>
+    <wire from="(790,210)" to="(840,210)"/>
   </circuit>
   <circuit name="In_Service_Register">
     <a name="appearance" val="custom"/>
     <a name="circuit" val="In_Service_Register"/>
     <a name="circuitnamedboxfixedsize" val="true"/>
+    <a name="downloadFrequency" val="2000000.0"/>
     <a name="simulationFrequency" val="2048000.0"/>
     <appear>
       <rect fill="none" height="70" stroke="#000000" stroke-width="2" width="120" x="50" y="50"/>
@@ -369,6 +482,7 @@
     <a name="appearance" val="custom"/>
     <a name="circuit" val="Task_Priority_Register"/>
     <a name="circuitnamedboxfixedsize" val="true"/>
+    <a name="downloadFrequency" val="2000000.0"/>
     <a name="simulationFrequency" val="2048000.0"/>
     <appear>
       <rect fill="none" height="80" stroke="#000000" stroke-width="2" width="110" x="50" y="30"/>
@@ -383,10 +497,10 @@
       <circ-port dir="in" pin="340,410" x="160" y="90"/>
       <circ-port dir="in" pin="340,440" x="50" y="100"/>
       <circ-port dir="out" pin="340,390" x="50" y="80"/>
-      <circ-port dir="out" pin="640,310" x="160" y="50"/>
-      <circ-port dir="out" pin="640,340" x="50" y="60"/>
-      <circ-port dir="out" pin="640,430" x="50" y="70"/>
-      <circ-port dir="out" pin="640,460" x="160" y="70"/>
+      <circ-port dir="out" pin="720,310" x="160" y="50"/>
+      <circ-port dir="out" pin="720,340" x="50" y="60"/>
+      <circ-port dir="out" pin="720,430" x="50" y="70"/>
+      <circ-port dir="out" pin="720,460" x="160" y="70"/>
     </appear>
     <comp lib="0" loc="(340,330)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -429,11 +543,17 @@
       <a name="fanout" val="32"/>
       <a name="incoming" val="32"/>
     </comp>
-    <comp lib="0" loc="(550,290)" name="Pull Resistor"/>
-    <comp lib="0" loc="(550,480)" name="Pull Resistor">
-      <a name="facing" val="north"/>
+    <comp lib="0" loc="(570,290)" name="Constant">
+      <a name="facing" val="west"/>
+      <a name="value" val="0x0"/>
+      <a name="width" val="32"/>
     </comp>
-    <comp lib="0" loc="(640,310)" name="Pin">
+    <comp lib="0" loc="(570,480)" name="Constant">
+      <a name="facing" val="west"/>
+      <a name="value" val="0x0"/>
+      <a name="width" val="32"/>
+    </comp>
+    <comp lib="0" loc="(720,310)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
       <a name="label" val="To_ISR_A"/>
@@ -441,7 +561,7 @@
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="0" loc="(640,340)" name="Pin">
+    <comp lib="0" loc="(720,340)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
       <a name="label" val="To_IRR_A"/>
@@ -449,7 +569,7 @@
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="0" loc="(640,430)" name="Pin">
+    <comp lib="0" loc="(720,430)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
       <a name="label" val="To_IRR_B"/>
@@ -457,7 +577,7 @@
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="0" loc="(640,460)" name="Pin">
+    <comp lib="0" loc="(720,460)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
       <a name="label" val="To_ISR_B"/>
@@ -469,11 +589,19 @@
       <a name="facing" val="north"/>
       <a name="size" val="30"/>
     </comp>
-    <comp lib="1" loc="(600,340)" name="XOR Gate">
+    <comp lib="1" loc="(600,320)" name="AND Gate">
       <a name="size" val="30"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="1" loc="(600,430)" name="XOR Gate">
+    <comp lib="1" loc="(600,450)" name="AND Gate">
+      <a name="size" val="30"/>
+      <a name="width" val="32"/>
+    </comp>
+    <comp lib="1" loc="(680,340)" name="XOR Gate">
+      <a name="size" val="30"/>
+      <a name="width" val="32"/>
+    </comp>
+    <comp lib="1" loc="(680,430)" name="XOR Gate">
       <a name="size" val="30"/>
       <a name="width" val="32"/>
     </comp>
@@ -496,11 +624,11 @@
     <wire from="(340,440)" to="(350,440)"/>
     <wire from="(350,330)" to="(350,350)"/>
     <wire from="(350,330)" to="(360,330)"/>
-    <wire from="(350,350)" to="(560,350)"/>
+    <wire from="(350,350)" to="(640,350)"/>
     <wire from="(350,390)" to="(350,410)"/>
     <wire from="(350,410)" to="(470,410)"/>
     <wire from="(350,420)" to="(350,440)"/>
-    <wire from="(350,420)" to="(560,420)"/>
+    <wire from="(350,420)" to="(640,420)"/>
     <wire from="(350,440)" to="(360,440)"/>
     <wire from="(380,10)" to="(390,10)"/>
     <wire from="(380,100)" to="(390,100)"/>
@@ -646,23 +774,32 @@
     <wire from="(500,760)" to="(510,760)"/>
     <wire from="(500,80)" to="(510,80)"/>
     <wire from="(500,90)" to="(510,90)"/>
-    <wire from="(530,330)" to="(550,330)"/>
-    <wire from="(530,440)" to="(550,440)"/>
-    <wire from="(550,290)" to="(550,310)"/>
-    <wire from="(550,310)" to="(550,330)"/>
-    <wire from="(550,310)" to="(640,310)"/>
-    <wire from="(550,330)" to="(560,330)"/>
-    <wire from="(550,440)" to="(550,460)"/>
-    <wire from="(550,440)" to="(560,440)"/>
-    <wire from="(550,460)" to="(550,480)"/>
-    <wire from="(550,460)" to="(640,460)"/>
-    <wire from="(600,340)" to="(640,340)"/>
-    <wire from="(600,430)" to="(640,430)"/>
+    <wire from="(530,330)" to="(570,330)"/>
+    <wire from="(530,440)" to="(570,440)"/>
+    <wire from="(560,290)" to="(560,310)"/>
+    <wire from="(560,290)" to="(570,290)"/>
+    <wire from="(560,310)" to="(570,310)"/>
+    <wire from="(560,460)" to="(560,480)"/>
+    <wire from="(560,460)" to="(570,460)"/>
+    <wire from="(560,480)" to="(570,480)"/>
+    <wire from="(600,320)" to="(630,320)"/>
+    <wire from="(600,450)" to="(630,450)"/>
+    <wire from="(630,310)" to="(630,320)"/>
+    <wire from="(630,310)" to="(720,310)"/>
+    <wire from="(630,320)" to="(630,330)"/>
+    <wire from="(630,330)" to="(640,330)"/>
+    <wire from="(630,440)" to="(630,450)"/>
+    <wire from="(630,440)" to="(640,440)"/>
+    <wire from="(630,450)" to="(630,460)"/>
+    <wire from="(630,460)" to="(720,460)"/>
+    <wire from="(680,340)" to="(720,340)"/>
+    <wire from="(680,430)" to="(720,430)"/>
   </circuit>
   <circuit name="Interrupt_Request_Register">
     <a name="appearance" val="custom"/>
     <a name="circuit" val="Interrupt_Request_Register"/>
     <a name="circuitnamedboxfixedsize" val="true"/>
+    <a name="downloadFrequency" val="2000000.0"/>
     <a name="simulationFrequency" val="2048000.0"/>
     <appear>
       <rect fill="none" height="140" stroke="#000000" stroke-width="2" width="100" x="50" y="60"/>
@@ -802,6 +939,8 @@
     </comp>
     <comp lib="1" loc="(340,360)" name="PLA">
       <a name="in_width" val="4"/>
+      <a name="label" val="Controller"/>
+      <a name="labelloc" val="south"/>
       <a name="table">0001 00 # I/O
 xx1x 01 # TPR
 01xx 10 # LVT
@@ -828,10 +967,6 @@ xx1x 01 # TPR
       <a name="size" val="20"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="3" loc="(720,210)" name="BitAdder">
-      <a name="inputs" val="2"/>
-      <a name="width" val="32"/>
-    </comp>
     <comp lib="4" loc="(550,120)" name="Register">
       <a name="appearance" val="logisim_evolution"/>
       <a name="label" val="IRR_A"/>
@@ -841,6 +976,10 @@ xx1x 01 # TPR
       <a name="appearance" val="logisim_evolution"/>
       <a name="label" val="IRR_B"/>
       <a name="width" val="32"/>
+    </comp>
+    <comp loc="(720,210)" name="PopCount64">
+      <a name="appearance" val="classic"/>
+      <a name="label" val="Bit_Counter"/>
     </comp>
     <wire from="(250,120)" to="(270,120)"/>
     <wire from="(250,140)" to="(260,140)"/>
@@ -918,11 +1057,11 @@ xx1x 01 # TPR
     <wire from="(580,340)" to="(580,350)"/>
     <wire from="(610,150)" to="(670,150)"/>
     <wire from="(610,280)" to="(670,280)"/>
-    <wire from="(670,150)" to="(670,200)"/>
+    <wire from="(670,150)" to="(670,210)"/>
     <wire from="(670,150)" to="(730,150)"/>
-    <wire from="(670,200)" to="(680,200)"/>
+    <wire from="(670,210)" to="(690,210)"/>
     <wire from="(670,220)" to="(670,280)"/>
-    <wire from="(670,220)" to="(680,220)"/>
+    <wire from="(670,220)" to="(690,220)"/>
     <wire from="(670,280)" to="(670,360)"/>
     <wire from="(670,280)" to="(730,280)"/>
     <wire from="(670,90)" to="(670,150)"/>
@@ -940,4 +1079,46 @@ xx1x 01 # TPR
     <a name="circuitnamedboxfixedsize" val="true"/>
     <a name="simulationFrequency" val="2048000.0"/>
   </circuit>
+  <vhdl name="PopCount64">library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.NUMERIC_STD.ALL;
+
+entity PopCount64 is
+    Port (
+        A      : in  STD_LOGIC_VECTOR(31 downto 0);
+        B      : in  STD_LOGIC_VECTOR(31 downto 0);
+        RESULT : out STD_LOGIC_VECTOR(6 downto 0)
+    );
+end PopCount64;
+
+architecture Behavioral of PopCount64 is
+begin
+
+    process(A, B)
+    	variable count : integer range 0 to 64;
+    begin
+
+    if A = X"00000000" and B = X"00000000" then
+        RESULT &lt;= "0000000";
+    else
+        count := 0;
+
+        for i in 0 to 31 loop
+            if A(i) = '1' then
+                count := count + 1;
+            end if;
+        end loop;
+
+        for i in 0 to 31 loop
+            if B(i) = '1' then
+                count := count + 1;
+            end if;
+        end loop;
+
+        RESULT &lt;= std_logic_vector(to_unsigned(count, 7));
+    end if;
+
+end process;
+
+end Behavioral;</vhdl>
 </project>
