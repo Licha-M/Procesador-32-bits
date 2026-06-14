@@ -482,7 +482,7 @@
       <a name="vhdl_PCID_LOW_BITS" val="7"/>
     </comp>
     <comp loc="(1300,630)" name="MMU_Controler"/>
-    <comp loc="(1400,900)" name="Exception_Generator"/>
+    <comp loc="(1400,900)" name="Exception_Generator_MMU"/>
     <comp loc="(870,290)" name="TLB_LRU">
       <a name="appearance" val="logisim_evolution"/>
       <a name="label" val="iTLB"/>
@@ -1099,9 +1099,9 @@
     <wire from="(960,400)" to="(970,400)"/>
     <wire from="(960,560)" to="(970,560)"/>
   </circuit>
-  <circuit name="Exception_Generator">
+  <circuit name="Exception_Generator_MMU">
     <a name="appearance" val="custom"/>
-    <a name="circuit" val="Exception_Generator"/>
+    <a name="circuit" val="Exception_Generator_MMU"/>
     <a name="circuitnamedboxfixedsize" val="true"/>
     <a name="simulationFrequency" val="2048000.0"/>
     <appear>
