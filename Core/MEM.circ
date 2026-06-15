@@ -90,7 +90,7 @@
       <rect fill="none" height="140" stroke="#000000" stroke-width="2" width="240" x="30" y="50"/>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="160" y="179">RegE</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="58" y="180">Ctrl</text>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="130" y="61">RAM</text>
+      <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="141" y="60">RAM</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="250" y="180">Excp</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="39" y="99">IF</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="48" y="149">MEM</text>
@@ -112,6 +112,7 @@
       <circ-port dir="in" pin="300,560" x="90" y="50"/>
       <circ-port dir="in" pin="300,610" x="200" y="190"/>
       <circ-port dir="out" pin="1660,220" x="150" y="50"/>
+      <circ-port dir="out" pin="1660,250" x="190" y="50"/>
       <circ-port dir="out" pin="1660,940" x="260" y="190"/>
       <circ-port dir="out" pin="1660,960" x="240" y="190"/>
       <circ-port dir="out" pin="1680,530" x="170" y="50"/>
@@ -156,6 +157,12 @@
       <a name="facing" val="north"/>
       <a name="label" val="Stall_RAM"/>
     </comp>
+    <comp lib="0" loc="(1650,250)" name="Tunnel">
+      <a name="facing" val="east"/>
+      <a name="label" val="RoW"/>
+      <a name="labelfont" val="SansSerif bold 8"/>
+      <a name="width" val="2"/>
+    </comp>
     <comp lib="0" loc="(1660,220)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
@@ -163,6 +170,13 @@
       <a name="output" val="true"/>
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
+    </comp>
+    <comp lib="0" loc="(1660,250)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="facing" val="west"/>
+      <a name="label" val="RoW"/>
+      <a name="output" val="true"/>
+      <a name="width" val="2"/>
     </comp>
     <comp lib="0" loc="(1660,940)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -558,6 +572,7 @@
     <wire from="(1590,660)" to="(1610,660)"/>
     <wire from="(1610,220)" to="(1660,220)"/>
     <wire from="(1640,650)" to="(1680,650)"/>
+    <wire from="(1650,250)" to="(1660,250)"/>
     <wire from="(290,1060)" to="(750,1060)"/>
     <wire from="(290,720)" to="(300,720)"/>
     <wire from="(290,760)" to="(330,760)"/>
