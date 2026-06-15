@@ -1270,7 +1270,9 @@
       <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="135" y="57">Cntrl</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="8" text-anchor="middle" x="145" y="79">Out</text>
       <circ-anchor facing="east" x="160" y="80"/>
-      <circ-port dir="in" pin="390,150" x="60" y="50"/>
+      <circ-port dir="in" pin="390,140" x="140" y="110"/>
+      <circ-port dir="in" pin="390,160" x="60" y="50"/>
+      <circ-port dir="in" pin="400,90" x="130" y="110"/>
       <circ-port dir="in" pin="460,270" x="140" y="50"/>
       <circ-port dir="in" pin="460,340" x="130" y="50"/>
       <circ-port dir="in" pin="460,360" x="100" y="50"/>
@@ -1278,10 +1280,19 @@
       <circ-port dir="out" pin="850,130" x="160" y="70"/>
       <circ-port dir="out" pin="850,170" x="160" y="90"/>
     </appear>
-    <comp lib="0" loc="(390,150)" name="Pin">
+    <comp lib="0" loc="(390,140)" name="Pin">
       <a name="appearance" val="NewPins"/>
-      <a name="facing" val="south"/>
+      <a name="label" val="IRQ"/>
+    </comp>
+    <comp lib="0" loc="(390,160)" name="Pin">
+      <a name="appearance" val="NewPins"/>
       <a name="label" val="New_Cause"/>
+      <a name="radix" val="16"/>
+      <a name="width" val="32"/>
+    </comp>
+    <comp lib="0" loc="(400,90)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="Cause_INT"/>
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
@@ -1323,6 +1334,9 @@
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
+    <comp lib="1" loc="(510,150)" name="OR Gate">
+      <a name="size" val="30"/>
+    </comp>
     <comp lib="1" loc="(550,300)" name="OR Gate">
       <a name="facing" val="north"/>
       <a name="size" val="30"/>
@@ -1332,6 +1346,9 @@
     </comp>
     <comp lib="1" loc="(840,130)" name="OR Gate">
       <a name="size" val="30"/>
+    </comp>
+    <comp lib="2" loc="(490,100)" name="Multiplexer">
+      <a name="width" val="32"/>
     </comp>
     <comp lib="2" loc="(520,170)" name="Demultiplexer">
       <a name="facing" val="south"/>
@@ -1347,22 +1364,27 @@
     <comp lib="4" loc="(530,220)" name="T Flip-Flop">
       <a name="appearance" val="logisim_evolution"/>
     </comp>
-    <wire from="(390,150)" to="(390,160)"/>
+    <wire from="(390,140)" to="(480,140)"/>
     <wire from="(390,160)" to="(410,160)"/>
-    <wire from="(410,140)" to="(410,160)"/>
-    <wire from="(410,140)" to="(740,140)"/>
+    <wire from="(400,90)" to="(460,90)"/>
+    <wire from="(410,110)" to="(410,160)"/>
+    <wire from="(410,110)" to="(460,110)"/>
     <wire from="(410,160)" to="(420,160)"/>
     <wire from="(410,180)" to="(420,180)"/>
-    <wire from="(460,160)" to="(520,160)"/>
+    <wire from="(460,160)" to="(470,160)"/>
     <wire from="(460,270)" to="(520,270)"/>
     <wire from="(460,340)" to="(540,340)"/>
     <wire from="(460,360)" to="(560,360)"/>
     <wire from="(460,390)" to="(800,390)"/>
+    <wire from="(470,120)" to="(470,160)"/>
+    <wire from="(470,160)" to="(480,160)"/>
+    <wire from="(490,100)" to="(740,100)"/>
+    <wire from="(510,150)" to="(520,150)"/>
     <wire from="(510,200)" to="(510,230)"/>
     <wire from="(510,230)" to="(520,230)"/>
-    <wire from="(520,120)" to="(520,160)"/>
+    <wire from="(520,120)" to="(520,150)"/>
     <wire from="(520,120)" to="(810,120)"/>
-    <wire from="(520,160)" to="(520,170)"/>
+    <wire from="(520,150)" to="(520,170)"/>
     <wire from="(530,200)" to="(530,210)"/>
     <wire from="(530,210)" to="(670,210)"/>
     <wire from="(540,190)" to="(590,190)"/>
@@ -1373,7 +1395,7 @@
     <wire from="(590,190)" to="(590,230)"/>
     <wire from="(590,230)" to="(670,230)"/>
     <wire from="(700,220)" to="(760,220)"/>
-    <wire from="(740,140)" to="(740,160)"/>
+    <wire from="(740,100)" to="(740,160)"/>
     <wire from="(740,160)" to="(750,160)"/>
     <wire from="(740,180)" to="(750,180)"/>
     <wire from="(760,190)" to="(760,220)"/>
