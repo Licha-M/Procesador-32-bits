@@ -100,17 +100,24 @@
       <text dominant-baseline="central" font-family="SansSerif" font-size="9" text-anchor="middle" x="200" y="160">I/O APIC</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="9" text-anchor="middle" x="98" y="100">RoW</text>
       <circ-anchor facing="east" x="220" y="120"/>
-      <circ-port dir="in" pin="310,110" x="110" y="70"/>
+      <circ-port dir="in" pin="310,110" x="90" y="70"/>
       <circ-port dir="in" pin="320,140" x="130" y="70"/>
       <circ-port dir="in" pin="320,160" x="80" y="100"/>
       <circ-port dir="in" pin="320,330" x="210" y="170"/>
       <circ-port dir="in" pin="320,350" x="190" y="170"/>
       <circ-port dir="in" pin="320,390" x="100" y="170"/>
       <circ-port dir="in" pin="320,410" x="120" y="170"/>
+      <circ-port dir="out" pin="1010,120" x="150" y="70"/>
       <circ-port dir="out" pin="1010,290" x="80" y="120"/>
       <circ-port dir="out" pin="1010,320" x="80" y="140"/>
-      <circ-port dir="out" pin="640,60" x="90" y="70"/>
+      <circ-port dir="out" pin="640,60" x="110" y="70"/>
     </appear>
+    <comp lib="0" loc="(1010,120)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="facing" val="west"/>
+      <a name="label" val="MMIO_LAPIC"/>
+      <a name="output" val="true"/>
+    </comp>
     <comp lib="0" loc="(1010,290)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
@@ -175,7 +182,7 @@
       <a name="radix" val="16"/>
       <a name="width" val="64"/>
     </comp>
-    <comp lib="0" loc="(850,150)" name="Bit Extender">
+    <comp lib="0" loc="(850,180)" name="Bit Extender">
       <a name="in_width" val="32"/>
       <a name="out_width" val="1"/>
       <a name="type" val="zero"/>
@@ -243,18 +250,19 @@
     <wire from="(760,410)" to="(900,410)"/>
     <wire from="(780,200)" to="(780,250)"/>
     <wire from="(780,250)" to="(890,250)"/>
-    <wire from="(800,150)" to="(810,150)"/>
+    <wire from="(800,120)" to="(1010,120)"/>
+    <wire from="(800,180)" to="(810,180)"/>
     <wire from="(810,270)" to="(830,270)"/>
     <wire from="(810,290)" to="(830,290)"/>
     <wire from="(810,310)" to="(830,310)"/>
     <wire from="(810,330)" to="(830,330)"/>
-    <wire from="(850,150)" to="(960,150)"/>
+    <wire from="(850,180)" to="(960,180)"/>
     <wire from="(880,340)" to="(880,390)"/>
     <wire from="(890,250)" to="(890,260)"/>
     <wire from="(900,340)" to="(900,410)"/>
     <wire from="(950,290)" to="(1010,290)"/>
     <wire from="(950,310)" to="(970,310)"/>
-    <wire from="(960,150)" to="(960,330)"/>
+    <wire from="(960,180)" to="(960,330)"/>
     <wire from="(960,330)" to="(970,330)"/>
   </circuit>
   <circuit name="In_Service_Register">
@@ -820,13 +828,14 @@
       <circ-port dir="in" pin="190,60" x="170" y="140"/>
       <circ-port dir="in" pin="190,80" x="150" y="140"/>
       <circ-port dir="out" pin="700,1690" x="80" y="60"/>
-      <circ-port dir="out" pin="730,420" x="290" y="90"/>
+      <circ-port dir="out" pin="730,420" x="290" y="120"/>
       <circ-port dir="out" pin="730,570" x="240" y="140"/>
       <circ-port dir="out" pin="730,700" x="270" y="140"/>
       <circ-port dir="out" pin="730,830" x="80" y="100"/>
       <circ-port dir="out" pin="730,980" x="80" y="120"/>
       <circ-port dir="out" pin="870,1250" x="120" y="140"/>
       <circ-port dir="out" pin="870,1270" x="100" y="140"/>
+      <circ-port dir="out" pin="950,170" x="290" y="60"/>
     </appear>
     <comp lib="0" loc="(180,150)" name="Tunnel">
       <a name="facing" val="east"/>
@@ -1188,7 +1197,13 @@
       <a name="labelfont" val="SansSerif bold 8"/>
       <a name="width" val="4"/>
     </comp>
-    <comp lib="0" loc="(930,190)" name="Tunnel">
+    <comp lib="0" loc="(950,170)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="facing" val="west"/>
+      <a name="label" val="MMIO_LAPIC"/>
+      <a name="output" val="true"/>
+    </comp>
+    <comp lib="0" loc="(950,190)" name="Tunnel">
       <a name="label" val="Enable"/>
       <a name="labelfont" val="SansSerif bold 8"/>
     </comp>
@@ -1474,6 +1489,9 @@
     <wire from="(880,200)" to="(880,210)"/>
     <wire from="(880,200)" to="(890,200)"/>
     <wire from="(920,190)" to="(930,190)"/>
+    <wire from="(930,170)" to="(930,190)"/>
+    <wire from="(930,170)" to="(950,170)"/>
+    <wire from="(930,190)" to="(950,190)"/>
   </circuit>
   <circuit name="Local_Timmer">
     <a name="appearance" val="custom"/>

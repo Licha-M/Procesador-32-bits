@@ -16,6 +16,7 @@
       <a name="facing" val="south"/>
     </tool>
     <tool name="Tunnel">
+      <a name="facing" val="east"/>
       <a name="labelfont" val="SansSerif bold 8"/>
     </tool>
     <tool name="Pull Resistor">
@@ -25,6 +26,7 @@
       <a name="facing" val="south"/>
     </tool>
     <tool name="Constant">
+      <a name="facing" val="west"/>
       <a name="value" val="0x500"/>
       <a name="width" val="16"/>
     </tool>
@@ -90,19 +92,63 @@
     <a name="circuit" val="Core"/>
     <a name="circuitnamedboxfixedsize" val="true"/>
     <a name="simulationFrequency" val="2048000.0"/>
+    <comp lib="0" loc="(280,410)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+    </comp>
+    <comp lib="0" loc="(280,430)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="RST"/>
+    </comp>
+    <comp lib="2" loc="(470,240)" name="Multiplexer">
+      <a name="facing" val="south"/>
+      <a name="selloc" val="tr"/>
+      <a name="size" val="20"/>
+      <a name="width" val="64"/>
+    </comp>
+    <comp lib="2" loc="(510,270)" name="Multiplexer">
+      <a name="facing" val="south"/>
+      <a name="selloc" val="tr"/>
+      <a name="size" val="20"/>
+      <a name="width" val="32"/>
+    </comp>
     <comp lib="6" loc="(540,330)" name="Pipeline_Core"/>
     <comp lib="7" loc="(700,330)" name="Local_APIC"/>
+    <wire from="(280,410)" to="(470,410)"/>
+    <wire from="(280,430)" to="(500,430)"/>
+    <wire from="(360,160)" to="(360,280)"/>
+    <wire from="(380,160)" to="(380,280)"/>
+    <wire from="(400,160)" to="(400,280)"/>
+    <wire from="(420,160)" to="(420,280)"/>
+    <wire from="(440,160)" to="(440,180)"/>
+    <wire from="(440,180)" to="(440,250)"/>
+    <wire from="(440,180)" to="(610,180)"/>
+    <wire from="(440,250)" to="(450,250)"/>
     <wire from="(450,250)" to="(450,280)"/>
-    <wire from="(450,250)" to="(610,250)"/>
-    <wire from="(480,260)" to="(480,280)"/>
-    <wire from="(480,260)" to="(570,260)"/>
+    <wire from="(460,160)" to="(460,220)"/>
+    <wire from="(470,240)" to="(470,270)"/>
+    <wire from="(470,270)" to="(480,270)"/>
+    <wire from="(470,380)" to="(470,410)"/>
+    <wire from="(470,410)" to="(580,410)"/>
+    <wire from="(480,210)" to="(480,220)"/>
+    <wire from="(480,210)" to="(590,210)"/>
+    <wire from="(480,270)" to="(480,280)"/>
+    <wire from="(490,230)" to="(630,230)"/>
+    <wire from="(500,160)" to="(500,250)"/>
+    <wire from="(500,380)" to="(500,430)"/>
+    <wire from="(500,430)" to="(600,430)"/>
     <wire from="(510,270)" to="(510,280)"/>
-    <wire from="(510,270)" to="(590,270)"/>
+    <wire from="(520,240)" to="(520,250)"/>
+    <wire from="(520,240)" to="(570,240)"/>
+    <wire from="(530,260)" to="(630,260)"/>
     <wire from="(540,310)" to="(560,310)"/>
     <wire from="(540,330)" to="(560,330)"/>
     <wire from="(540,350)" to="(560,350)"/>
-    <wire from="(570,260)" to="(570,280)"/>
-    <wire from="(590,270)" to="(590,280)"/>
-    <wire from="(610,250)" to="(610,280)"/>
+    <wire from="(570,240)" to="(570,280)"/>
+    <wire from="(580,380)" to="(580,410)"/>
+    <wire from="(590,210)" to="(590,280)"/>
+    <wire from="(600,380)" to="(600,430)"/>
+    <wire from="(610,180)" to="(610,280)"/>
+    <wire from="(630,230)" to="(630,260)"/>
+    <wire from="(630,260)" to="(630,280)"/>
   </circuit>
 </project>
