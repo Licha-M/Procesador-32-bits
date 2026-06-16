@@ -1,0 +1,681 @@
+Para diseñar el sistema de arbitraje (también llamado **Interconnect** o **Bus Fabric**) de tu CPU, debes considerar que este actúa como el "router" central del silicio. Utilizando como referencia protocolos de alto rendimiento (como AMBA AXI o TileLink), el diseño debe segmentar las señales en canales independientes para evitar colisiones y permitir el flujo concurrente de datos.
+
+A continuación, presento la lista de Entradas (E) y Salidas (S) organizadas por módulo de conexión:
+
+### 1. Interfaz Maestra (Conexión al Pipeline)
+Es el puerto por donde el núcleo del CPU emite sus peticiones de carga (**LOD**) y almacenamiento (**STR**).
+
+*   **E: Addr_Bus (AWADDR/ARADDR):** Dirección física de 32 bits generada tras la traducción de la MMU. Define el destino del acceso.
+*   **E: Data_to_Mem (WDATA):** El dato que el pipeline quiere escribir en la RAM o en un registro MMIO.
+*   **E: Control_Signals (WEN/REN):** Indican si la operación es de escritura, lectura y el tamaño del acceso (byte, word, etc.).
+*   **S: Data_from_Mem (RDATA):** El dato recuperado de la RAM, ROM o periférico que regresa al registro de destino del pipeline.
+*   **S: Bus_Wait (READY):** Señal de "stall" que congela el pipeline si el arbitraje está ocupado o el periférico es lento, hasta que se complete el *handshake*.
+
+### 2. Interfaz Esclava - RAM (Controlador de Memoria)
+*   **S: RAM_CS (Chip Select):** Se activa solo cuando el decodificador de direcciones detecta que el `Addr_Bus` cae en el rango de la DRAM.
+*   **S: RAM_Addr_Local:** Los bits bajos de la dirección para indexar la celda dentro de la memoria RAM.
+*   **E: RAM_Data_Read:** Retorna el dato almacenado hacia el árbitro para su entrega al pipeline.
+
+### 3. Interfaz Esclava - ROM (Flash/Boot)
+*   **S: ROM_CS:** Se activa durante el vector de reset (`0xFFFF0000` o similar) para que el CPU lea el firmware inicial.
+*   **E: ROM_Data:** Provee las instrucciones de arranque al pipeline.
+
+### 4. Interfaz Esclava - LAPIC (Controlador Local)
+*   **S: LAPIC_CS:** Se activa cuando la dirección apunta al rango `0xFEE00000`. Es crucial para que el árbitro sepa que la información no va a RAM.
+*   **S/E: Register_Access:** Permite al pipeline leer/escribir registros críticos como el **EOI** (Fin de Interrupción) o el **ICR** (para enviar interrupciones entre procesadores).
+
+### 5. Interfaz Esclava - I/O-APIC (Interrupciones Globales)
+*   **S: IOAPIC_CS:** Activado para el rango `0xFEC00000`. Desvía la petición al controlador de la placa base.
+*   **S: Index/Data_Window:** Los puertos MMIO para configurar la **Tabla de Redirección**, la cual decide a qué LAPIC enviar cada IRQ física.
+
+### 6. Sistema MSI (Servicio de Traducción de Mensajes)
+En arquitecturas modernas, este es un módulo (como el **ITS** en ARM o **IMSIC** en RISC-V) que intercepta escrituras de periféricos.
+
+*   **E: MSI_Write_Request:** Una transacción de escritura común proveniente de un periférico (ej. un SSD NVMe) que escribe un valor (Vector) en una dirección de "timbre" o *Doorbell*.
+*   **E: DeviceID (Sideband Signal):** Una señal física de hardware, inyectada por el bus, que identifica de forma imposible de falsificar qué dispositivo inició la MSI.
+*   **S: Interrupt_Notify:** Una vez que el árbitro MSI traduce el mensaje usando sus tablas internas, emite una señal hacia el LAPIC del núcleo correspondiente para inyectar la interrupción.
+
+### Resumen de Funciones por Tipo de Señal
+*   **Decodificación (CS):** Evita que los datos se "pisen" al habilitar eléctricamente solo un módulo a la vez mediante árboles de multiplexores.
+*   **Valid/Ready Handshake:** Controla el flujo eléctrico; la transferencia solo ocurre cuando el emisor tiene datos válidos y el receptor tiene buffers listos, eliminando colisiones en el silicio.
+*   **Protección (Attribute Check):** El árbitro verifica si la dirección es MMIO para bloquear el "Bypass" de datos del pipeline, forzando una lectura real desde el hardware en lugar de usar valores viejos de los registros de sombra.
+
+Efectivamente, los dispositivos **DMA (Direct Memory Access)** son una parte integral de este sistema de interconexión, pero su relación con el circuito de arbitraje y con las MSI tiene matices importantes que debes considerar para tu diseño.
+
+### 1. ¿Pasan los dispositivos DMA por este circuito?
+**Sí, obligatoriamente.** En una arquitectura moderna (SoC), el CPU no es el único que puede iniciar transacciones en el bus. Los dispositivos DMA actúan como **"Maestros de Bus"** (*Bus Masters*) adicionales.
+
+*   **Arbitraje Maestro-Maestro:** Tu circuito de arbitraje ya no solo debe decidir a qué "esclavo" (RAM, LAPIC, ROM) va la petición del pipeline, sino que ahora debe decidir **quién tiene permiso para usar el bus**: si el Pipeline del CPU o el controlador DMA del periférico.
+*   **Acceso a la RAM:** El dispositivo DMA necesita escribir o leer datos directamente en la memoria principal para no cargar al CPU con transferencias pesadas. Para lograrlo, el DMA emite una dirección física al árbitro; este detecta que la dirección pertenece al rango de la RAM y activa el controlador de memoria (DMC).
+*   **Coherencia:** Es vital que este circuito gestione la coherencia. Si el DMA escribe datos en la RAM que el CPU tiene en su caché, el sistema debe invalidar esas líneas de caché (usando protocolos como MESI) para que el CPU no lea datos viejos.
+
+### 2. ¿Se gestiona el circuito DMA por MSI?
+Es importante distinguir entre la **transferencia de datos** y la **notificación de eventos**:
+
+*   **DMA para los datos:** El "circuito DMA" propiamente dicho es el encargado de mover ráfagas masivas de datos entre el periférico y la RAM sin intervención del CPU.
+*   **MSI para la notificación:** Una vez que el DMA termina de mover los datos (o si ocurre un error), el dispositivo necesita avisarle al CPU. Aquí es donde entra la **MSI (Message Signaled Interrupt)**.
+*   **El flujo completo (ejemplo un SSD NVMe):**
+    1.  El CPU escribe en un registro MMIO del periférico (un "timbre" o *Doorbell*) para decirle: "Carga estos datos".
+    2.  El periférico toma el control del bus a través del árbitro y realiza la transferencia **DMA** a la RAM.
+    3.  Al terminar, el periférico realiza una **escritura MSI** (que es técnicamente una escritura de memoria normal "in-band") hacia la dirección del APIC.
+    4.  El árbitro de interconexión detecta esa dirección especial y, en lugar de enviarla a la RAM, la desvía al sistema de interrupciones para que el CPU ejecute el manejador (*Handler*).
+
+### Resumen de la integración en tu diseño
+Para que tu sistema soporte DMA y MSI correctamente, el árbitro central debe añadir estos puertos:
+
+*   **Entrada Maestra adicional (DMA_Port):** Para que el periférico pida el bus.
+*   **Lógica de Prioridad:** Para decidir si el CPU o el DMA tiene preferencia (el DMA suele tener prioridad alta para evitar pérdida de datos en streaming).
+*   **Filtro de Destino MSI:** Un decodificador que intercepte cualquier escritura (venga del CPU o de un DMA) dirigida al rango `0xFEE00000` y la mande al subsistema de interrupciones en lugar de a la memoria principal.
+
+Para los periféricos de alta velocidad como el **NVMe**, el concepto de "envío" y "lectura" de datos es bidireccional y en ambos casos se utiliza **DMA (Direct Memory Access)**, mientras que las notificaciones se gestionan efectivamente mediante **MSI/MSI-X**.
+
+Aquí te detallo cómo operan estos mecanismos integrándose en el circuito de arbitraje que estamos diseñando:
+
+### 1. El DMA funciona en ambas direcciones
+Es un error común pensar que el DMA solo sirve para que el periférico "envíe" datos a la RAM. En realidad, el controlador NVMe utiliza DMA para **leer** y **escribir** en la memoria del sistema sin intervención directa del CPU.
+
+*   **Para una "Escritura" (del Host al Disco):** El CPU prepara los datos en la RAM y le avisa al NVMe. El dispositivo toma el control del bus a través del puerto maestro de tu circuito de interconexión y **lee** (mediante DMA) los datos de la RAM para grabarlos en sus celdas NAND.
+*   **Para una "Lectura" (del Disco al Host):** El dispositivo NVMe recupera los datos de su almacenamiento interno y utiliza el **DMA para escribir** esos datos directamente en la RAM del sistema. 
+*   **Gestión de Comandos:** Incluso las instrucciones de lo que el disco debe hacer se manejan por DMA. El NVMe lee las colas de comandos (**Submission Queues**) que el CPU dejó en la RAM mediante ráfagas de lectura DMA.
+
+### 2. El uso de MSI para los avisos
+Tal como sospechabas, los avisos de que una operación ha terminado se realizan mediante **MSI (Message Signaled Interrupts)** o su versión avanzada **MSI-X**.
+
+*   **¿Qué es técnicamente?:** Una MSI no es una señal eléctrica en un cable dedicado. Es una **transacción de escritura de memoria estándar** (generalmente un DWord de 32 bits) que el periférico emite hacia el bus.
+*   **El destino:** El periférico escribe un "valor de vector" en una dirección física específica preprogramada (en x86 suele ser `0xFEE00000`).
+*   **El papel del Árbitro:** Cuando esta escritura pasa por tu circuito de interconexión, el decodificador detecta que el destino es el rango del **APIC** (en x86) o el **ITS** (en ARM) y desvía el dato al sistema de interrupciones en lugar de a la RAM.
+
+### 3. El flujo completo (Ciclo de vida de un comando NVMe)
+Para que visualices cómo interactúan el DMA, el MSI y tu circuito de arbitraje, este es el proceso de una **lectura de disco**:
+
+1.  **Notificación de puerta (Doorbell):** El CPU realiza una escritura **MMIO** en un registro del NVMe para decirle: "Hay un nuevo comando en la RAM".
+2.  **Recuperación por DMA:** El NVMe pide el bus a tu árbitro, accede a la RAM y **lee el comando** por DMA.
+3.  **Transferencia de datos por DMA:** El NVMe busca los datos en sus chips internos y vuelve a pedir el bus para **escribirlos en la RAM** mediante DMA.
+4.  **Escritura de finalización:** El NVMe escribe el estado de éxito en una cola de finalización en RAM por DMA.
+5.  **Aviso por MSI:** El NVMe realiza una última escritura de memoria hacia la dirección del APIC. Tu árbitro la detecta, el **LAPIC** recibe el mensaje y lanza la interrupción al **pipeline** para que el sistema operativo sepa que los datos ya están listos en la RAM.
+
+### Resumen para tu diseño
+*   El puerto de tu circuito destinado a dispositivos **DMA** debe soportar tanto peticiones de **lectura de bus** (para que el disco lea comandos de la RAM) como de **escritura de bus** (para que el disco deje datos en la RAM o envíe una MSI).
+*   Las **MSI** son simplemente escrituras que el árbitro debe saber filtrar por dirección para enviarlas al controlador de interrupciones adecuado.
+
+Los registros MMIO del NVMe, como los fundamentales **registros de timbre** (*Doorbell Registers*), se obtienen y configuran mediante un proceso jerárquico que comienza en el hardware y termina en el controlador del sistema operativo. Efectivamente, estos accesos **son manejados por el controlador MMIO** (o árbitro de interconexión) del sistema, que actúa como el "router" que desvía las señales hacia el periférico correcto.
+
+A continuación, detallo el proceso de obtención, configuración y manejo:
+
+### 1. Obtención y Configuración de los Registros
+El proceso para establecer dónde vivirán estos registros en el mapa de memoria se divide en tres fases críticas:
+
+*   **Fase de Descubrimiento (Firmware):** Inmediatamente después del reset, el firmware (UEFI/BIOS) realiza la **enumeración del bus PCIe**. El sistema interroga al dispositivo NVMe para conocer sus necesidades de memoria.
+*   **Asignación de BARs (Base Address Registers):** El firmware o el sistema operativo asigna un rango de direcciones físicas específicas al NVMe utilizando sus registros BAR. Por ejemplo, se le puede asignar el rango `0x50000000` a `0x50001000`. Estas direcciones se registran en las estructuras de datos que luego leerá el kernel, como las **tablas ACPI** o el **Device Tree**.
+*   **Mapeo en el SO:** El kernel del sistema operativo detecta el dispositivo y utiliza funciones (como `ioremap` en Linux) para vincular esas direcciones físicas a una dirección virtual accesible por el controlador (*driver*). Es vital marcar estas páginas con atributos como **Device-nGnRnE** (en ARM) o **Uncacheable** (en x86) para asegurar que el procesador no use la caché y que cada escritura llegue físicamente al NVMe.
+
+### 2. ¿Son manejados por el MMIO Controller?
+**Sí.** El controlador MMIO (integrado en el *System Interconnect* o *NoC*) es el encargado de interceptar estas transacciones. Su función es la siguiente:
+
+1.  **Interceptación:** Cuando el pipeline ejecuta una instrucción de escritura (`STR` o `SW`) hacia la dirección del timbre del NVMe, la MMU traduce la dirección virtual a la dirección física que configuramos previamente en el BAR.
+2.  **Decodificación Completa:** El controlador de interconexión analiza los bits superiores de esa dirección física. Al detectar que la dirección cae dentro del rango asignado al "Slot" del NVMe (o del Root Complex PCIe), el decodificador activa la señal de selección de chip (**Chip Select**) para ese periférico.
+3.  **Enrutamiento:** El árbitro desvía eléctricamente los datos hacia el controlador NVMe y evita que la transacción impacte en la memoria RAM.
+4.  **Confirmación:** El sistema de interconexión gestiona el *handshake* (**VALID/READY**) para confirmar que el dispositivo NVMe recibió el dato en su registro interno antes de permitir que el pipeline del CPU continúe con la siguiente instrucción.
+
+### Función de estos registros en el NVMe
+El uso principal de estos registros MMIO manejados por el controlador es la **Notificación (Doorbell)**:
+*   El CPU no envía los datos masivos a través de MMIO (eso sería muy lento). En su lugar, escribe los datos en la RAM y luego realiza una **escritura MMIO única** en el registro de timbre del NVMe.
+*   Esta escritura es la señal para que el NVMe tome el control del bus (como maestro) y empiece a leer los datos de la RAM mediante **DMA**.
+
+No, el circuito no necesita ser enorme ni tener miles de conexiones físicas individuales. El diseño se simplifica radicalmente mediante tres mecanismos técnicos: la **decodificación jerárquica de direcciones**, el uso de **árboles de multiplexores** y la **configuración dinámica por registros**.
+
+Aquí te explico por qué el sistema es eficiente y compacto:
+
+### 1. No "almacena" direcciones, las "detecta"
+El controlador (árbitro o *Interconnect*) no necesita una base de datos gigante con cada dirección. Utiliza un modelo de **Decodificación Completa de Direcciones** basado en lógica combinacional simple:
+
+*   **Bits Superiores:** El árbitro solo mira los bits más significativos de la dirección (por ejemplo, los bits [31:12]). Si esos bits coinciden con un rango predefinido, activa una señal hacia un "slot" o puerto específico.
+*   **Lógica de Rangos:** En lugar de almacenar cada dirección, el hardware solo verifica si la dirección está entre un punto A y un punto B. Esta lógica se implementa con unas pocas compuertas lógicas (comparadores), no con memoria masiva.
+*   **Potencias de Dos:** Para simplificar aún más el circuito, los rangos de los dispositivos deben ser **potencias de dos** (2^N bytes). Esto permite que el decodificador ignore los bits bajos y solo necesite una compuerta AND/OR para identificar al dispositivo.
+
+### 2. No usa miles de cables, usa un "Bus Fabric" (NoC)
+Si tuvieras 100 periféricos, no tiras 100 buses de datos. Utilizas una arquitectura de **Red en el Chip (NoC)** o un **Crossbar Switch**:
+
+*   **Árboles de Multiplexores:** En el silicio moderno, está prohibido el uso de cables compartidos (*tri-state*). En su lugar, se usan **árboles de multiplexores**. Todas las salidas de los dispositivos llegan a un conmutador central que selecciona cuál de ellas se propaga hacia el pipeline basándose en la decodificación de la dirección.
+*   **Canales Estandarizados:** Protocolos como **AMBA AXI** segmentan la comunicación en solo **cinco canales independientes** (Dirección de Escritura, Datos de Escritura, Respuesta, Dirección de Lectura y Datos de Lectura). Estos mismos cinco canales "físicos" (pistas de cobre en el silicio) son compartidos por todos los dispositivos de forma lógica, eliminando la necesidad de miles de E/S.
+
+### 3. Es configurable mediante registros (BARs)
+La ubicación de los dispositivos no está "grabada a fuego" en las compuertas lógicas de todo el chip, lo que lo haría rígido.
+
+*   **Base Address Registers (BAR):** El árbitro tiene un pequeño conjunto de registros internos llamados BARs. Durante el arranque, el firmware (BIOS/UEFI) detecta el dispositivo y escribe en su registro BAR: "Tú responderás en la dirección 0x50000000".
+*   **Flexibilidad:** El sistema de arbitraje solo tiene que comparar la dirección solicitada por el pipeline contra estos pocos registros configurados. Esto permite que el mismo circuito de arbitraje maneje diferentes periféricos sin cambiar su diseño físico.
+
+### Resumen de tamaño
+Lo que tú imaginas como "miles de entradas" se resuelve con una **matriz de conmutación**. Para el silicio, esto es un área muy pequeña comparada con el núcleo del CPU o las cachés. El árbitro es simplemente un "router" inteligente que usa señales de control (**VALID/READY**) para que los datos fluyan solo hacia donde deben, sin colisionar y sin requerir una conexión punto a punto permanente para cada bit.
+
+Para que la BIOS (o UEFI) pueda acceder a los registros **BAR (Base Address Registers)** antes de que el sistema **MMIO** esté configurado, utiliza mecanismos de acceso que no dependen de los propios BARs. El problema que planteas es un dilema de "el huevo o la gallina" que el hardware resuelve mediante **espacios de configuración dedicados** y **direccionamiento estático**.
+
+A continuación se detalla cómo se realiza este acceso según la arquitectura:
+
+### 1. El Espacio de Configuración (PCI Configuration Space)
+Los registros BAR no son parte de la memoria normal del dispositivo, sino que residen en un área especial llamada **Espacio de Configuración PCI**. Cada dispositivo PCIe tiene 4 KB de registros destinados exclusivamente a la identificación y configuración. Para acceder a estos registros *antes* de asignarles una dirección en el mapa de memoria global, se usan dos métodos:
+
+#### A. En x86: E/S Mapeada a Puertos (PMIO)
+Históricamente, la arquitectura x86 reserva un espacio de direcciones separado (64 KB) accesible mediante las instrucciones `IN` y `OUT`.
+*   **Puertos fijos:** La BIOS utiliza un par de puertos de hardware cableados (estáticos) en el chipset: el **Puerto de Dirección (0xCF8)** y el **Puerto de Datos (0xCFC)**.
+*   **Mecanismo:** La BIOS escribe la dirección del dispositivo que desea consultar (Bus, Dispositivo, Función y el registro BAR específico) en el puerto `0xCF8`. Luego, lee el valor del registro BAR a través del puerto `0xCFC`.
+*   **Independencia:** Este método funciona sin necesidad de que el dispositivo tenga un rango MMIO asignado, ya que el puerto `0xCF8/0xCFC` es gestionado directamente por el **Root Complex** del bus de interconexión.
+
+#### B. En ARM y Sistemas Modernos: MMIO Estático (ECAM)
+A diferencia de x86, ARM no posee PMIO; todo es MMIO. Sin embargo, el acceso a los registros de configuración se realiza mediante un rango de direcciones **fijado por hardware** en el diseño del chip (SoC).
+*   **ECAM (Enhanced Configuration Access Mechanism):** El diseño del SoC reserva un bloque de memoria física permanente (por ejemplo, en el rango `0x50000000`) que mapea directamente a todo el espacio de configuración de todos los dispositivos del bus.
+*   **Direccionamiento Estático:** La interconexión central (NoC) tiene este rango "grabado a fuego" en su decodificador de direcciones. Cuando la BIOS (en fase SEC o PEI) lee estas direcciones físicas fijas, el árbitro del bus sabe que la petición no va a la RAM, sino a los registros internos de configuración de los periféricos.
+
+### 2. El proceso de Enumeración (Discovery Phase)
+Una vez que la BIOS tiene un canal para hablar con el dispositivo (ya sea por puertos o MMIO estático), realiza la **enumeración**:
+1.  **Escaneo:** La BIOS recorre todas las combinaciones posibles de Bus, Dispositivo y Función.
+2.  **Identificación:** Lee los registros `Vendor ID` y `Device ID` para saber qué periférico es.
+3.  **Consulta de BARs:** La BIOS escribe un valor de "todo unos" (`0xFFFFFFFF`) en el registro BAR del dispositivo. El hardware del dispositivo responde indicando cuánta memoria necesita y de qué tipo (potencias de dos y alineación rígida).
+4.  **Asignación:** La BIOS busca un hueco libre en su mapa de memoria física y escribe la **dirección base definitiva** en el registro BAR del periférico.
+
+### 3. Estado del procesador durante este acceso
+Es fundamental entender que durante esta fase inicial:
+*   **MMU Desactivada:** El procesador opera en **Bare Mode** (direcciones físicas puras), por lo que no hay tablas de páginas ni traducción virtual que configuren atributos de memoria.
+*   **Interconexión en estado rígido:** Al encenderse, la red de interconexión (NoC) solo habilita los canales hacia la **Boot ROM** y el espacio de configuración básico, manteniendo desactivados los puertos de alta velocidad para evitar ruidos eléctricos.
+
+En resumen: la BIOS accede a los BARs porque estos viven en un "pasillo" de comunicación (Puertos E/S o ECAM) que ya tiene una ubicación física fija e inmutable definida por el fabricante del silicio, mucho antes de que el software decida dónde ubicar la memoria de datos del dispositivo.
+
+================================================================================
+== ANOTACIONES DE DISEÑO: CIRCUITOS PARA EL SISTEMA DE INTERCONEXIÓN          ==
+================================================================================
+Fecha: 2026-06-16
+Referencia: Basado en las notas anteriores del árbitro/NoC y el flujo NVMe/DMA/MSI.
+
+A continuación se detallan las especificaciones de diseño para los tres circuitos
+que deben construirse: el Controlador MMIO, el Sistema DMA y el Sistema MSI.
+Cada circuito especifica sus entradas, salidas, destino de cada señal y la lógica
+interna que debe implementar.
+
+================================================================================
+== CIRCUITO 1: CONTROLADOR MMIO (MMIO Controller / Address Decoder)           ==
+================================================================================
+
+PROPÓSITO:
+  Actuar como el "router de memoria". Intercepta TODA transacción de memoria
+  que venga del pipeline del CPU, decodifica la dirección física y decide si
+  el acceso va a RAM, ROM, LAPIC, I/O-APIC, o a un periférico (NVMe, etc.).
+  También bloquea el bypass de caché para accesos a rangos MMIO.
+
+---- ENTRADAS ----
+
+  [E1]  ADDR_BUS [31:0]  (32 bits)
+        Origen : Salida de la MMU (dirección física post-traducción).
+        Descripción: La dirección física objetivo del acceso. Es la señal
+        principal que el decodificador de rangos analiza para decidir
+        el destino.
+
+  [E2]  WDATA [31:0]  (32 bits)
+        Origen : Registro de fuente del pipeline (etapa MEM).
+        Descripción: El dato que el CPU quiere escribir. Viaja en paralelo
+        con la dirección pero solo se propaga al esclavo seleccionado.
+
+  [E3]  WEN  (1 bit)
+        Origen : Unidad de Control del pipeline.
+        Descripción: Write Enable. '1' indica operación de escritura.
+
+  [E4]  REN  (1 bit)
+        Origen : Unidad de Control del pipeline.
+        Descripción: Read Enable. '1' indica operación de lectura.
+
+  [E5]  BYTE_SEL [3:0]  (4 bits, tipo strobe)
+        Origen : Unidad de Control / decodificador de instrucción.
+        Descripción: Indica cuáles bytes del bus de datos de 32 bits son
+        válidos (para soportar accesos byte, halfword, word: LB, LH, LW).
+
+  [E6]  VALID_REQ  (1 bit)
+        Origen : Pipeline (etapa MEM, señal de handshake).
+        Descripción: El pipeline indica que ADDR_BUS y las señales de
+        control son estables y representa una petición real. Parte del
+        protocolo VALID/READY.
+
+  [E7]  BAR_BASE_n [31:12] x N  (registros configurables internos)
+        Origen : Escritura de firmware/BIOS durante el arranque (vía acceso
+        especial PMIO o ECAM).
+        Descripción: Registros internos del controlador que guardan las
+        bases de cada región MMIO asignada. 'N' es el numero de slots de
+        periférico. No son entradas de bus externo sino registros del propio
+        modulo cargados en boot.
+
+---- SALIDAS ----
+
+  [S1]  CS_RAM  (1 bit)
+        Destino : Controlador de Memoria DRAM (DMC).
+        Descripción: Chip Select para la RAM. Se activa cuando ADDR_BUS
+        cae en el rango de memoria principal (ej. 0x00000000 - 0x3FFFFFFF).
+
+  [S2]  CS_ROM  (1 bit)
+        Destino : Módulo Flash/Boot ROM.
+        Descripción: Chip Select para la ROM. Se activa en el vector de
+        reset (ej. 0xFFFF0000 - 0xFFFFFFFF). Solo lectura.
+
+  [S3]  CS_LAPIC  (1 bit)
+        Destino : Módulo LAPIC.
+        Descripción: Chip Select para el LAPIC local. Se activa en el rango
+        0xFEE00000 - 0xFEE00FFF.
+
+  [S4]  CS_IOAPIC  (1 bit)
+        Destino : Módulo I/O-APIC.
+        Descripción: Chip Select para el I/O-APIC. Se activa en el rango
+        0xFEC00000 - 0xFEC00FFF.
+
+  [S5]  CS_PERIFn  (1 bit por slot, N señales)
+        Destino : Puerto del periférico n (NVMe, GPU, etc.) en el bus PCIe
+        o en el NoC.
+        Descripción: Un Chip Select individual por cada slot de periférico
+        registrado en los BARs internos. Solo uno puede estar activo a la vez.
+
+  [S6]  LOCAL_ADDR [19:0]  (20 bits, o el ancho necesario para indexar al esclavo)
+        Destino : El esclavo activo (RAM, ROM, LAPIC, o periférico).
+        Descripción: Los bits BAJOS de ADDR_BUS después de enmascarar la
+        base. Son el offset dentro del espacio del esclavo seleccionado.
+
+  [S7]  WDATA_OUT [31:0]
+        Destino : El esclavo activo seleccionado por CS.
+        Descripción: El dato de escritura propagado al esclavo correcto vía
+        el árbol de multiplexores.
+
+  [S8]  WEN_OUT / REN_OUT  (1 bit cada uno)
+        Destino : El esclavo activo.
+        Descripción: Las señales de control de escritura/lectura redirigidas
+        al módulo esclavo seleccionado.
+
+  [S9]  RDATA_OUT [31:0]
+        Destino : Registro de destino del pipeline (etapa WB).
+        Descripción: El dato devuelto por el esclavo. El árbol de MUX
+        selecciona la salida de datos del esclavo activo y la propaga de
+        vuelta al pipeline.
+
+  [S10] READY  (1 bit)
+        Destino : Pipeline (señal de stall / handshake READY).
+        Descripción: Indica al pipeline que la transacción se completó y
+        puede continuar. Se pone a '0' (stall) si el esclavo es lento
+        (ej. acceso a DRAM o periférico con latencia) y a '1' cuando el
+        esclavo confirma con su propio READY.
+
+  [S11] IS_MMIO  (1 bit)
+        Destino : Pipeline (etapa EX/MEM), Caché L1-D.
+        Descripción: Bandera que indica que la dirección actual es un
+        acceso MMIO (no RAM). Sirve para que la caché de datos NO cachee
+        el acceso y para que el pipeline no use un valor "viejo" del buffer.
+
+---- LÓGICA INTERNA ----
+
+  PASO 1 - DECODIFICACIÓN DE RANGOS (Combinacional):
+    Para cada transacción con VALID_REQ='1', se evalúan comparadores de
+    rango sobre ADDR_BUS[31:12] (bits altos) en paralelo:
+
+      if   ADDR_BUS in [RAM_BASE,  RAM_TOP]    -> activa CS_RAM
+      elif ADDR_BUS in [ROM_BASE,  ROM_TOP]    -> activa CS_ROM
+      elif ADDR_BUS == 0xFEE00xxx              -> activa CS_LAPIC
+      elif ADDR_BUS == 0xFEC00xxx              -> activa CS_IOAPIC
+      elif ADDR_BUS in [BAR_BASE_0, BAR_TOP_0] -> activa CS_PERIF0
+      elif ADDR_BUS in [BAR_BASE_1, BAR_TOP_1] -> activa CS_PERIF1
+      ...
+      else -> ERROR / acceso inválido (puede generar una excepción de bus)
+
+    Solo UN CS se activa a la vez (se garantiza exclusión mutua por la
+    estructura if-elif). Los rangos de periférico se comparan contra los
+    registros BAR internos cargados en boot.
+
+  PASO 2 - CÁLCULO DE DIRECCIÓN LOCAL:
+    LOCAL_ADDR = ADDR_BUS XOR BAR_BASE_activo
+    (O equivalentemente: LOCAL_ADDR = ADDR_BUS[OFFSET_BITS-1:0])
+    Esto permite que el esclavo indexe su propia memoria interna desde 0.
+
+  PASO 3 - ÁRBOL DE MULTIPLEXORES (Enrutamiento de datos):
+    - Escritura: WDATA se pasa al bus de entrada del esclavo activo. Los
+      demás esclavos no reciben el dato (sus entradas están en tri-state o
+      simplemente no se les activa el WEN).
+    - Lectura: Las salidas de todos los esclavos alimentan un gran MUX
+      controlado por los bits CS. Solo la salida del esclavo activo llega
+      a RDATA_OUT. NUNCA se usan buses tri-state en el silicio moderno;
+      siempre son árboles de MUX.
+
+  PASO 4 - HANDSHAKE READY/VALID:
+    READY se genera combinacionalmente si el esclavo es síncrono (ej. ROM
+    de un solo ciclo) o con lógica secuencial (contador de espera) si el
+    esclavo tiene latencia variable (DRAM, PCIe). El pipeline permanece
+    congelado (stall) hasta recibir READY='1'.
+
+  PASO 5 - FLAG IS_MMIO:
+    IS_MMIO = NOT(CS_RAM OR CS_ROM)
+    Se envía al pipeline y al controlador de caché para suprimir el
+    cacheado del acceso. Esto garantiza que cada STR/LOD a un periférico
+    genera un acceso físico real al hardware y no usa un valor obsoleto.
+
+================================================================================
+== CIRCUITO 2: CONTROLADOR Y SISTEMA DMA (DMA Controller / Bus Master)        ==
+================================================================================
+
+PROPÓSITO:
+  Permitir que un periférico (ej. NVMe, GPU, tarjeta de red) lea y escriba
+  datos directamente en la RAM sin intervención del CPU, liberando al pipeline
+  de transferencias masivas. El DMA actúa como un "segundo maestro de bus"
+  que compite con el CPU por el acceso al árbitro de interconexión.
+
+  NOTA: Este diseño asume un DMA integrado en el NoC (estilo SoC), no un
+  controlador externo de tipo 8237. Cada periférico puede tener su propio
+  motor DMA, o puede haber un DMA centralizado con múltiples canales.
+
+---- ENTRADAS ----
+
+  [E1]  DMA_REQ  (1 bit por canal/periférico)
+        Origen : El periférico (NVMe, GPU) que quiere tomar el bus.
+        Descripción: El periférico levanta esta línea para pedir permiso al
+        árbitro del bus. Equivale a la señal DREQ de los DMA clásicos o al
+        "burst request" del AXI.
+
+  [E2]  DMA_ADDR [31:0]
+        Origen : Registro de configuración del canal DMA (escrito por el CPU
+        vía MMIO antes de iniciar la transferencia).
+        Descripción: La dirección física de inicio en la RAM donde el DMA
+        debe leer o escribir. El CPU configura este registro previamente.
+
+  [E3]  DMA_LEN [19:0]  (o el ancho requerido)
+        Origen : Registro de configuración del canal DMA.
+        Descripción: El número de bytes (o palabras) a transferir.
+        El DMA cuenta internamente y para cuando llega a cero.
+
+  [E4]  DMA_DIR  (1 bit)
+        Origen : Registro de configuración del canal DMA.
+        Descripción: Dirección de la transferencia. '0' = Periférico -> RAM
+        (ej. NVMe carga datos leídos del disco a la RAM). '1' = RAM ->
+        Periférico (ej. NVMe lee comandos de la RAM).
+
+  [E5]  DMA_DATA_IN [31:0]
+        Origen : El periférico (cuando DMA_DIR='0', el periférico entrega
+        datos para escribir en RAM).
+        Descripción: Los datos que el periférico quiere depositar en la RAM.
+
+  [E6]  BUS_GRANT  (1 bit)
+        Origen : Árbitro de bus (lógica de prioridad dentro del NoC).
+        Descripción: El árbitro del NoC le confirma al DMA que tiene permiso
+        para usar el bus en este ciclo. El DMA espera esta señal antes de
+        poner su dirección en el bus.
+
+  [E7]  RAM_READY  (1 bit)
+        Origen : Controlador de Memoria DRAM (DMC).
+        Descripción: Señal de handshake de la DRAM. Indica que la DRAM
+        completó la operación solicitada y el DMA puede proceder al
+        siguiente beat de la ráfaga.
+
+  [E8]  CPU_REQ  (1 bit)
+        Origen : Pipeline del CPU (señal de petición de bus).
+        Descripción: Señal que el árbitro interno usa para saber si el CPU
+        también quiere el bus. Necesaria para resolver la prioridad
+        CPU vs DMA.
+
+---- SALIDAS ----
+
+  [S1]  DMA_ACK  (1 bit por canal)
+        Destino : El periférico solicitante.
+        Descripción: El DMA le confirma al periférico que su solicitud fue
+        aceptada y que puede comenzar a enviar o recibir datos.
+
+  [S2]  BUS_REQ  (1 bit)
+        Destino : Árbitro central del NoC / Bus.
+        Descripción: El controlador DMA pide el bus al árbitro central
+        (quien decide entre CPU y DMA). Es equivalente al HOLD de los DMA
+        clásicos.
+
+  [S3]  RAM_ADDR [31:0]
+        Destino : Controlador de Memoria DRAM (a través del árbitro/NoC).
+        Descripción: La dirección en RAM donde el DMA realizará el siguiente
+        acceso. Avanza automáticamente en cada beat de la ráfaga.
+
+  [S4]  RAM_WDATA [31:0]
+        Destino : Controlador de Memoria DRAM.
+        Descripción: El dato a escribir en RAM (viene de DMA_DATA_IN cuando
+        el periférico envía datos hacia la RAM).
+
+  [S5]  RAM_WEN  (1 bit)
+        Destino : Controlador de Memoria DRAM.
+        Descripción: Write Enable hacia la DRAM, controlado por el DMA
+        según DMA_DIR.
+
+  [S6]  DMA_DATA_OUT [31:0]
+        Destino : El periférico (cuando DMA_DIR='1', el DMA devuelve datos
+        leídos de la RAM al periférico).
+        Descripción: Los datos leídos de la RAM entregados al periférico.
+
+  [S7]  DMA_DONE  (1 bit por canal)
+        Destino : Periférico Y / o sistema MSI (para generar interrupción).
+        Descripción: Se pulsa al terminar la transferencia completa
+        (DMA_LEN llega a cero). Este pulso puede disparar una escritura MSI
+        automática para notificar al CPU.
+
+  [S8]  CPU_STALL  (1 bit)
+        Destino : Pipeline del CPU (señal de stall).
+        Descripción: Se activa cuando el DMA tiene el bus y el CPU también
+        lo necesita. El pipeline se congela hasta que el DMA libera el bus.
+        Implementa el arbitraje maestro-maestro.
+
+  [S9]  CACHE_INVALIDATE_ADDR [31:0]  (señal de coherencia)
+        Destino : Controlador de caché L1-D / L2 del CPU.
+        Descripción: Cuando el DMA escribe en una dirección de RAM, informa
+        al sistema de caché para que invalide cualquier línea que contenga
+        esa dirección (protocolo MESI). Evita que el CPU lea datos obsoletos.
+
+---- LÓGICA INTERNA ----
+
+  BLOQUE A - ÁRBITRO DE PRIORIDAD (Bus Arbiter):
+    El DMA compite con el CPU por el bus. La política recomendada es:
+      - DMA tiene PRIORIDAD ALTA cuando está en medio de una ráfaga
+        (para evitar underrun/overrun en streaming de datos).
+      - Fuera de ráfaga, el CPU tiene prioridad normal.
+    Lógica:
+      if DMA_REQ AND (BURST_IN_PROGRESS OR DMA_PRIORITY_HIGH):
+        BUS_GRANT = DMA; CPU_STALL = '1'
+      else if CPU_REQ:
+        BUS_GRANT = CPU; CPU_STALL = '0'
+    Esta lógica vive dentro del NoC central pero se conecta al DMA
+    mediante BUS_REQ / BUS_GRANT.
+
+  BLOQUE B - MÁQUINA DE ESTADOS DEL CANAL DMA (FSM Secuencial):
+    Estado IDLE:
+      Espera DMA_REQ. Cuando llega, carga DMA_ADDR en el registro interno
+      CURRENT_ADDR y DMA_LEN en el contador BEAT_COUNT. Levanta BUS_REQ.
+
+    Estado WAIT_GRANT:
+      Espera BUS_GRANT='1' del árbitro. El periférico aún no recibe ACK.
+
+    Estado ACTIVE_TRANSFER:
+      Una vez con BUS_GRANT:
+        - Pone CURRENT_ADDR en RAM_ADDR.
+        - Si DMA_DIR='0' (Periférico->RAM): activa RAM_WEN, pone
+          DMA_DATA_IN en RAM_WDATA.
+        - Si DMA_DIR='1' (RAM->Periférico): desactiva RAM_WEN, lee la
+          RAM y pone el dato en DMA_DATA_OUT.
+        - Espera RAM_READY.
+        - En cada RAM_READY: CURRENT_ADDR += 4; BEAT_COUNT -= 1.
+
+    Estado DONE:
+      Cuando BEAT_COUNT == 0:
+        - Pulsa DMA_DONE.
+        - Libera BUS_REQ (devuelve el bus al árbitro).
+        - Genera pulso en CACHE_INVALIDATE_ADDR si DMA_DIR='0'.
+        - Vuelve a IDLE.
+
+  BLOQUE C - COHERENCIA DE CACHÉ:
+    En cada beat donde el DMA escribe en RAM (DMA_DIR='0'), la dirección
+    CURRENT_ADDR se envía al controlador de caché como
+    CACHE_INVALIDATE_ADDR. El controlador de caché compara esta dirección
+    con las etiquetas de sus líneas y, si hay coincidencia, marca la
+    línea como INVALID (protocolo MESI). Esto garantiza que la próxima
+    lectura del CPU vaya a la RAM (que ya tiene los datos frescos del DMA)
+    y no a la caché (que tendría datos obsoletos).
+
+================================================================================
+== CIRCUITO 3: SISTEMA DE CONEXIÓN PARA MENSAJES MSI                          ==
+== (MSI Translation / Interrupt Routing Unit - IRU)                           ==
+================================================================================
+
+PROPÓSITO:
+  Interceptar escrituras de memoria que son técnicamente "MSI" (Message
+  Signaled Interrupts) y redirigirlas al controlador de interrupciones
+  correcto (LAPIC del núcleo destino) en lugar de dejarlas ir a la RAM.
+  Una MSI es simplemente una escritura estándar de 32 bits hacia la
+  dirección 0xFEE00000 (x86) con un valor de vector especial. Este circuito
+  es el que distingue esa escritura de una escritura RAM normal.
+
+---- ENTRADAS ----
+
+  [E1]  MSI_WRITE_ADDR [31:0]
+        Origen : Árbitro/NoC central. La dirección de destino de cualquier
+        transacción de escritura en el bus (venga del CPU o del DMA/periférico).
+        Descripción: La dirección que el circuito vigilará. Si coincide con
+        el rango MSI (0xFEE00000 - 0xFEEFFFFF en x86), la transacción es
+        capturada por este módulo.
+
+  [E2]  MSI_WRITE_DATA [31:0]
+        Origen : El periférico o maestro de bus que genera la MSI (ej. NVMe).
+        Descripción: El "Vector de Interrupción" codificado como un dato de
+        memoria estándar. Incluye el número de vector IRQ y bits de control
+        (Edge/Level, Delivery Mode, etc. en el formato del APIC).
+
+  [E3]  MSI_WRITE_VALID  (1 bit)
+        Origen : Árbitro/NoC (señal de handshake del canal de escritura).
+        Descripción: Indica que MSI_WRITE_ADDR y MSI_WRITE_DATA son válidos
+        y representan una transacción real que debe procesarse.
+
+  [E4]  DEVICE_ID [N:0]  (señal sideband, ancho según número de periféricos)
+        Origen : Hardware del bus (PCIe Root Complex o fabric del NoC).
+        Descripción: Identifica de forma inviolable qué dispositivo físico
+        generó la transacción. No puede ser falsificado por software. En
+        PCIe se deriva del Bus:Device:Function (BDF). Sirve para consultar
+        la tabla MSI y verificar que el dispositivo tiene permiso de
+        enviar esa interrupción con ese vector.
+
+  [E5]  MSI_TABLE_ENTRY [DeviceID] (Tabla interna de configuración)
+        Origen : Escritura del SO durante la inicialización del driver.
+        Descripción: Una tabla RAM pequeña interna al módulo (similar a la
+        IRTL del I/O-APIC). Cada entrada almacena:
+          - MSI_TARGET_LAPIC_ID: el ID del LAPIC (núcleo) destino.
+          - MSI_VECTOR: el número de vector de interrupción para ese device.
+          - MSI_DELIVERY_MODE: Fixed, LowPriority, NMI, etc.
+          - MSI_MASKED: bit de máscara (para MSI-X).
+        El SO la configura via MMIO en el espacio de configuración del módulo.
+
+---- SALIDAS ----
+
+  [S1]  MSI_CAPTURE  (1 bit)
+        Destino : Árbitro/NoC central.
+        Descripción: Se activa cuando el módulo detecta que la transacción
+        en el bus ES una MSI válida. Le dice al NoC que NO envíe esta
+        escritura a la RAM; este módulo la ha tomado. Equivale a un
+        "snoop hit" en el bus.
+
+  [S2]  LAPIC_INT_REQ  (1 bit por LAPIC / núcleo del procesador)
+        Destino : Puerto de interrupción del LAPIC del núcleo destino.
+        Descripción: La señal que inyecta la interrupción en el LAPIC
+        correcto. El número de LAPIC al que se activa se determina leyendo
+        MSI_TARGET_LAPIC_ID de la tabla interna.
+
+  [S3]  LAPIC_VECTOR [7:0]
+        Destino : LAPIC del núcleo destino.
+        Descripción: El número de vector de interrupción (0-255) que el
+        LAPIC debe presentar al pipeline cuando este atienda la interrupción.
+        Se extrae de MSI_WRITE_DATA o de la tabla MSI interna.
+
+  [S4]  LAPIC_DELIVERY_MODE [2:0]
+        Destino : LAPIC.
+        Descripción: El modo de entrega de la interrupción (Fixed, SMI, NMI,
+        INIT, ExtINT). Viene de la tabla MSI interna o del dato MSI.
+
+  [S5]  MSI_ACK  (1 bit)
+        Destino : Periférico / maestro de bus que generó la MSI (señal de
+        handshake READY de vuelta).
+        Descripción: Confirma al periférico que la MSI fue recibida y
+        procesada por el módulo. El periférico puede entonces liberar su
+        buffer de mensaje.
+
+  [S6]  MSI_ERROR  (1 bit)
+        Destino : Unidad de Control / registro de estado del sistema.
+        Descripción: Se activa si la escritura MSI no coincide con ninguna
+        entrada válida en la tabla interna o si el DEVICE_ID no tiene
+        permiso para ese vector (posible ataque o error de configuración).
+        Puede disparar una excepción o una interrupción de error al SO.
+
+---- LÓGICA INTERNA ----
+
+  PASO 1 - VIGILANCIA DEL BUS (Snoop Combinacional):
+    El módulo monitorea continuamente MSI_WRITE_ADDR en el bus.
+    Si:
+      MSI_WRITE_ADDR[31:20] == 0xFEE  (bits altos = rango MSI de x86)
+      AND MSI_WRITE_VALID == '1'
+    Entonces:
+      -> Se captura la transacción: MSI_CAPTURE = '1'.
+      -> El árbitro/NoC sabe que NO debe rutear esta escritura a la RAM.
+
+  PASO 2 - LOOKUP EN TABLA MSI (Secuencial, 1-2 ciclos):
+    Usando DEVICE_ID como índice, se accede a la tabla interna
+    MSI_TABLE_ENTRY[DEVICE_ID]:
+      TARGET_LAPIC = MSI_TABLE_ENTRY[DEVICE_ID].MSI_TARGET_LAPIC_ID
+      VECTOR       = MSI_TABLE_ENTRY[DEVICE_ID].MSI_VECTOR
+      DELIVERY     = MSI_TABLE_ENTRY[DEVICE_ID].MSI_DELIVERY_MODE
+      MASKED       = MSI_TABLE_ENTRY[DEVICE_ID].MSI_MASKED
+
+    Si MASKED == '1': la interrupción está enmascarada; no se propaga.
+    Se puede guardar como "pending" para cuando se desenmascara.
+
+  PASO 3 - VALIDACIÓN DE SEGURIDAD:
+    Se verifica que:
+      - DEVICE_ID exista en la tabla (entry válida).
+      - El VECTOR en MSI_WRITE_DATA coincida con el esperado en la tabla.
+        (Evita que un dispositivo "secuestre" el vector de otro).
+    Si la validación falla: MSI_ERROR = '1'. No se genera interrupción.
+
+  PASO 4 - DESPACHO AL LAPIC (Secuencial):
+    Con TARGET_LAPIC determinado, el módulo activa la línea
+    LAPIC_INT_REQ correspondiente al núcleo destino y presenta
+    LAPIC_VECTOR y LAPIC_DELIVERY_MODE en el bus del LAPIC.
+    La FSM espera el ACK del LAPIC antes de emitir MSI_ACK al periférico.
+
+  PASO 5 - HANDSHAKE DE COMPLETADO:
+    Una vez que el LAPIC confirma recepción:
+      MSI_ACK = '1' (por 1 ciclo).
+    Esto cierra el ciclo de escritura del periférico. El periférico sabe
+    que su interrupción fue entregada al sistema y libera su buffer MSI.
+
+================================================================================
+== INTEGRACIÓN DE LOS TRES CIRCUITOS EN EL SISTEMA GLOBAL                    ==
+================================================================================
+
+  [CPU Pipeline]
+       |  ADDR_BUS, WDATA, WEN, REN, VALID_REQ
+       v
+  [CONTROLADOR MMIO] -----------> CS_RAM  --> [DRAM Controller]
+       |                 -------> CS_ROM  --> [Boot ROM]
+       |                 -------> CS_LAPIC-> [LAPIC]
+       |                 -------> CS_IOAPIC>[I/O-APIC]
+       |                 -------> CS_PERIFn>[NVMe / GPU / etc.]
+       |  READY, RDATA_OUT <----- (respuestas de esclavos vía MUX)
+       |  IS_MMIO -----------> [Caché L1-D] (suprime caching)
+       |
+       v
+  [ÁRBITRO DE BUS / NoC]
+       ^         ^
+       |         |
+  [CPU Pipeline] [CONTROLADOR DMA] <--- DMA_REQ, Config (de CPU vía MMIO)
+                      |
+                      |-- RAM_ADDR, RAM_WEN, RAM_WDATA --> [DRAM Controller]
+                      |-- CACHE_INVALIDATE_ADDR --------> [Caché L1-D]
+                      |-- DMA_DONE --------------------> [Sistema MSI] (trigger)
+                      |-- CPU_STALL -------------------> [CPU Pipeline]
+                      |
+                 (Al terminar, NVMe genera escritura MSI)
+                      |
+                      v
+  [SISTEMA MSI / IRU]
+       |-- MSI_CAPTURE -------> [NoC] (bloquea que la escritura llegue a RAM)
+       |-- LAPIC_INT_REQ -----> [LAPIC del núcleo destino]
+       |-- LAPIC_VECTOR ------> [LAPIC]
+       |-- MSI_ACK -----------> [NVMe / periférico]
+       |-- MSI_ERROR ---------> [Registro de estado / excepción del SO]
+
+================================================================================
