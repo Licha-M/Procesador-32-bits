@@ -22,6 +22,8 @@ A continuación se detallan las especificaciones de diseño para los tres circui
 
 Actuar como el **"router de memoria"**. Intercepta **toda** transacción de memoria que venga del pipeline del CPU, decodifica la dirección física y decide si el acceso va a RAM, ROM, LAPIC, I/O-APIC o a un periférico (NVMe, etc.). También bloquea el bypass de caché para accesos a rangos MMIO.
 
+> **Escalabilidad y Jerarquías:** Para soportar cientos de periféricos sin requerir cientos de salidas individuales, este controlador no se conecta directamente a cada dispositivo final. En su lugar, sus salidas `CS_PERIFn` se conectan a **Concentradores (como un PCIe Root Complex** para dispositivos rápidos) o a **Puentes/Bridges (ej. AXI-to-APB** para múltiples dispositivos lentos). El puente se encarga de la sub-decodificación, de modo que decenas de dispositivos le cuestan al MMIO central un único puerto de salida.
+
 ---
 
 ### Entradas
@@ -89,7 +91,7 @@ Permite que el esclavo indexe su propia memoria interna desde `0`.
 - **Escritura:** `WDATA` se pasa al bus de entrada del esclavo activo. Los demás no reciben el dato (no se les activa `WEN`).
 - **Lectura:** Las salidas de todos los esclavos alimentan un gran MUX controlado por los bits CS. Solo la salida del esclavo activo llega a `RDATA_OUT`.
 
-> ⚠️ **Nunca** se usan buses tri-state en silicio moderno; siempre son árboles de MUX.
+> ⚠️ **Multiplexación vs. Tri-State:** En silicio moderno, el uso de cables eléctricos compartidos (*tri-state*) está prohibido por problemas de capacitancia y colisiones. En su lugar, se utilizan **árboles de multiplexores combinacionales**. Esto permite que las señales de cientos de periféricos se vayan "filtrando" en niveles sucesivos. El área física del circuito crece de forma logarítmica (en profundidad de niveles lógicos) y garantiza aislamiento eléctrico.
 
 #### Paso 4 — Handshake READY/VALID
 
@@ -337,6 +339,12 @@ Esto cierra el ciclo de escritura del periférico. El periférico sabe que su in
      └── MSI_ERROR ────────► [Registro de estado / excepción del SO]
 ```
 
+### Árbitro de Bus (NoC) y Controlador de Memoria (DMC)
+
+El Árbitro o Red en Chip (NoC) resuelve el problema de tener múltiples maestros y cientos de dispositivos interactuando simultáneamente:
+- **Canales Compartidos y Arbitraje:** Los dispositivos no requieren conexiones físicas paralelas dedicadas para cada uno. Comparten los mismos cables del bus central divididos en canales multiplexados en el tiempo. El flujo se ordena mediante señales de *handshake* (`VALID`/`READY`) en cada ciclo de reloj.
+- **El DMC como embudo final:** El Controlador de Memoria (DRAM) sí es un punto de congestión, pero no por el número de cables, sino por el ancho de banda. Toda la multitud de periféricos y DMA ya ha sido arbitrada y filtrada por el NoC antes de llegar al DMC. Por ende, el DMC no necesita miles de pines de entrada; solo ve una única cola ordenada de peticiones de alta velocidad.
+
 ### Flujo completo de una operación NVMe (resumen de integración)
 
 | Paso | Quién actúa | Qué hace | Circuito involucrado |
@@ -348,3 +356,46 @@ Esto cierra el ciclo de escritura del periférico. El periférico sabe que su in
 | 5 | NVMe | Escribe estado en cola de finalización por DMA | **DMA** → `DMA_DONE` |
 | 6 | NVMe | Genera escritura MSI hacia `0xFEE00000` | **MSI/IRU** → `MSI_CAPTURE` → `LAPIC_INT_REQ` |
 | 7 | LAPIC | Lanza la interrupción al pipeline del CPU | Pipeline atiende el *handler* del SO |
+
+---
+
+## Circuito 4 — Puente de Periféricos Lentos (Peripheral Bridge)
+
+### Propósito
+
+Implementar de forma práctica la jerarquía de buses descrita en el Controlador MMIO. Un puente (*Bridge*) recibe un único Chip Select desde el MMIO principal y realiza una **sub-decodificación** para controlar múltiples periféricos de baja velocidad (UART, Timers, GPIO) sin sobrecargar de puertos al árbitro central. Actúa como un sub-árbitro o embudo para dispositivos pequeños.
+
+---
+
+### Entradas (desde el MMIO Controller)
+
+| Señal | Ancho | Descripción |
+|-------|-------|-------------|
+| `CS_BRIDGE` | 1 bit | El Chip Select principal asignado a este puente (ej. la salida `CS_PERIF0` del MMIO). |
+| `LOCAL_ADDR[19:0]`| 20 bits | Offset enviado por el MMIO. El puente usará los bits superiores de este offset (ej. `[19:16]`) para seleccionar qué sub-periférico activar. |
+| `WDATA_IN`, `WEN`, `REN` | 32 y 1 bit | Señales de escritura/lectura y datos que provienen del MMIO y se propagarán al sub-periférico activo. |
+| `RDATA_Px`, `READY_Px` | 32 y 1 bit | Datos y handshake de respuesta provenientes de cada uno de los sub-periféricos conectados (UART, Timer, etc.). |
+
+---
+
+### Salidas (hacia sub-periféricos y MMIO)
+
+| Señal | Ancho | Descripción |
+|-------|-------|-------------|
+| `CS_UART`, `CS_TIMER`, etc. | 1 bit c/u | Chip Selects locales para cada sub-periférico. Se activan solo si `CS_BRIDGE` es '1' y los bits de sub-decodificación coinciden. |
+| `SUB_ADDR[15:0]` | 16 bits | Offset local propagado al sub-periférico (bits bajos de `LOCAL_ADDR`). |
+| `RDATA_BRIDGE` | 32 bits | Retorno hacia el MUX principal del MMIO. Proviene del árbol de MUX interno del puente. |
+| `READY_BRIDGE` | 1 bit | Retorno hacia el MMIO indicando que el sub-periférico lento terminó su operación. |
+
+---
+
+### Lógica Interna
+
+1. **Sub-decodificación Combinacional:** 
+   Se inspeccionan los bits `LOCAL_ADDR[19:16]`. 
+   - Si `0000` -> activa `CS_UART` (condicionado por `CS_BRIDGE == 1`)
+   - Si `0001` -> activa `CS_TIMER` (condicionado por `CS_BRIDGE == 1`)
+2. **Árbol MUX Secundario:** 
+   Las salidas `RDATA` de los periféricos lentos entran a un MUX local de menor escala controlado por los `CS` locales. Su salida unificada alimenta la señal `RDATA_BRIDGE` que vuelve al MMIO.
+   
+> **Conclusión en Hardware:** Este cuarto circuito demuestra físicamente cómo el sistema no crece de forma lineal y cómo el diseño modular permite conectar decenas de dispositivos de I/O ocupando tan solo **un** puerto en el MMIO central.
