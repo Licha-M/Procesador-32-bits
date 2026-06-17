@@ -20,7 +20,7 @@ A continuación se detallan las especificaciones de diseño para los tres circui
 
 ### Propósito
 
-Actuar como el **"router de memoria"**. Intercepta **toda** transacción de memoria que venga del pipeline del CPU, decodifica la dirección física y decide si el acceso va a RAM, ROM, LAPIC, I/O-APIC o a un periférico (NVMe, etc.). También bloquea el bypass de caché para accesos a rangos MMIO.
+Actuar como el **"router de memoria"**. Intercepta **toda** transacción de memoria que venga del pipeline del CPU, decodifica la dirección física y decide si el acceso va a RAM, ROM, LAPIC o a un periférico (NVMe, etc.). También bloquea el bypass de caché para accesos a rangos MMIO.
 
 > **Escalabilidad y Jerarquías:** Para soportar cientos de periféricos sin requerir cientos de salidas individuales, este controlador no se conecta directamente a cada dispositivo final. En su lugar, sus salidas `CS_PERIFn` se conectan a **Concentradores (como un PCIe Root Complex** para dispositivos rápidos) o a **Puentes/Bridges (ej. AXI-to-APB** para múltiples dispositivos lentos). El puente se encarga de la sub-decodificación, de modo que decenas de dispositivos le cuestan al MMIO central un único puerto de salida.
 
@@ -47,7 +47,6 @@ Actuar como el **"router de memoria"**. Intercepta **toda** transacción de memo
 | S1 | `CS_RAM` | 1 bit | Controlador de Memoria DRAM (DMC) | Chip Select para la RAM. Activo cuando `ADDR_BUS` cae en el rango principal (ej. `0x00000000`–`0x3FFFFFFF`). |
 | S2 | `CS_ROM` | 1 bit | Módulo Flash / Boot ROM | Chip Select para la ROM. Activo en el vector de reset (ej. `0xFFFF0000`–`0xFFFFFFFF`). Solo lectura. |
 | S3 | `CS_LAPIC` | 1 bit | Módulo LAPIC | Chip Select para el LAPIC local. Activo en `0xFEE00000`–`0xFEE00FFF`. |
-| S4 | `CS_IOAPIC` | 1 bit | Módulo I/O-APIC | Chip Select para el I/O-APIC. Activo en `0xFEC00000`–`0xFEC00FFF`. |
 | S5 | `CS_PERIFn` | 1 bit × N | Puerto del periférico n en el bus PCIe / NoC | Un Chip Select por cada slot de periférico registrado en los BARs. Solo uno activo a la vez. |
 | S6 | `LOCAL_ADDR[19:0]` | 20 bits | El esclavo activo | Bits bajos de `ADDR_BUS` tras enmascarar la base: el offset dentro del espacio del esclavo seleccionado. |
 | S7 | `WDATA_OUT[31:0]` | 32 bits | El esclavo activo (vía árbol MUX) | Dato de escritura propagado al esclavo correcto. |
@@ -68,7 +67,6 @@ Para cada transacción con `VALID_REQ='1'`, se evalúan comparadores de rango so
 if   ADDR_BUS in [RAM_BASE,  RAM_TOP]     -> activa CS_RAM
 elif ADDR_BUS in [ROM_BASE,  ROM_TOP]     -> activa CS_ROM
 elif ADDR_BUS == 0xFEE00xxx               -> activa CS_LAPIC
-elif ADDR_BUS == 0xFEC00xxx               -> activa CS_IOAPIC
 elif ADDR_BUS in [BAR_BASE_0, BAR_TOP_0]  -> activa CS_PERIF0
 elif ADDR_BUS in [BAR_BASE_1, BAR_TOP_1]  -> activa CS_PERIF1
 ...
@@ -303,6 +301,48 @@ Esto cierra el ciclo de escritura del periférico. El periférico sabe que su in
 
 ---
 
+## Circuito 4 — Puente de Periféricos Lentos (Peripheral Bridge)
+
+### Propósito
+
+Implementar de forma práctica la jerarquía de buses descrita en el Controlador MMIO. Un puente (*Bridge*) recibe un único Chip Select desde el MMIO principal y realiza una **sub-decodificación** para controlar múltiples periféricos de baja velocidad (UART, Timers, GPIO) sin sobrecargar de puertos al árbitro central. Actúa como un sub-árbitro o embudo para dispositivos pequeños.
+
+---
+
+### Entradas (desde el MMIO Controller)
+
+| Señal | Ancho | Descripción |
+|-------|-------|-------------|
+| `CS_BRIDGE` | 1 bit | El Chip Select principal asignado a este puente (ej. la salida `CS_PERIF0` del MMIO). |
+| `LOCAL_ADDR[19:0]`| 20 bits | Offset enviado por el MMIO. El puente usará los bits superiores de este offset (ej. `[19:16]`) para seleccionar qué sub-periférico activar. |
+| `WDATA_IN`, `WEN`, `REN` | 32 y 1 bit | Señales de escritura/lectura y datos que provienen del MMIO y se propagarán al sub-periférico activo. |
+| `RDATA_Px`, `READY_Px` | 32 y 1 bit | Datos y handshake de respuesta provenientes de cada uno de los sub-periféricos conectados (UART, Timer, etc.). |
+
+---
+
+### Salidas (hacia sub-periféricos y MMIO)
+
+| Señal | Ancho | Descripción |
+|-------|-------|-------------|
+| `CS_UART`, `CS_TIMER`, etc. | 1 bit c/u | Chip Selects locales para cada sub-periférico. Se activan solo si `CS_BRIDGE` es '1' y los bits de sub-decodificación coinciden. |
+| `SUB_ADDR[15:0]` | 16 bits | Offset local propagado al sub-periférico (bits bajos de `LOCAL_ADDR`). |
+| `RDATA_BRIDGE` | 32 bits | Retorno hacia el MUX principal del MMIO. Proviene del árbol de MUX interno del puente. |
+| `READY_BRIDGE` | 1 bit | Retorno hacia el MMIO indicando que el sub-periférico lento terminó su operación. |
+
+---
+
+### Lógica Interna
+
+1. **Sub-decodificación Combinacional:** 
+   Se inspeccionan los bits `LOCAL_ADDR[19:16]`. 
+   - Si `0000` -> activa `CS_UART` (condicionado por `CS_BRIDGE == 1`)
+   - Si `0001` -> activa `CS_TIMER` (condicionado por `CS_BRIDGE == 1`)
+2. **Árbol MUX Secundario:** 
+   Las salidas `RDATA` de los periféricos lentos entran a un MUX local de menor escala controlado por los `CS` locales. Su salida unificada alimenta la señal `RDATA_BRIDGE` que vuelve al MMIO.
+   
+> **Conclusión en Hardware:** Este cuarto circuito demuestra físicamente cómo el sistema no crece de forma lineal y cómo el diseño modular permite conectar decenas de dispositivos de I/O ocupando tan solo **un** puerto en el MMIO central.
+
+---
 ## Integración de los Tres Circuitos en el Sistema Global
 
 ```
@@ -312,7 +352,6 @@ Esto cierra el ciclo de escritura del periférico. El periférico sabe que su in
 [CONTROLADOR MMIO] ──────────► CS_RAM    ──► [DRAM Controller]
      │               ─────────► CS_ROM    ──► [Boot ROM]
      │               ─────────► CS_LAPIC  ──► [LAPIC]
-     │               ─────────► CS_IOAPIC ──► [I/O-APIC]
      │               ─────────► CS_PERIFn ──► [NVMe / GPU / etc.]
      │  READY, RDATA_OUT ◄───── (respuestas de esclavos vía MUX)
      │  IS_MMIO ──────────────► [Caché L1-D]  (suprime caching)
@@ -359,43 +398,86 @@ El Árbitro o Red en Chip (NoC) resuelve el problema de tener múltiples maestro
 
 ---
 
-## Circuito 4 — Puente de Periféricos Lentos (Peripheral Bridge)
+## Diagrama Lógico de Interconexión del Sistema
 
-### Propósito
+A continuación se presenta un diagrama global que refleja la jerarquía y conexión de los circuitos diseñados:
 
-Implementar de forma práctica la jerarquía de buses descrita en el Controlador MMIO. Un puente (*Bridge*) recibe un único Chip Select desde el MMIO principal y realiza una **sub-decodificación** para controlar múltiples periféricos de baja velocidad (UART, Timers, GPIO) sin sobrecargar de puertos al árbitro central. Actúa como un sub-árbitro o embudo para dispositivos pequeños.
+```mermaid
+graph LR
+    %% ==========================================
+    %% Definición de colores y estilos
+    %% ==========================================
+    classDef cpu fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#000
+    classDef mmio fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000
+    classDef mem fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef pcie fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,color:#000
+    classDef slow fill:#ffe0b2,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef invisible fill:none,stroke:none,color:none
 
----
+    %% ==========================================
+    %% ORIGEN Y ENRUTAMIENTO PRINCIPAL
+    %% ==========================================
+    CPU("⚙️ Pipeline del CPU"):::cpu
+    MMIO{"🚦 Controlador MMIO\n(Decodificador Central)"}:::mmio
 
-### Entradas (desde el MMIO Controller)
+    CPU == "Bus Principal\n(ADDR, DATA, CTRL)" ==> MMIO
 
-| Señal | Ancho | Descripción |
-|-------|-------|-------------|
-| `CS_BRIDGE` | 1 bit | El Chip Select principal asignado a este puente (ej. la salida `CS_PERIF0` del MMIO). |
-| `LOCAL_ADDR[19:0]`| 20 bits | Offset enviado por el MMIO. El puente usará los bits superiores de este offset (ej. `[19:16]`) para seleccionar qué sub-periférico activar. |
-| `WDATA_IN`, `WEN`, `REN` | 32 y 1 bit | Señales de escritura/lectura y datos que provienen del MMIO y se propagarán al sub-periférico activo. |
-| `RDATA_Px`, `READY_Px` | 32 y 1 bit | Datos y handshake de respuesta provenientes de cada uno de los sub-periféricos conectados (UART, Timer, etc.). |
+    %% ==========================================
+    %% NIVEL 1: Core y Memoria
+    %% ==========================================
+    subgraph Zona_Core_Memoria [Núcleo y Memoria Principal]
+        direction TB
+        LAPIC("⚡ LAPIC Local"):::cpu
+        BIOS("💾 BIOS / Boot ROM"):::mem
+        RAM("🧠 Controlador DRAM"):::mem
+    end
 
----
+    MMIO -- "CS_LAPIC" --> LAPIC
+    MMIO -- "CS_ROM" --> BIOS
+    MMIO -- "CS_RAM" --> RAM
 
-### Salidas (hacia sub-periféricos y MMIO)
+    %% ==========================================
+    %% NIVEL 1: Complejo de Alta Velocidad (PCIe)
+    %% ==========================================
+    subgraph Subsistema_PCIe [Controlador PCIe Integrado]
+        direction TB
+        PCIE["🎛️ Controlador General PCIe"]:::pcie
+        DMA["🚀 Motor DMA"]:::pcie
+        MSI["📨 Unidad MSI (IRU)"]:::pcie
+        
+        %% Uniones invisibles solo para alinear verticalmente dentro de la caja
+        PCIE ~~~ DMA ~~~ MSI 
+    end
 
-| Señal | Ancho | Descripción |
-|-------|-------|-------------|
-| `CS_UART`, `CS_TIMER`, etc. | 1 bit c/u | Chip Selects locales para cada sub-periférico. Se activan solo si `CS_BRIDGE` es '1' y los bits de sub-decodificación coinciden. |
-| `SUB_ADDR[15:0]` | 16 bits | Offset local propagado al sub-periférico (bits bajos de `LOCAL_ADDR`). |
-| `RDATA_BRIDGE` | 32 bits | Retorno hacia el MUX principal del MMIO. Proviene del árbol de MUX interno del puente. |
-| `READY_BRIDGE` | 1 bit | Retorno hacia el MMIO indicando que el sub-periférico lento terminó su operación. |
+    MMIO == "CS_PCIE_CTRL" ==> PCIE
 
----
+    %% ==========================================
+    %% NIVEL 2: Dispositivos de Baja Velocidad
+    %% ==========================================
+    subgraph Puente_Lento [Sistema de Conexión Lenta]
+        direction LR
+        SLOW{"Puente Sub-decodificador"}:::slow
+        UART["🖨️ UART"]:::slow
+        TIMER["⏱️ Timer"]:::slow
+        GPIO["🔌 GPIO"]:::slow
+        
+        SLOW --> UART
+        SLOW --> TIMER
+        SLOW --> GPIO
+    end
 
-### Lógica Interna
+    PCIE == "Propagación de Bus" ==> SLOW
 
-1. **Sub-decodificación Combinacional:** 
-   Se inspeccionan los bits `LOCAL_ADDR[19:16]`. 
-   - Si `0000` -> activa `CS_UART` (condicionado por `CS_BRIDGE == 1`)
-   - Si `0001` -> activa `CS_TIMER` (condicionado por `CS_BRIDGE == 1`)
-2. **Árbol MUX Secundario:** 
-   Las salidas `RDATA` de los periféricos lentos entran a un MUX local de menor escala controlado por los `CS` locales. Su salida unificada alimenta la señal `RDATA_BRIDGE` que vuelve al MMIO.
-   
-> **Conclusión en Hardware:** Este cuarto circuito demuestra físicamente cómo el sistema no crece de forma lineal y cómo el diseño modular permite conectar decenas de dispositivos de I/O ocupando tan solo **un** puerto en el MMIO central.
+    %% ==========================================
+    %% RUTAS ASÍNCRONAS Y ESPECIALES (Líneas Punteadas)
+    %% ==========================================
+    
+    %% DMA Access
+    DMA -. "Escritura DMA\n(Directa a RAM)" .-> RAM
+    DMA -. "CPU Stall" .-> CPU
+    
+    %% MSI Interrupt Flow
+    PCIE -. "Genera MSI" .-> MSI
+    MSI -. "Snoop (Bloquea acceso a RAM)" .-> RAM
+    MSI -. "LAPIC_INT_REQ\n(Inyección directa)" .-> LAPIC
+``` 

@@ -30,7 +30,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
-entity dma_controller is
+entity pcie_general_controller is
     port (
         -- ----------------------------------------------------------------
         -- Reloj y reset
@@ -103,9 +103,9 @@ entity dma_controller is
         STATE_OUT : out STD_LOGIC_VECTOR(1 downto 0)
         -- "00" = IDLE  "01" = WAIT_GRANT  "10" = ACTIVE  "11" = DONE
     );
-end dma_controller;
+end pcie_general_controller;
 
-architecture FSM_DMA of dma_controller is
+architecture FSM_DMA of pcie_general_controller is
 
     -- =========================================================================
     -- Definicion de estados de la FSM
