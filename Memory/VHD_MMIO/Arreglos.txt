@@ -1,0 +1,14 @@
+Pero los dispositivos lentos también deberán usar MSI y DMA. Yo pensaba la interconexión de dispositivos lentos como un switch, que enrutaba todos lo lentos hacia el switch de PCIe, y de ahí al MMIO, entonces el MMIO se quedaba con 3 dispositivos MMIO, El PCIe también (Disp. lentos, NVMe y GPU) y el de dispositivos lentos detrás, entonces el sistema usaría a través de un arbitro el mismo sistema MSI, y el mismo sistema DMA. 
+
+
+
+slow_connection_system.vhd: Las entradas de este archivo (CS_BRIDGE, LOCAL_ADDR, WDATA_IN, etc.) ya no se conectarán a las salidas del mmio_controller.vhd. Ahora se conectarán a un puerto de salida que debes crear en el pcie_general_controller.vhd (por ejemplo, llamadas LEGCY_CS, LEGACY_ADDR).
+
+Controlador PCIe (pcie_general_controller.vhd): Su lógica interna ahora debe expandirse un poco para actuar como el switch.
+
+Cuando el CPU mande una dirección a través del MMIO, el controlador PCIe mirará: "¿Esta dirección es para el NVMe, para la GPU o para el rango de los dispositivos lentos?". Si es para los lentos, activará la línea de propagación hacia el slow_connection_system.
+
+Deberás agregar un pequeño par de señales de entrada (ej. SLOW_REQ_DMA y SLOW_REQ_MSI) para que el puente lento pueda pedirle permiso a la FSM del PCIe para transmitir.
+
+
+3. La solución del Mundo Real: ECAM (PCIe Configuration Space)En lugar de agregar cables físicos nuevos, los sistemas modernos (PCIe) usan los mismos cables exactos de tu jerarquía, pero reservan un rango de direcciones de memoria exclusivo para "hablar con la configuración". Esto se llama ECAM (Mecanismo de Acceso a Configuración Extendido).¿Cómo lo harías en tu sistema actual sin cambiar cables?Simplemente le dices a tu MMIO (en el VHDL) que un rango de memoria específico es solo para configuración.Ejemplo de Mapa de Memoria:0x00000000 a 0x3FFFFFFF $\rightarrow$ RAM Principal.0x40000000 a 0x4FFFFFFF $\rightarrow$ Tráfico normal PCIe (Escrituras a la GPU, etc).0x80000000 a 0x8000FFFF $\rightarrow$ Espacio de Configuración (BARs).

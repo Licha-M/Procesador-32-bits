@@ -405,79 +405,72 @@ A continuación se presenta un diagrama global que refleja la jerarquía y conex
 ```mermaid
 graph LR
     %% ==========================================
-    %% Definición de colores y estilos
+    %% Estilos de los Bloques
     %% ==========================================
     classDef cpu fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#000
     classDef mmio fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000
     classDef mem fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
     classDef pcie fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,color:#000
     classDef slow fill:#ffe0b2,stroke:#f57c00,stroke-width:2px,color:#000
-    classDef invisible fill:none,stroke:none,color:none
 
     %% ==========================================
-    %% ORIGEN Y ENRUTAMIENTO PRINCIPAL
+    %% NIVEL CENTRAL (CPU Y MMIO)
     %% ==========================================
     CPU("⚙️ Pipeline del CPU"):::cpu
-    MMIO{"🚦 Controlador MMIO\n(Decodificador Central)"}:::mmio
+    MMIO{"🚦 MMIO Controller\n(Decoder Central)"}:::mmio
 
-    CPU == "Bus Principal\n(ADDR, DATA, CTRL)" ==> MMIO
+    CPU == "Bus Principal" ==> MMIO
 
-    %% ==========================================
-    %% NIVEL 1: Core y Memoria
-    %% ==========================================
-    subgraph Zona_Core_Memoria [Núcleo y Memoria Principal]
-        direction TB
-        LAPIC("⚡ LAPIC Local"):::cpu
-        BIOS("💾 BIOS / Boot ROM"):::mem
-        RAM("🧠 Controlador DRAM"):::mem
-    end
+    %% Dispositivos directos del MMIO (Solo 3 o 4)
+    RAM("🧠 RAM Principal"):::mem
+    BIOS("💾 Boot ROM"):::mem
+    LAPIC("⚡ LAPIC Local"):::cpu
 
-    MMIO -- "CS_LAPIC" --> LAPIC
-    MMIO -- "CS_ROM" --> BIOS
     MMIO -- "CS_RAM" --> RAM
+    MMIO -- "CS_ROM" --> BIOS
+    MMIO -- "CS_LAPIC" --> LAPIC
 
     %% ==========================================
-    %% NIVEL 1: Complejo de Alta Velocidad (PCIe)
+    %% EL "NODO" PCIE CENTRAL (Actúa como Switch)
     %% ==========================================
-    subgraph Subsistema_PCIe [Controlador PCIe Integrado]
-        direction TB
-        PCIE["🎛️ Controlador General PCIe"]:::pcie
-        DMA["🚀 Motor DMA"]:::pcie
+    subgraph COMPLEJO_PCIE [Complejo PCIe / Switch Central]
+        PCIE_CTRL["🎛️ Controlador PCIe\n& Árbitro de Bus Interno"]:::pcie
+        DMA["🚀 Motor DMA Compartido"]:::pcie
         MSI["📨 Unidad MSI (IRU)"]:::pcie
-        
-        %% Uniones invisibles solo para alinear verticalmente dentro de la caja
-        PCIE ~~~ DMA ~~~ MSI 
     end
 
-    MMIO == "CS_PCIE_CTRL" ==> PCIE
+    MMIO == "CS_PCIE (Todo el tráfico periférico)" ==> PCIE_CTRL
+
+    %% Dispositivos de Alta Velocidad pegados al PCIe
+    NVME["💽 NVMe Controller"]:::pcie
+    GPU["🖥️ GPU / Framebuffer"]:::pcie
+
+    PCIE_CTRL <--> NVME
+    PCIE_CTRL <--> GPU
 
     %% ==========================================
-    %% NIVEL 2: Dispositivos de Baja Velocidad
+    %% EL PUENTE LENTO (Detrás del PCIe)
     %% ==========================================
-    subgraph Puente_Lento [Sistema de Conexión Lenta]
-        direction LR
-        SLOW{"Puente Sub-decodificador"}:::slow
+    subgraph PUENTE_LENTO [Switch de Dispositivos Lentos]
+        SWITCH_LENTO{"Bridge / Sub-Decoder"}:::slow
         UART["🖨️ UART"]:::slow
         TIMER["⏱️ Timer"]:::slow
         GPIO["🔌 GPIO"]:::slow
-        
-        SLOW --> UART
-        SLOW --> TIMER
-        SLOW --> GPIO
     end
 
-    PCIE == "Propagación de Bus" ==> SLOW
+    %% El PCIe enruta el tráfico hacia el switch lento si la dirección coincide
+    PCIE_CTRL == "Línea Legacy / Bus Secundario" ==> SWITCH_LENTO
+    
+    SWITCH_LENTO --> UART
+    SWITCH_LENTO --> TIMER
+    SWITCH_LENTO --> GPIO
 
     %% ==========================================
-    %% RUTAS ASÍNCRONAS Y ESPECIALES (Líneas Punteadas)
+    %% LA MAGIA: Líneas de compartición DMA/MSI desde los lentos
     %% ==========================================
+    SWITCH_LENTO -. "Petición DMA / MSI\nCompartida" .-> PCIE_CTRL
     
-    %% DMA Access
-    DMA -. "Escritura DMA\n(Directa a RAM)" .-> RAM
-    DMA -. "CPU Stall" .-> CPU
-    
-    %% MSI Interrupt Flow
-    PCIE -. "Genera MSI" .-> MSI
-    MSI -. "Snoop (Bloquea acceso a RAM)" .-> RAM
-    MSI -. "LAPIC_INT_REQ\n(Inyección directa)" .-> LAPIC
+    %% Retornos de infraestructura del bloque PCIe hacia el sistema global
+    DMA -. "Acceso Directo a RAM" .-> RAM
+    MSI -. "Inyección de Interrupción" .-> LAPIC
 ``` 
