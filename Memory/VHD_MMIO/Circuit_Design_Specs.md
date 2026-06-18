@@ -3,7 +3,7 @@
 > **Fecha:** 2026-06-16  
 > **Referencia:** Basado en las notas del árbitro/NoC y el flujo NVMe/DMA/MSI.
 
-A continuación se detallan las especificaciones de diseño para los tres circuitos que deben construirse: el **Controlador MMIO**, el **Sistema DMA** y el **Sistema MSI**. Cada circuito especifica sus entradas, salidas, destino de cada señal y la lógica interna que debe implementar.
+A continuación se detallan las especificaciones de diseño para los cinco circuitos que componen el sistema: el **Controlador MMIO**, el **Sistema DMA**, el **Sistema MSI**, el **Puente de Periféricos Lentos** y el **Controlador PCIe General**. Cada circuito especifica sus entradas, salidas, destino de cada señal y la lógica interna que debe implementar.
 
 ---
 
@@ -12,7 +12,10 @@ A continuación se detallan las especificaciones de diseño para los tres circui
 1. [Circuito 1 — Controlador MMIO](#circuito-1--controlador-mmio-address-decoder)
 2. [Circuito 2 — Controlador y Sistema DMA](#circuito-2--controlador-y-sistema-dma-bus-master)
 3. [Circuito 3 — Sistema de Conexión para Mensajes MSI](#circuito-3--sistema-de-conexión-para-mensajes-msi-iru)
-4. [Integración Global](#integración-de-los-tres-circuitos-en-el-sistema-global)
+4. [Circuito 4 — Puente de Periféricos Lentos](#circuito-4--puente-de-periféricos-lentos-peripheral-bridge)
+5. [Circuito 5 — Controlador PCIe General](#circuito-5--controlador-pcie-general-pcie_general_controllervhd)
+6. [Mapa de Memoria y Espacio ECAM](#mapa-de-memoria-y-espacio-ecam)
+7. [Integración Global](#integración-de-los-tres-circuitos-en-el-sistema-global)
 
 ---
 
@@ -47,7 +50,8 @@ Actuar como el **"router de memoria"**. Intercepta **toda** transacción de memo
 | S1 | `CS_RAM` | 1 bit | Controlador de Memoria DRAM (DMC) | Chip Select para la RAM. Activo cuando `ADDR_BUS` cae en el rango principal (ej. `0x00000000`–`0x3FFFFFFF`). |
 | S2 | `CS_ROM` | 1 bit | Módulo Flash / Boot ROM | Chip Select para la ROM. Activo en el vector de reset (ej. `0xFFFF0000`–`0xFFFFFFFF`). Solo lectura. |
 | S3 | `CS_LAPIC` | 1 bit | Módulo LAPIC | Chip Select para el LAPIC local. Activo en `0xFEE00000`–`0xFEE00FFF`. |
-| S5 | `CS_PERIFn` | 1 bit × N | Puerto del periférico n en el bus PCIe / NoC | Un Chip Select por cada slot de periférico registrado en los BARs. Solo uno activo a la vez. |
+| S5 | `CS_PERIFn` | 1 bit × N | Puerto del periférico n en el bus PCIe / NoC | Un Chip Select por cada slot de periférico registrado en los BARs. En la práctica, `CS_PCIE` es la salida principal que activa el Controlador PCIe General; solo uno activo a la vez. |
+| S5b | `CS_ECAM` | 1 bit | Controlador PCIe General (`pcie_general_controller.vhd`) | Chip Select exclusivo para el rango de Configuración ECAM (`0x80000000`–`0x8000FFFF`). Indica al PCIe Controller que la transacción en curso es de configuración de BARs, no de datos. |
 | S6 | `LOCAL_ADDR[19:0]` | 20 bits | El esclavo activo | Bits bajos de `ADDR_BUS` tras enmascarar la base: el offset dentro del espacio del esclavo seleccionado. |
 | S7 | `WDATA_OUT[31:0]` | 32 bits | El esclavo activo (vía árbol MUX) | Dato de escritura propagado al esclavo correcto. |
 | S8 | `WEN_OUT` / `REN_OUT` | 1 bit c/u | El esclavo activo | Señales de control de escritura/lectura redirigidas al módulo esclavo seleccionado. |
@@ -64,11 +68,12 @@ Actuar como el **"router de memoria"**. Intercepta **toda** transacción de memo
 Para cada transacción con `VALID_REQ='1'`, se evalúan comparadores de rango sobre `ADDR_BUS[31:12]` en paralelo:
 
 ```
-if   ADDR_BUS in [RAM_BASE,  RAM_TOP]     -> activa CS_RAM
-elif ADDR_BUS in [ROM_BASE,  ROM_TOP]     -> activa CS_ROM
-elif ADDR_BUS == 0xFEE00xxx               -> activa CS_LAPIC
-elif ADDR_BUS in [BAR_BASE_0, BAR_TOP_0]  -> activa CS_PERIF0
-elif ADDR_BUS in [BAR_BASE_1, BAR_TOP_1]  -> activa CS_PERIF1
+if   ADDR_BUS in [RAM_BASE,  RAM_TOP]         -> activa CS_RAM
+elif ADDR_BUS in [ROM_BASE,  ROM_TOP]         -> activa CS_ROM
+elif ADDR_BUS == 0xFEE00xxx                   -> activa CS_LAPIC
+elif ADDR_BUS in [ECAM_BASE, ECAM_TOP]        -> activa CS_ECAM   -- config BARs (ECAM)
+elif ADDR_BUS in [PCIE_BASE, PCIE_TOP]        -> activa CS_PCIE   -- tráfico periférico general
+elif ADDR_BUS in [BAR_BASE_n, BAR_TOP_n]      -> activa CS_PERIFn -- otros periféricos adicionales
 ...
 else -> ERROR / acceso inválido (genera excepción de bus)
 ```
@@ -309,41 +314,162 @@ Implementar de forma práctica la jerarquía de buses descrita en el Controlador
 
 ---
 
-### Entradas (desde el MMIO Controller)
+### Entradas (desde el Controlador PCIe General)
 
-| Señal | Ancho | Descripción |
-|-------|-------|-------------|
-| `CS_BRIDGE` | 1 bit | El Chip Select principal asignado a este puente (ej. la salida `CS_PERIF0` del MMIO). |
-| `LOCAL_ADDR[19:0]`| 20 bits | Offset enviado por el MMIO. El puente usará los bits superiores de este offset (ej. `[19:16]`) para seleccionar qué sub-periférico activar. |
-| `WDATA_IN`, `WEN`, `REN` | 32 y 1 bit | Señales de escritura/lectura y datos que provienen del MMIO y se propagarán al sub-periférico activo. |
-| `RDATA_Px`, `READY_Px` | 32 y 1 bit | Datos y handshake de respuesta provenientes de cada uno de los sub-periféricos conectados (UART, Timer, etc.). |
+> ⚠️ **Cambio de conexión:** Las entradas de este puente **ya no provienen del `mmio_controller.vhd`**. Ahora se conectan a los puertos de salida dedicados `LEGACY_CS` y `LEGACY_ADDR` que deben crearse en el `pcie_general_controller.vhd`. El MMIO central deja de ver a los dispositivos lentos directamente; en su lugar, el Controlador PCIe actúa como intermediario y enruta el tráfico cuando detecta que la dirección corresponde al rango de dispositivos lentos.
+
+| Señal | Ancho | Origen | Descripción |
+|-------|-------|--------|-------------|
+| `LEGACY_CS` | 1 bit | Puerto de salida `LEGACY_CS` del `pcie_general_controller.vhd` | Chip Select principal asignado a este puente. Activo cuando el Controlador PCIe determina que la dirección cae en el rango de periféricos lentos. Reemplaza al antiguo `CS_BRIDGE` que venía del MMIO. |
+| `LEGACY_ADDR[19:0]` | 20 bits | Puerto de salida `LEGACY_ADDR` del `pcie_general_controller.vhd` | Offset enviado por el Controlador PCIe tras enmascarar la base del rango legacy. El puente usa los bits superiores (ej. `[19:16]`) para sub-decodificar el periférico destino. Reemplaza al antiguo `LOCAL_ADDR` del MMIO. |
+| `WDATA_IN`, `WEN`, `REN` | 32 y 1 bit | Controlador PCIe General | Señales de escritura/lectura y datos propagados desde el Controlador PCIe al sub-periférico activo. |
+| `RDATA_Px`, `READY_Px` | 32 y 1 bit | Sub-periféricos conectados (UART, Timer, etc.) | Datos y handshake de respuesta provenientes de cada sub-periférico. |
+| `SLOW_REQ_DMA` | 1 bit | Periférico lento que solicita transferencia DMA | Señal con la que el puente lento le pide permiso a la FSM del PCIe para iniciar una transmisión DMA. El Controlador PCIe decide cuándo concederla según su estado interno. |
+| `SLOW_REQ_MSI` | 1 bit | Periférico lento que genera una interrupción | Señal con la que el puente lento solicita al Controlador PCIe el uso del canal MSI compartido. El PCIe arbitra el acceso y lo enruta hacia la IRU. |
 
 ---
 
-### Salidas (hacia sub-periféricos y MMIO)
+### Salidas (hacia sub-periféricos y Controlador PCIe)
 
 | Señal | Ancho | Descripción |
 |-------|-------|-------------|
-| `CS_UART`, `CS_TIMER`, etc. | 1 bit c/u | Chip Selects locales para cada sub-periférico. Se activan solo si `CS_BRIDGE` es '1' y los bits de sub-decodificación coinciden. |
-| `SUB_ADDR[15:0]` | 16 bits | Offset local propagado al sub-periférico (bits bajos de `LOCAL_ADDR`). |
-| `RDATA_BRIDGE` | 32 bits | Retorno hacia el MUX principal del MMIO. Proviene del árbol de MUX interno del puente. |
-| `READY_BRIDGE` | 1 bit | Retorno hacia el MMIO indicando que el sub-periférico lento terminó su operación. |
+| `CS_UART`, `CS_TIMER`, etc. | 1 bit c/u | Chip Selects locales para cada sub-periférico. Se activan solo si `LEGACY_CS` es `'1'` y los bits de sub-decodificación coinciden. |
+| `SUB_ADDR[15:0]` | 16 bits | Offset local propagado al sub-periférico (bits bajos de `LEGACY_ADDR`). |
+| `RDATA_BRIDGE` | 32 bits | Retorno hacia el Controlador PCIe General, que a su vez lo reenvía al MUX del MMIO. Proviene del árbol de MUX interno del puente. |
+| `READY_BRIDGE` | 1 bit | Retorno hacia el Controlador PCIe indicando que el sub-periférico lento terminó su operación. |
 
 ---
 
 ### Lógica Interna
 
 1. **Sub-decodificación Combinacional:** 
-   Se inspeccionan los bits `LOCAL_ADDR[19:16]`. 
-   - Si `0000` -> activa `CS_UART` (condicionado por `CS_BRIDGE == 1`)
-   - Si `0001` -> activa `CS_TIMER` (condicionado por `CS_BRIDGE == 1`)
+   Se inspeccionan los bits `LEGACY_ADDR[19:16]`. 
+   - Si `0000` -> activa `CS_UART` (condicionado por `LEGACY_CS == 1`)
+   - Si `0001` -> activa `CS_TIMER` (condicionado por `LEGACY_CS == 1`)
 2. **Árbol MUX Secundario:** 
    Las salidas `RDATA` de los periféricos lentos entran a un MUX local de menor escala controlado por los `CS` locales. Su salida unificada alimenta la señal `RDATA_BRIDGE` que vuelve al MMIO.
    
 > **Conclusión en Hardware:** Este cuarto circuito demuestra físicamente cómo el sistema no crece de forma lineal y cómo el diseño modular permite conectar decenas de dispositivos de I/O ocupando tan solo **un** puerto en el MMIO central.
 
 ---
-## Integración de los Tres Circuitos en el Sistema Global
+## Circuito 5 — Controlador PCIe General (`pcie_general_controller.vhd`)
+
+### Propósito
+
+Actuar como el **switch central de periféricos**, absorbiendo el tráfico que el MMIO le delega mediante `CS_PERIFn` y ruteándolo hacia el destino correcto: NVMe, GPU, o el conjunto de dispositivos lentos a través del `slow_connection_system.vhd`. Además, arbitra las solicitudes de DMA y MSI provenientes de los periféricos lentos, controlando cuándo se les concede acceso a los recursos compartidos del sistema.
+
+> Este componente expande la lógica que antes era implícita en el "Complejo PCIe" del diagrama global, formalizándola como un módulo VHDL con puertos y FSM propios.
+
+---
+
+### Entradas
+
+| Señal | Ancho | Origen | Descripción |
+|-------|-------|--------|-------------|
+| `CS_PCIE` | 1 bit | MMIO Controller (`CS_PERIFn`) | Chip Select general que habilita al Controlador PCIe. Activo cuando el MMIO determina que la dirección cae en el rango PCIe/periféricos. |
+| `LOCAL_ADDR[19:0]` | 20 bits | MMIO Controller | Offset dentro del espacio PCIe. El Controlador PCIe inspecciona estos bits para determinar si el destino es NVMe, GPU o el rango legacy de dispositivos lentos. |
+| `WDATA_IN[31:0]` | 32 bits | MMIO Controller | Dato de escritura propagado desde el CPU. |
+| `WEN`, `REN` | 1 bit c/u | MMIO Controller | Señales de control de lectura/escritura. |
+| `SLOW_REQ_DMA` | 1 bit | `slow_connection_system.vhd` | Petición del puente lento para usar el canal DMA compartido. La FSM del PCIe concede o pospone el acceso. |
+| `SLOW_REQ_MSI` | 1 bit | `slow_connection_system.vhd` | Petición del puente lento para enviar una MSI a través del sistema de interrupciones compartido. |
+| `RDATA_NVME[31:0]`, `READY_NVME` | 32 y 1 bit | NVMe Controller | Respuesta del NVMe ante lecturas o handshakes de completado. |
+| `RDATA_GPU[31:0]`, `READY_GPU` | 32 y 1 bit | GPU Controller | Respuesta de la GPU. |
+| `RDATA_BRIDGE[31:0]`, `READY_BRIDGE` | 32 y 1 bit | `slow_connection_system.vhd` | Respuesta consolidada del puente lento. |
+
+---
+
+### Salidas
+
+| Señal | Ancho | Destino | Descripción |
+|-------|-------|---------|-------------|
+| `CS_NVME` | 1 bit | NVMe Controller | Chip Select hacia el NVMe. Activo cuando `LOCAL_ADDR` cae en el sub-rango asignado al NVMe. |
+| `CS_GPU` | 1 bit | GPU Controller | Chip Select hacia la GPU. Activo cuando `LOCAL_ADDR` cae en el sub-rango de la GPU. |
+| `LEGACY_CS` | 1 bit | `slow_connection_system.vhd` | **Puerto nuevo.** Chip Select de propagación hacia el puente lento. Reemplaza la conexión directa que antes existía entre el `mmio_controller` y el `slow_connection_system`. Se activa cuando la dirección cae en el rango legacy. |
+| `LEGACY_ADDR[19:0]` | 20 bits | `slow_connection_system.vhd` | **Puerto nuevo.** Offset enmascarado propagado al puente lento. Equivale al `LOCAL_ADDR` que el MMIO antes enviaba directamente al puente. |
+| `WDATA_OUT[31:0]` | 32 bits | NVMe / GPU / `slow_connection_system` | Dato de escritura enrutado al dispositivo seleccionado. |
+| `WEN_OUT`, `REN_OUT` | 1 bit c/u | Dispositivo seleccionado | Señales de control propagadas al destino activo. |
+| `RDATA_OUT[31:0]` | 32 bits | MMIO Controller (MUX de lectura) | Dato de retorno seleccionado mediante árbol MUX interno entre las respuestas de NVMe, GPU y puente lento. |
+| `READY_OUT` | 1 bit | MMIO Controller (handshake) | Handshake de completado consolidado. Se genera cuando el dispositivo seleccionado confirma su `READY`. |
+| `DMA_GRANT_SLOW` | 1 bit | `slow_connection_system.vhd` | Confirmación de que el DMA está disponible para el periférico lento. La FSM lo activa cuando no hay otra transferencia en curso. |
+| `MSI_GRANT_SLOW` | 1 bit | `slow_connection_system.vhd` | Permiso para que el periférico lento inyecte su MSI en el canal compartido. |
+
+---
+
+### Lógica Interna
+
+#### Bloque A — Decodificación de Sub-Rango *(Combinacional)*
+
+Con `CS_PCIE='1'`, el controlador evalúa `LOCAL_ADDR` para determinar el destino:
+
+```
+if   LOCAL_ADDR in [NVME_OFFSET_BASE, NVME_OFFSET_TOP]   -> activa CS_NVME
+elif LOCAL_ADDR in [GPU_OFFSET_BASE,  GPU_OFFSET_TOP]    -> activa CS_GPU
+elif LOCAL_ADDR in [LEGACY_OFFSET_BASE, LEGACY_OFFSET_TOP] -> activa LEGACY_CS
+else -> error de bus (dirección no mapeada dentro del espacio PCIe)
+```
+
+Solo un destino se activa a la vez. `LEGACY_ADDR` se calcula enmascarando la base del rango legacy, igual que el MMIO calcula `LOCAL_ADDR`.
+
+#### Bloque B — FSM de Arbitraje de Recursos Compartidos *(Secuencial)*
+
+La FSM gestiona el acceso de los periféricos lentos al DMA y al MSI:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  IDLE  ──► GRANT_DMA  ──► WAIT_DMA_DONE  ──► IDLE              │
+│        ──► GRANT_MSI  ──► WAIT_MSI_ACK   ──► IDLE              │
+│                                                                  │
+│  IDLE:                                                           │
+│    Si SLOW_REQ_DMA='1' y bus DMA libre:                          │
+│      DMA_GRANT_SLOW='1' -> estado GRANT_DMA                      │
+│    Si SLOW_REQ_MSI='1' y canal MSI libre:                        │
+│      MSI_GRANT_SLOW='1' -> estado GRANT_MSI                      │
+│                                                                  │
+│  GRANT_DMA / GRANT_MSI:                                          │
+│    Espera confirmación de completado (DMA_DONE / MSI_ACK).       │
+│    Baja la señal de GRANT y regresa a IDLE.                      │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### Bloque C — Árbol MUX de Retorno *(Combinacional)*
+
+Las respuestas de NVMe, GPU y el puente lento ingresan a un MUX controlado por los CS activos:
+
+```
+RDATA_OUT = CS_NVME   ? RDATA_NVME  :
+            CS_GPU    ? RDATA_GPU   :
+            LEGACY_CS ? RDATA_BRIDGE :
+                        32'h00000000
+READY_OUT = CS_NVME   ? READY_NVME  :
+            CS_GPU    ? READY_GPU   :
+            LEGACY_CS ? READY_BRIDGE :
+                        '0'
+```
+
+---
+
+## Mapa de Memoria y Espacio ECAM
+
+### Estrategia ECAM (*Enhanced Configuration Access Mechanism*)
+
+En lugar de agregar cables físicos adicionales para distinguir tráfico de configuración del tráfico de datos, el sistema adopta el mecanismo estándar PCIe: **ECAM**. Este enfoque reserva un rango de direcciones de memoria exclusivo para acceder al espacio de configuración de los dispositivos (BARs, capacidades, etc.), usando exactamente los mismos cables ya presentes en la jerarquía.
+
+El MMIO Controller reconoce ese rango y lo trata de forma especial: las escrituras a esas direcciones configuran los registros internos de los dispositivos, no depositan datos en RAM ni en buffers de periférico.
+
+### Mapa de Direcciones del Sistema
+
+| Rango de Direcciones | Tamaño | Destino | Notas |
+|----------------------|--------|---------|-------|
+| `0x00000000` – `0x3FFFFFFF` | 1 GiB | RAM Principal | Acceso normal de lectura/escritura. CS_RAM activo. |
+| `0x40000000` – `0x4FFFFFFF` | 256 MiB | Tráfico PCIe normal | Escrituras a GPU, NVMe, etc. Enrutado vía `CS_PCIE` → `pcie_general_controller`. |
+| `0x80000000` – `0x8000FFFF` | 64 KiB | Espacio de Configuración (BARs) — ECAM | Reservado. Accesos a este rango configuran los BARs y registros de capacidad de los dispositivos PCIe. No se rutean a RAM. |
+| `0xFEE00000` – `0xFEEFFFFF` | 1 MiB | LAPIC / MSI | Interceptado por la IRU (Circuito 3). Nunca llega a RAM. |
+| `0xFFFF0000` – `0xFFFFFFFF` | 64 KiB | Boot ROM | Solo lectura. CS_ROM activo en vector de reset. |
+
+> **Implementación VHDL:** Para soportar ECAM sin cables adicionales, el MMIO Controller debe agregar una rama en su decodificador de rangos (Paso 1 de la lógica interna) que active una señal `CS_ECAM` para el rango `0x80000000`–`0x8000FFFF`. Esta señal se conecta al `pcie_general_controller`, que la usa para distinguir si la transacción en curso es de configuración (ajusta BARs internos) o de datos (la enruta normalmente).
+
+---
+
 
 ```
 [CPU Pipeline]
@@ -352,9 +478,18 @@ Implementar de forma práctica la jerarquía de buses descrita en el Controlador
 [CONTROLADOR MMIO] ──────────► CS_RAM    ──► [DRAM Controller]
      │               ─────────► CS_ROM    ──► [Boot ROM]
      │               ─────────► CS_LAPIC  ──► [LAPIC]
-     │               ─────────► CS_PERIFn ──► [NVMe / GPU / etc.]
+     │               ─────────► CS_ECAM   ──► [PCIe General Controller] (config BARs)
+     │               ═════════► CS_PCIE   ══► [PCIe GENERAL CONTROLLER]
      │  READY, RDATA_OUT ◄───── (respuestas de esclavos vía MUX)
      │  IS_MMIO ──────────────► [Caché L1-D]  (suprime caching)
+     │
+     ▼
+[PCIe GENERAL CONTROLLER]
+     ├──────────────────────────► CS_NVME  ──► [NVMe Controller]
+     ├──────────────────────────► CS_GPU   ──► [GPU Controller]
+     ├── LEGACY_CS, LEGACY_ADDR ─────────────► [SLOW CONNECTION SYSTEM]
+     │       ◄── SLOW_REQ_DMA, SLOW_REQ_MSI ── (peticiones del puente lento)
+     │       ──► DMA_GRANT_SLOW, MSI_GRANT_SLOW (permisos concedidos)
      │
      ▼
 [ÁRBITRO DE BUS / NoC]
@@ -388,7 +523,7 @@ El Árbitro o Red en Chip (NoC) resuelve el problema de tener múltiples maestro
 
 | Paso | Quién actúa | Qué hace | Circuito involucrado |
 |------|-------------|----------|----------------------|
-| 1 | CPU | Escribe en el *Doorbell* del NVMe | **MMIO** → `CS_PERIFn` |
+| 1 | CPU | Escribe en el *Doorbell* del NVMe | **MMIO** → `CS_PCIE` → **PCIe Controller** → `CS_NVME` |
 | 2 | NVMe | Pide el bus y lee el comando de la RAM por DMA | **DMA** → `BUS_REQ` / `BUS_GRANT` |
 | 3 | NVMe | Busca datos en NAND y los escribe en RAM por DMA | **DMA** → `RAM_ADDR`, `RAM_WEN` |
 | 4 | DMA | Invalida líneas de caché afectadas | **DMA** → `CACHE_INVALIDATE_ADDR` |
@@ -412,6 +547,7 @@ graph LR
     classDef mem fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
     classDef pcie fill:#f3e5f5,stroke:#8e24aa,stroke-width:2px,color:#000
     classDef slow fill:#ffe0b2,stroke:#f57c00,stroke-width:2px,color:#000
+    classDef ecam fill:#fce4ec,stroke:#c62828,stroke-width:2px,color:#000
 
     %% ==========================================
     %% NIVEL CENTRAL (CPU Y MMIO)
@@ -421,7 +557,7 @@ graph LR
 
     CPU == "Bus Principal" ==> MMIO
 
-    %% Dispositivos directos del MMIO (Solo 3 o 4)
+    %% Dispositivos directos del MMIO
     RAM("🧠 RAM Principal"):::mem
     BIOS("💾 Boot ROM"):::mem
     LAPIC("⚡ LAPIC Local"):::cpu
@@ -431,46 +567,44 @@ graph LR
     MMIO -- "CS_LAPIC" --> LAPIC
 
     %% ==========================================
-    %% EL "NODO" PCIE CENTRAL (Actúa como Switch)
+    %% EL CONTROLADOR PCIE GENERAL (Switch Central)
     %% ==========================================
-    subgraph COMPLEJO_PCIE [Complejo PCIe / Switch Central]
-        PCIE_CTRL["🎛️ Controlador PCIe\n& Árbitro de Bus Interno"]:::pcie
+    subgraph COMPLEJO_PCIE [Controlador PCIe General]
+        PCIE_CTRL["🎛️ pcie_general_controller\n(Switch + Árbitro DMA/MSI)"]:::pcie
         DMA["🚀 Motor DMA Compartido"]:::pcie
         MSI["📨 Unidad MSI (IRU)"]:::pcie
     end
 
-    MMIO == "CS_PCIE (Todo el tráfico periférico)" ==> PCIE_CTRL
+    MMIO == "CS_PCIE\n(tráfico periférico)" ==> PCIE_CTRL
+    MMIO -. "CS_ECAM\n(config BARs)" .-> PCIE_CTRL
 
-    %% Dispositivos de Alta Velocidad pegados al PCIe
+    %% Dispositivos de Alta Velocidad
     NVME["💽 NVMe Controller"]:::pcie
     GPU["🖥️ GPU / Framebuffer"]:::pcie
 
-    PCIE_CTRL <--> NVME
-    PCIE_CTRL <--> GPU
+    PCIE_CTRL <-- "CS_NVME" --> NVME
+    PCIE_CTRL <-- "CS_GPU" --> GPU
 
     %% ==========================================
     %% EL PUENTE LENTO (Detrás del PCIe)
     %% ==========================================
-    subgraph PUENTE_LENTO [Switch de Dispositivos Lentos]
+    subgraph PUENTE_LENTO [slow_connection_system]
         SWITCH_LENTO{"Bridge / Sub-Decoder"}:::slow
         UART["🖨️ UART"]:::slow
         TIMER["⏱️ Timer"]:::slow
         GPIO["🔌 GPIO"]:::slow
     end
 
-    %% El PCIe enruta el tráfico hacia el switch lento si la dirección coincide
-    PCIE_CTRL == "Línea Legacy / Bus Secundario" ==> SWITCH_LENTO
-    
+    PCIE_CTRL == "LEGACY_CS\nLEGACY_ADDR" ==> SWITCH_LENTO
     SWITCH_LENTO --> UART
     SWITCH_LENTO --> TIMER
     SWITCH_LENTO --> GPIO
 
-    %% ==========================================
-    %% LA MAGIA: Líneas de compartición DMA/MSI desde los lentos
-    %% ==========================================
-    SWITCH_LENTO -. "Petición DMA / MSI\nCompartida" .-> PCIE_CTRL
-    
-    %% Retornos de infraestructura del bloque PCIe hacia el sistema global
+    %% Líneas de solicitud y permiso DMA/MSI
+    SWITCH_LENTO -. "SLOW_REQ_DMA\nSLOW_REQ_MSI" .-> PCIE_CTRL
+    PCIE_CTRL -. "DMA_GRANT_SLOW\nMSI_GRANT_SLOW" .-> SWITCH_LENTO
+
+    %% Retornos de infraestructura
     DMA -. "Acceso Directo a RAM" .-> RAM
     MSI -. "Inyección de Interrupción" .-> LAPIC
 ``` 
