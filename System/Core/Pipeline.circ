@@ -5,6 +5,7 @@
   <lib desc="#Wiring" name="0">
     <tool name="Splitter">
       <a name="appear" val="center"/>
+      <a name="facing" val="west"/>
       <a name="fanout" val="3"/>
       <a name="incoming" val="3"/>
     </tool>
@@ -13,10 +14,9 @@
     </tool>
     <tool name="Probe">
       <a name="appearance" val="classic"/>
-      <a name="facing" val="south"/>
+      <a name="facing" val="west"/>
     </tool>
     <tool name="Tunnel">
-      <a name="facing" val="north"/>
       <a name="labelfont" val="SansSerif bold 8"/>
     </tool>
     <tool name="Pull Resistor">
@@ -51,11 +51,11 @@
     </tool>
   </lib>
   <lib desc="#Base" name="5"/>
-  <lib desc="file#LAPIC.circ" name="6"/>
+  <lib desc="file#Control_FLush.circ" name="6"/>
   <lib desc="file#MEM.circ" name="7"/>
-  <lib desc="file#Unidad_Aritmetica.circ" name="8"/>
-  <lib desc="file#Registros.circ" name="9"/>
-  <lib desc="file#Control_FLush.circ" name="10"/>
+  <lib desc="file#Registros.circ" name="8"/>
+  <lib desc="file#LAPIC.circ" name="9"/>
+  <lib desc="file#Unidad_Aritmetica.circ" name="10"/>
   <main name="Pipeline_Core"/>
   <options>
     <a name="gateUndefined" val="ignore"/>
@@ -201,7 +201,7 @@
       <a name="selloc" val="tr"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="6" loc="(620,410)" name="Local_APIC"/>
+    <comp lib="9" loc="(620,410)" name="Local_APIC"/>
     <comp loc="(470,410)" name="Pipeline_Core"/>
     <wire from="(240,100)" to="(390,100)"/>
     <wire from="(240,120)" to="(370,120)"/>
@@ -333,7 +333,7 @@
     </comp>
     <comp lib="0" loc="(1270,180)" name="Constant">
       <a name="facing" val="north"/>
-      <a name="value" val="0x2"/>
+      <a name="value" val="0x3"/>
       <a name="width" val="3"/>
     </comp>
     <comp lib="0" loc="(1370,1110)" name="Tunnel">
@@ -532,12 +532,8 @@
       <a name="negate0" val="true"/>
       <a name="size" val="30"/>
     </comp>
-    <comp lib="10" loc="(1210,910)" name="Flush"/>
-    <comp lib="10" loc="(1510,1180)" name="Exception_Generator"/>
-    <comp lib="10" loc="(240,870)" name="PC"/>
-    <comp lib="10" loc="(270,770)" name="Instr_Fecher"/>
-    <comp lib="10" loc="(580,840)" name="Dec"/>
-    <comp lib="10" loc="(950,830)" name="Bypass"/>
+    <comp lib="10" loc="(1000,520)" name="Branch"/>
+    <comp lib="10" loc="(1000,650)" name="ALU"/>
     <comp lib="2" loc="(1050,600)" name="Multiplexer">
       <a name="size" val="20"/>
       <a name="width" val="32"/>
@@ -590,12 +586,6 @@
     <comp lib="3" loc="(1510,610)" name="Adder">
       <a name="width" val="32"/>
     </comp>
-    <comp lib="5" loc="(1320,175)" name="Text">
-      <a name="text" val="1 = 8 bits"/>
-    </comp>
-    <comp lib="5" loc="(1325,190)" name="Text">
-      <a name="text" val="2 = 32 bits"/>
-    </comp>
     <comp lib="5" loc="(1545,1020)" name="Text">
       <a name="text" val="Enables"/>
     </comp>
@@ -617,11 +607,15 @@
     <comp lib="5" loc="(580,1025)" name="Text">
       <a name="text" val="Enables"/>
     </comp>
+    <comp lib="6" loc="(1210,910)" name="Flush"/>
+    <comp lib="6" loc="(1510,1180)" name="Exception_Generator"/>
+    <comp lib="6" loc="(240,870)" name="PC"/>
+    <comp lib="6" loc="(270,770)" name="Instr_Fecher"/>
+    <comp lib="6" loc="(580,840)" name="Dec"/>
+    <comp lib="6" loc="(950,830)" name="Bypass"/>
     <comp lib="7" loc="(1930,370)" name="MMU"/>
-    <comp lib="8" loc="(1000,520)" name="Branch"/>
-    <comp lib="8" loc="(1000,650)" name="ALU"/>
-    <comp lib="9" loc="(580,460)" name="REG"/>
-    <comp lib="9" loc="(580,640)" name="REGE"/>
+    <comp lib="8" loc="(580,460)" name="REG"/>
+    <comp lib="8" loc="(580,640)" name="REGE"/>
     <comp loc="(1150,870)" name="EXtoMEM"/>
     <comp loc="(1580,870)" name="MEMtoWB"/>
     <comp loc="(1870,840)" name="Halt_Unit"/>
