@@ -421,7 +421,7 @@
     <a name="simulationFrequency" val="2048000.0"/>
     <appear>
       <rect fill="none" height="40" stroke="#000000" stroke-width="2" width="60" x="90" y="110"/>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="133" y="129">Flush</text>
+      <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="130" y="129">Flush</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="7" text-anchor="middle" x="120" y="118">Brh</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="7" text-anchor="middle" x="131" y="142">RST</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="7" text-anchor="middle" x="109" y="142">Clk</text>
@@ -430,6 +430,7 @@
       <circ-port dir="in" pin="170,120" x="120" y="110"/>
       <circ-port dir="in" pin="170,160" x="110" y="150"/>
       <circ-port dir="in" pin="170,190" x="130" y="150"/>
+      <circ-port dir="in" pin="170,210" x="150" y="130"/>
       <circ-port dir="out" pin="500,130" x="90" y="130"/>
     </appear>
     <comp lib="0" loc="(170,120)" name="Pin">
@@ -444,11 +445,18 @@
       <a name="appearance" val="NewPins"/>
       <a name="label" val="RST"/>
     </comp>
+    <comp lib="0" loc="(170,210)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="HLT"/>
+    </comp>
     <comp lib="0" loc="(500,130)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
       <a name="label" val="Flush_Out"/>
       <a name="output" val="true"/>
+    </comp>
+    <comp lib="1" loc="(410,200)" name="OR Gate">
+      <a name="size" val="30"/>
     </comp>
     <comp lib="1" loc="(460,130)" name="OR Gate">
       <a name="size" val="30"/>
@@ -458,11 +466,13 @@
     </comp>
     <wire from="(170,120)" to="(300,120)"/>
     <wire from="(170,160)" to="(300,160)"/>
-    <wire from="(170,190)" to="(420,190)"/>
+    <wire from="(170,190)" to="(380,190)"/>
+    <wire from="(170,210)" to="(380,210)"/>
     <wire from="(330,170)" to="(330,180)"/>
     <wire from="(330,180)" to="(470,180)"/>
     <wire from="(360,120)" to="(430,120)"/>
-    <wire from="(420,140)" to="(420,190)"/>
+    <wire from="(410,200)" to="(420,200)"/>
+    <wire from="(420,140)" to="(420,200)"/>
     <wire from="(420,140)" to="(430,140)"/>
     <wire from="(460,130)" to="(470,130)"/>
     <wire from="(470,130)" to="(470,180)"/>

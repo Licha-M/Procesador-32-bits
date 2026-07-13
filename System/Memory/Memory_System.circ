@@ -9,9 +9,6 @@
   </lib>
   <lib desc="#Gates" name="1"/>
   <lib desc="#Plexers" name="2">
-    <tool name="Multiplexer">
-      <a name="facing" val="west"/>
-    </tool>
     <tool name="Demultiplexer">
       <a name="facing" val="west"/>
     </tool>
@@ -44,6 +41,7 @@
     <sep/>
     <tool lib="0" name="Pin"/>
     <tool lib="0" name="Pin">
+      <a name="facing" val="west"/>
       <a name="output" val="true"/>
     </tool>
     <sep/>
@@ -61,12 +59,6 @@
     <tool lib="4" name="D Flip-Flop"/>
     <tool lib="4" name="Register"/>
   </toolbar>
-  <circuit name="Memory">
-    <a name="appearance" val="logisim_evolution"/>
-    <a name="circuit" val="Memory"/>
-    <a name="circuitnamedboxfixedsize" val="true"/>
-    <a name="simulationFrequency" val="2048000.0"/>
-  </circuit>
   <circuit name="Memory_Controller">
     <a name="appearance" val="custom"/>
     <a name="circuit" val="Memory_Controller"/>
