@@ -1,0 +1,30 @@
+; ==========================================================
+; Programa 1: Sucesión de Fibonacci
+; Calcula el N-ésimo número de Fibonacci.
+; Al finalizar, el procesador se detiene (HLT).
+; ==========================================================
+
+LDI R1, 0           ; R1 = F(0) = 0 (Valor actual)
+LDI R2, 1           ; R2 = F(1) = 1 (Siguiente valor)
+LDI R3, 10          ; R3 = Contador N (calcularemos hasta F(10))
+
+loop_fibonacci:
+; R4 (temp) = R1 + R2
+ADD R1, R2, R4      
+
+; R1 = R2 (Aprovechamos que R0 es siempre 0)
+ADD R0, R2, R1      
+
+; R2 = R4 (El temporal pasa a ser el siguiente)
+ADD R0, R4, R2      
+
+; Decrementamos el contador N en 1
+; ADI soporta inmediatos con signo, por lo que -1 es válido
+ADI R3, -1          
+
+; Si el contador no es igual a 0, repetimos el bucle.
+; La instrucción ADI anterior actualizó el Flag de Zero (Z).
+BRH !=, loop_fibonacci 
+
+; Fin del programa
+HLT

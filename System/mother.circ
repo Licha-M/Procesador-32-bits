@@ -4,7 +4,7 @@
 
   <lib desc="#Wiring" name="0">
     <tool name="Splitter">
-      <a name="facing" val="west"/>
+      <a name="appear" val="right"/>
     </tool>
     <tool name="Pin">
       <a name="appearance" val="classic"/>
