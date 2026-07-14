@@ -587,7 +587,8 @@ def second_pass(label_map: dict[str, int],
                 address += 6
                 continue
 
-            target_addr = label_map[name]
+            # La base de la ROM es 0xFFF00000, los saltos deben incluirla
+            target_addr = label_map[name] | 0xFFF00000
             words = expand_label_address(
                 target_addr,
                 instr.jump_mnemonic,
@@ -679,6 +680,10 @@ def write_rom_logisim(instructions: list[tuple[int,int,int]],
                 hex_bytes = ' '.join(f"{b:02x}" for b in row_bytes)
                 f.write(f"{row:05x}: {hex_bytes}\n")
             row += BYTES_PER_ROW
+
+        # Vector de reset (salto a 0xFFF00000)
+        f.write("fffe0: 0c f0 ff f0 0c e0 00 10 0a fe f0 00 0c e0 00 00\n")
+        f.write("ffff0: 02 fe f0 00 0e 0f 00 00 00 00 00 00 00 00 00 00\n")
 
 
 def write_annotated_hex(instructions: list[tuple[int,int,int]],
