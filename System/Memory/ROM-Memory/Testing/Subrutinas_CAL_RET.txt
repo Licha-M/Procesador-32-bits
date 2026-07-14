@@ -1,0 +1,27 @@
+; ==========================================================
+; Programa 3: Multiplicación mediante Subrutinas
+; Prueba las instrucciones CAL, RET y el desplazamiento LSH.
+; ==========================================================
+
+; Primera llamada a la subrutina
+LDI R1, 5           ; R1 es nuestro registro de parámetro
+CAL multiplicar_x4  ; Llamamos a la subrutina (5 * 4 = 20)
+; Al regresar, R1 valdrá 20
+
+; Segunda llamada a la subrutina
+LDI R1, 12
+CAL multiplicar_x4  ; (12 * 4 = 48)
+; Al regresar, R1 valdrá 48
+
+HLT                 ; Detenemos el núcleo del SO
+
+; ----------------------------------------------------------
+; SUBRUTINA: multiplicar_x4
+; Entrada: R1 (Valor base)
+; Salida: R1 (Valor * 4)
+; Lógica: Desplazar a la izquierda 2 bits equivale a x4
+; ----------------------------------------------------------
+multiplicar_x4:
+LDI R2, 2           ; R2 será la cantidad de bits a desplazar
+LSH R1, R2, R1      ; R1 = R1 << R2
+RET                 ; Vuelve al flujo principal del programa
