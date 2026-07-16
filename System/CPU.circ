@@ -14,6 +14,7 @@
       <a name="facing" val="south"/>
     </tool>
     <tool name="Tunnel">
+      <a name="facing" val="east"/>
       <a name="labelfont" val="SansSerif bold 8"/>
     </tool>
     <tool name="Pull Resistor">
@@ -54,10 +55,11 @@
     </tool>
   </lib>
   <lib desc="#Base" name="5"/>
-  <lib desc="file#Core\Pipeline.circ" name="6"/>
-  <lib desc="file#Memory\BIOS_Mapper.circ" name="7"/>
-  <lib desc="file#Memory\Memory_System.circ" name="8"/>
-  <lib desc="file#PCI\IO_Interface.circ" name="9"/>
+  <lib desc="file#PCI\IO_Interface.circ" name="6"/>
+  <lib desc="file#Memory\Main_Memories.circ" name="7"/>
+  <lib desc="file#Core\Pipeline.circ" name="8"/>
+  <lib desc="file#Memory\Memory_System.circ" name="9"/>
+  <lib desc="file#Memory\BIOS_Mapper.circ" name="10"/>
   <main name="Die"/>
   <options>
     <a name="gateUndefined" val="ignore"/>
@@ -75,11 +77,8 @@
     <tool lib="5" name="Wiring Tool"/>
     <tool lib="5" name="Text Tool"/>
     <sep/>
+    <tool lib="0" name="Pin"/>
     <tool lib="0" name="Pin">
-      <a name="facing" val="south"/>
-    </tool>
-    <tool lib="0" name="Pin">
-      <a name="facing" val="north"/>
       <a name="output" val="true"/>
     </tool>
     <sep/>
@@ -155,6 +154,7 @@
       <circ-port dir="out" pin="170,230" x="200" y="30"/>
       <circ-port dir="out" pin="350,230" x="150" y="30"/>
       <circ-port dir="out" pin="430,230" x="100" y="30"/>
+      <circ-port dir="out" pin="440,940" x="90" y="70"/>
       <circ-port dir="out" pin="480,220" x="120" y="30"/>
       <circ-port dir="out" pin="540,220" x="260" y="30"/>
       <circ-port dir="out" pin="610,220" x="290" y="30"/>
@@ -367,6 +367,11 @@
       <a name="appearance" val="NewPins"/>
       <a name="label" val="RST"/>
     </comp>
+    <comp lib="0" loc="(440,940)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="HLT"/>
+      <a name="output" val="true"/>
+    </comp>
     <comp lib="0" loc="(480,220)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="south"/>
@@ -405,10 +410,10 @@
       <a name="label" val="DMA_ACK"/>
       <a name="labelfont" val="SansSerif bold 8"/>
     </comp>
-    <comp lib="6" loc="(740,900)" name="Core"/>
-    <comp lib="7" loc="(950,720)" name="Mapper"/>
-    <comp lib="8" loc="(730,360)" name="Memory_Controller"/>
-    <comp lib="9" loc="(970,410)" name="Root_Complex"/>
+    <comp lib="10" loc="(950,720)" name="Mapper"/>
+    <comp lib="6" loc="(970,410)" name="Root_Complex"/>
+    <comp lib="8" loc="(740,900)" name="Core"/>
+    <comp lib="9" loc="(730,360)" name="Memory_Controller"/>
     <comp loc="(690,620)" name="Router"/>
     <wire from="(100,230)" to="(100,470)"/>
     <wire from="(100,470)" to="(490,470)"/>
@@ -472,6 +477,7 @@
     <wire from="(430,250)" to="(540,250)"/>
     <wire from="(440,900)" to="(480,900)"/>
     <wire from="(440,920)" to="(490,920)"/>
+    <wire from="(440,940)" to="(530,940)"/>
     <wire from="(480,220)" to="(480,240)"/>
     <wire from="(480,240)" to="(550,240)"/>
     <wire from="(480,460)" to="(480,900)"/>
@@ -485,6 +491,7 @@
     <wire from="(520,380)" to="(520,850)"/>
     <wire from="(530,260)" to="(530,330)"/>
     <wire from="(530,380)" to="(530,850)"/>
+    <wire from="(530,930)" to="(530,940)"/>
     <wire from="(540,220)" to="(540,230)"/>
     <wire from="(540,230)" to="(580,230)"/>
     <wire from="(540,250)" to="(540,330)"/>

@@ -849,9 +849,13 @@
       <a name="addrWidth" val="20"/>
       <a name="appearance" val="logisim_evolution"/>
       <a name="contents">addr/data: 20 8
-1 1048543*0 c f0 ff f0 c e0
-0 10 a fe f0 0 c e0
-0 0 2 fe f0 0 e f
+c 10 0 0 c 20 0 1
+c 30 0 a 2 12 40 0
+2 2 10 0 2 4 20 0
+d 30 ff ff 8c f0 ff f0
+8d f0 0 c f 1f 0 0
+1 1048519*0 8c f0 ff f0 8d f0
+0 0 e f
 </a>
       <a name="line" val="octo"/>
       <a name="misaligned" val="true"/>
