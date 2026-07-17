@@ -58,9 +58,7 @@
       <a name="output" val="true"/>
     </tool>
     <sep/>
-    <tool lib="1" name="NOT Gate">
-      <a name="facing" val="south"/>
-    </tool>
+    <tool lib="1" name="NOT Gate"/>
     <tool lib="1" name="AND Gate">
       <a name="size" val="30"/>
     </tool>
@@ -212,10 +210,9 @@
       <text dominant-baseline="central" font-family="SansSerif" font-size="9" text-anchor="middle" x="200" y="121">W</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="9" text-anchor="middle" x="67" y="69">Reg A</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="9" text-anchor="middle" x="67" y="89">Reg B</text>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="9" text-anchor="middle" x="65" y="109">Inmd</text>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="9" text-anchor="middle" x="159" y="59">LDI</text>
+      <text dominant-baseline="central" font-family="SansSerif" font-size="9" text-anchor="middle" x="62" y="109">LDI</text>
       <circ-anchor facing="east" x="180" y="130"/>
-      <circ-port dir="in" pin="230,10" x="160" y="50"/>
+      <circ-port dir="in" pin="230,10" x="50" y="110"/>
       <circ-port dir="in" pin="230,140" x="200" y="130"/>
       <circ-port dir="in" pin="230,170" x="130" y="130"/>
       <circ-port dir="in" pin="230,230" x="180" y="130"/>
@@ -223,12 +220,11 @@
       <circ-port dir="in" pin="230,280" x="110" y="130"/>
       <circ-port dir="in" pin="230,320" x="160" y="130"/>
       <circ-port dir="in" pin="230,340" x="80" y="130"/>
-      <circ-port dir="in" pin="230,380" x="50" y="110"/>
       <circ-port dir="in" pin="230,40" x="50" y="70"/>
       <circ-port dir="in" pin="230,80" x="50" y="90"/>
       <circ-port dir="out" pin="730,310" x="110" y="50"/>
       <circ-port dir="out" pin="730,350" x="60" y="50"/>
-      <circ-port dir="out" pin="790,190" x="80" y="50"/>
+      <circ-port dir="out" pin="790,180" x="80" y="50"/>
       <circ-port dir="out" pin="790,80" x="130" y="50"/>
     </appear>
     <comp lib="0" loc="(230,10)" name="Pin">
@@ -269,10 +265,6 @@
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="0" loc="(230,380)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="Inmd"/>
-    </comp>
     <comp lib="0" loc="(230,40)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="label" val="REG_A"/>
@@ -299,7 +291,7 @@
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="0" loc="(790,190)" name="Pin">
+    <comp lib="0" loc="(790,180)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
       <a name="label" val="B"/>
@@ -342,11 +334,7 @@
     <comp lib="1" loc="(680,70)" name="OR Gate">
       <a name="size" val="30"/>
     </comp>
-    <comp lib="1" loc="(720,180)" name="AND Gate">
-      <a name="negate1" val="true"/>
-      <a name="size" val="30"/>
-    </comp>
-    <comp lib="1" loc="(780,190)" name="AND Gate">
+    <comp lib="1" loc="(780,180)" name="AND Gate">
       <a name="negate1" val="true"/>
       <a name="size" val="30"/>
     </comp>
@@ -382,7 +370,6 @@
     <wire from="(230,280)" to="(240,280)"/>
     <wire from="(230,320)" to="(540,320)"/>
     <wire from="(230,340)" to="(530,340)"/>
-    <wire from="(230,380)" to="(670,380)"/>
     <wire from="(230,40)" to="(350,40)"/>
     <wire from="(230,80)" to="(340,80)"/>
     <wire from="(270,270)" to="(480,270)"/>
@@ -438,16 +425,13 @@
     <wire from="(630,160)" to="(650,160)"/>
     <wire from="(640,80)" to="(640,140)"/>
     <wire from="(640,80)" to="(650,80)"/>
-    <wire from="(670,190)" to="(670,380)"/>
-    <wire from="(670,190)" to="(680,190)"/>
-    <wire from="(680,170)" to="(690,170)"/>
+    <wire from="(680,170)" to="(750,170)"/>
     <wire from="(680,70)" to="(750,70)"/>
-    <wire from="(720,180)" to="(750,180)"/>
     <wire from="(730,10)" to="(730,90)"/>
-    <wire from="(730,200)" to="(740,200)"/>
-    <wire from="(730,90)" to="(730,200)"/>
+    <wire from="(730,190)" to="(740,190)"/>
+    <wire from="(730,90)" to="(730,190)"/>
     <wire from="(730,90)" to="(740,90)"/>
-    <wire from="(780,190)" to="(790,190)"/>
+    <wire from="(780,180)" to="(790,180)"/>
     <wire from="(780,80)" to="(790,80)"/>
   </circuit>
   <circuit name="Flush">
@@ -791,11 +775,11 @@
 01110 0000000000010000 # JMP
 01111 0000000000100000 # BRH
 10000 0101000110001000 # CAL
-10001 0010000100000000 # RET
-10010 0000100110000010 # LOD
-10011 0000100000000010 # STR
+10001 0001001100000000 # RET
+10010 0010100100000010 # LOD
+10011 0000100110000010 # STR
 10100 1000100000000000 # CYE
-10101 0010000000000000 # CYR
+10101 0001000000000000 # CYR
 10110 0000000001010000 # SCL
 10111 0000000001000000 # SRT
 </a>
@@ -1346,12 +1330,19 @@
       <circ-port dir="in" pin="320,720" x="110" y="110"/>
       <circ-port dir="in" pin="320,750" x="170" y="60"/>
       <circ-port dir="in" pin="330,350" x="260" y="110"/>
+      <circ-port dir="out" pin="1000,400" x="280" y="70"/>
       <circ-port dir="out" pin="1000,520" x="260" y="60"/>
       <circ-port dir="out" pin="300,530" x="220" y="110"/>
       <circ-port dir="out" pin="860,350" x="230" y="60"/>
       <circ-port dir="out" pin="980,1050" x="280" y="100"/>
       <circ-port dir="out" pin="980,790" x="280" y="80"/>
     </appear>
+    <comp lib="0" loc="(1000,400)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="facing" val="west"/>
+      <a name="label" val="En_IF_To_DEC"/>
+      <a name="output" val="true"/>
+    </comp>
     <comp lib="0" loc="(1000,520)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
@@ -1650,6 +1641,7 @@
     </comp>
     <comp lib="1" loc="(310,530)" name="AND Gate">
       <a name="facing" val="west"/>
+      <a name="inputs" val="3"/>
       <a name="negate0" val="true"/>
       <a name="size" val="30"/>
     </comp>
@@ -1680,6 +1672,7 @@
     <comp lib="1" loc="(940,750)" name="NOT Gate">
       <a name="facing" val="south"/>
     </comp>
+    <comp lib="1" loc="(950,400)" name="NOT Gate"/>
     <comp lib="2" loc="(870,1060)" name="Multiplexer">
       <a name="select" val="3"/>
       <a name="selloc" val="tr"/>
@@ -1743,11 +1736,13 @@
     <wire from="(340,1020)" to="(340,1050)"/>
     <wire from="(340,1020)" to="(410,1020)"/>
     <wire from="(340,1050)" to="(360,1050)"/>
+    <wire from="(340,530)" to="(360,530)"/>
     <wire from="(340,540)" to="(520,540)"/>
     <wire from="(350,1070)" to="(360,1070)"/>
     <wire from="(350,520)" to="(440,520)"/>
-    <wire from="(360,370)" to="(360,650)"/>
+    <wire from="(360,370)" to="(360,530)"/>
     <wire from="(360,370)" to="(400,370)"/>
+    <wire from="(360,530)" to="(360,650)"/>
     <wire from="(360,650)" to="(510,650)"/>
     <wire from="(370,340)" to="(370,350)"/>
     <wire from="(370,350)" to="(860,350)"/>
@@ -1830,6 +1825,7 @@
     <wire from="(680,400)" to="(690,400)"/>
     <wire from="(680,570)" to="(690,570)"/>
     <wire from="(690,360)" to="(690,400)"/>
+    <wire from="(690,400)" to="(920,400)"/>
     <wire from="(690,530)" to="(690,570)"/>
     <wire from="(700,620)" to="(710,620)"/>
     <wire from="(710,530)" to="(710,620)"/>
@@ -1898,6 +1894,7 @@
     <wire from="(940,750)" to="(940,760)"/>
     <wire from="(940,760)" to="(940,770)"/>
     <wire from="(940,760)" to="(970,760)"/>
+    <wire from="(950,400)" to="(1000,400)"/>
     <wire from="(960,1050)" to="(980,1050)"/>
     <wire from="(960,790)" to="(980,790)"/>
     <wire from="(970,760)" to="(970,1020)"/>
