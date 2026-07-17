@@ -97,7 +97,7 @@
     <a name="circuit" val="main"/>
     <a name="circuitnamedboxfixedsize" val="true"/>
     <a name="simulationFrequency" val="2048000.0"/>
-    <comp lib="0" loc="(240,270)" name="Clock">
+    <comp lib="0" loc="(250,270)" name="Clock">
       <a name="highDuration" val="50"/>
       <a name="lowDuration" val="50"/>
     </comp>
@@ -111,7 +111,7 @@
     <comp lib="8" loc="(600,110)" name="Memory"/>
     <comp lib="9" loc="(550,250)" name="Die"/>
     <comp loc="(310,270)" name="On_Off_Sys"/>
-    <wire from="(240,270)" to="(260,270)"/>
+    <wire from="(250,270)" to="(260,270)"/>
     <wire from="(250,300)" to="(260,300)"/>
     <wire from="(310,250)" to="(340,250)"/>
     <wire from="(310,270)" to="(340,270)"/>
