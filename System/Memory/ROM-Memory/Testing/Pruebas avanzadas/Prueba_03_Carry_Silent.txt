@@ -1,0 +1,27 @@
+; ==========================================================
+; Prueba 3 (Fase 1): Captura de Acarreo y Ejecucion Silenciosa
+; Motivo: verificar que el prefijo SLT (bit 31) evita que se
+; modifiquen RE9 (Eflags) y RE10 (Carry), y que el procesador
+; puede recuperar un acarreo previo con GOF.
+; ==========================================================
+
+; --- Generamos un acarreo REAL con una suma NORMAL ---
+; R0 siempre vale 0, asi que NOR R0,R0 = NOT(0 OR 0) = todos 1s
+NOR R0, R0, R1          ; R1 = 0xFFFFFFFF
+LDI R2, 1
+ADD R1, R2, R3            ; R3 = 0x00000000, se genera Carry = 1
+                            ; (queda guardado en RE10)
+
+; --- Ejecutamos una suma SILENCIOSA con otros operandos ---
+; No debe tocar RE9 (Eflags) ni RE10 (Carry)
+LDI R4, 5
+LDI R5, 5
+SLT ADD R4, R5, R6         ; R6 = 10, pero el Carry anterior no debe perderse
+
+; --- Recuperamos el Carry guardado con GOF ---
+GOF R7                      ; Esperado: R7 = 1 (el acarreo de la suma
+                              ; NORMAL, intacto pese a la suma silenciosa)
+
+; Fin: revisar que R7 = 1 confirma que SLT protegio RE9/RE10
+; correctamente y que GOF lee el acarreo correcto desde RE10.
+HLT

@@ -1,0 +1,42 @@
+; ==========================================================
+; Prueba 2 (Fase 1): Banderas y Saltos Complejos (Eflags)
+; Motivo: comprobar que la ALU actualiza RE9 (Eflags) tras
+; operaciones aritmeticas, y que BRH OV y BRH N responden
+; correctamente a Overflow y Negativo.
+; Cada parte se autoverifica: si la bandera no se detecta,
+; el programa se detiene con un valor centinela (999).
+; ==========================================================
+
+; --- Parte A: forzar Overflow en una suma ---
+; Construimos 0x80000000 (el numero negativo mas grande)
+; desplazando 1 a la izquierda 31 veces.
+LDI R1, 1
+LDI R2, 31
+LSH R1, R2, R3          ; R3 = 0x80000000
+
+; Sumar dos numeros negativos (bit de signo = 1) y obtener un
+; resultado con bit de signo = 0 debe activar Overflow.
+ADD R3, R3, R4           ; R4 = 0x00000000, Overflow esperado = 1
+
+BRH OV, overflow_ok       ; si el hardware detecto el overflow, salta
+LDI R5, 999                ; centinela de FALLO
+HLT                         ; PRUEBA A FALLIDA: no se detecto Overflow
+
+overflow_ok:
+LDI R5, 1                    ; R5 = 1 -> Overflow funciono correctamente
+
+; --- Parte B: forzar resultado Negativo en una resta ---
+LDI R6, 5
+LDI R7, 10
+SUB R6, R7, R8            ; R8 = 5 - 10 = -5 (bit de signo = 1)
+
+BRH N, negative_ok         ; si el hardware detecto el negativo, salta
+LDI R9, 999                  ; centinela de FALLO
+HLT                           ; PRUEBA B FALLIDA: no se detecto Negativo
+
+negative_ok:
+LDI R9, 1                     ; R9 = 1 -> bandera Negativo funciono
+
+; Fin: revisar R5 = 1 y R9 = 1 para confirmar exito de ambas partes.
+; RE9 (Eflags) debe reflejar el resultado de la ultima operacion (SUB).
+HLT

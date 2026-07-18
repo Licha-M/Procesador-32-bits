@@ -420,11 +420,12 @@ def encode_single(tokens: list[str], line_num: int) -> int:
         ra = parse_register(args[1], line_num)
         return build_word(0, op, (rc << 20) | (ra << 16))
 
-    # ── CYR — [23:20]=RA (normal → especial) ────────────────────────────────
+    # ── CYR — [23:20]=RA (normal) [19:16]=RC (especial) ────────────────────────────────
     elif mnemonic == 'CYR':
-        _require_argc(args, 1, 'CYR', line_num, hint="CYR R0")
+        _require_argc(args, 2, 'CYR', line_num, hint="CYR R0, R1")
         ra = parse_register(args[0], line_num)
-        return build_word(0, op, ra << 20)
+        rc = parse_register(args[1], line_num)
+        return build_word(0, op, (ra << 20) | (rc << 16))
 
     else:
         raise AssemblerError(
