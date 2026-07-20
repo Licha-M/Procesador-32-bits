@@ -1,0 +1,62 @@
+; =======================================================================
+; PRUEBA 7: Cambio de Contexto y Syscalls (SCL y SRT)
+; =======================================================================
+
+; 1. Escribir el Handler del SO en RAM
+; -----------------------------------------------------------------------
+; Se establece la base del handler en 0x00001000.
+H LDI R1, 0x0000
+SLT ADI R1, 0x1000  ; R1 = 0x00001000 (Puntero base en RAM)
+
+; Instrucción 1: 'LDI R4, 0x9999' -> Marca visual de que el OS se ejecutó
+; Codificación: 0x0C409999 (Compensación de signo: High=0x0C41)
+H LDI R2, 0x0C41    
+SLT ADI R2, 0x9999  
+int STR R1, R2, 0   ; RAM[0x1000] = LDI R4, 0x9999
+
+; Instrucción 2: 'CYE R1, R5' -> Leer el EPC (RE 1) hacia R5
+; Codificación: 0x14150000
+H LDI R2, 0x1415
+SLT ADI R2, 0x0000
+int STR R1, R2, 4   ; RAM[0x1004] = CYE R1, R5[cite: 1]
+
+; Instrucción 3: 'SLT ADI R5, 4' -> Sumar +4 al EPC para evitar bucle infinito
+; Las instrucciones miden 4 bytes, por ende EPC+4 es la instrucción que sigue al SCL.
+; Codificación: 0x8D500004[cite: 1]
+H LDI R2, 0x8D50
+SLT ADI R2, 0x0004
+int STR R1, R2, 8   ; RAM[0x1008] = SLT ADI R5, 4[cite: 1]
+
+; Instrucción 4: 'CYR R5, R1' -> Escribir la nueva dirección de retorno al EPC (RE 1)
+; Codificación: 0x15510000[cite: 1]
+H LDI R2, 0x1551
+SLT ADI R2, 0x0000
+int STR R1, R2, 12  ; RAM[0x100C] = CYR R5, R1[cite: 1]
+
+; Instrucción 5: 'SRT' -> Vuelve del SO a la dirección en EPC (Instrucción Privilegiada)
+; Codificación: 0x17000000[cite: 1]
+H LDI R2, 0x1700
+SLT ADI R2, 0x0000
+int STR R1, R2, 16  ; RAM[0x1010] = SRT[cite: 1]
+
+
+; 2. Configurar el vector SysJMP (Registro Especial 12)
+; -----------------------------------------------------------------------
+; Movemos el puntero al handler (0x1000) desde R1 hacia SysJMP[cite: 1].
+CYR R1, R12         ; Sys-JMP (RE 12) = 0x00001000[cite: 1]
+
+
+; 3. Inicializar el entorno y Lanzar la Llamada al Sistema
+; -----------------------------------------------------------------------
+LDI R4, 0x0000      ; Limpiamos R4 para descartar residuales
+LDI R5, 0x0000      ; Limpiamos R5 usado en el cálculo del EPC
+
+SCL                 ; Llama al SO (Salta al SysJMP y guarda PC en EPC)[cite: 1]
+
+
+; 4. Punto de Retorno Seguro
+; -----------------------------------------------------------------------
+; Si el flujo funciona bien, la CPU reanudará la ejecución exactamente en 
+; esta instrucción (gracias al +4 que inyectamos en el EPC).
+; Podemos comprobar el éxito visualizando que R4 == 0x9999.
+HLT                 ; Detiene el núcleo con éxito[cite: 1]

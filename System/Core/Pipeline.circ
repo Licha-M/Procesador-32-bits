@@ -5,7 +5,6 @@
   <lib desc="#Wiring" name="0">
     <tool name="Splitter">
       <a name="appear" val="center"/>
-      <a name="facing" val="west"/>
       <a name="fanout" val="3"/>
       <a name="incoming" val="3"/>
     </tool>
@@ -17,7 +16,6 @@
       <a name="facing" val="south"/>
     </tool>
     <tool name="Tunnel">
-      <a name="facing" val="east"/>
       <a name="labelfont" val="SansSerif bold 8"/>
     </tool>
     <tool name="Pull Resistor">
@@ -27,6 +25,7 @@
       <a name="facing" val="south"/>
     </tool>
     <tool name="Constant">
+      <a name="facing" val="west"/>
       <a name="value" val="0x500"/>
       <a name="width" val="16"/>
     </tool>
@@ -49,16 +48,16 @@
     </tool>
   </lib>
   <lib desc="#Base" name="5"/>
-  <lib desc="file#Unidad_Aritmetica.circ" name="6"/>
-  <lib desc="file#MEM.circ" name="7"/>
-  <lib desc="file#Registros.circ" name="8"/>
-  <lib desc="file#..\Memory\Main_Memories.circ" name="9">
+  <lib desc="file#Control_FLush.circ" name="6"/>
+  <lib desc="file#..\Memory\Main_Memories.circ" name="7">
     <tool name="ROM_BIOS">
       <a name="facing" val="north"/>
     </tool>
   </lib>
-  <lib desc="file#Control_FLush.circ" name="10"/>
-  <lib desc="file#LAPIC.circ" name="11"/>
+  <lib desc="file#MEM.circ" name="8"/>
+  <lib desc="file#Registros.circ" name="9"/>
+  <lib desc="file#LAPIC.circ" name="10"/>
+  <lib desc="file#Unidad_Aritmetica.circ" name="11"/>
   <main name="Pipeline_Core"/>
   <options>
     <a name="gateUndefined" val="ignore"/>
@@ -89,7 +88,7 @@
       <a name="size" val="30"/>
     </tool>
     <tool lib="1" name="OR Gate">
-      <a name="facing" val="north"/>
+      <a name="facing" val="west"/>
       <a name="size" val="30"/>
     </tool>
     <tool lib="1" name="XOR Gate">
@@ -209,7 +208,7 @@
       <a name="out_width" val="32"/>
       <a name="type" val="zero"/>
     </comp>
-    <comp lib="11" loc="(620,410)" name="Local_APIC"/>
+    <comp lib="10" loc="(620,410)" name="Local_APIC"/>
     <comp lib="2" loc="(400,270)" name="Multiplexer">
       <a name="facing" val="south"/>
       <a name="selloc" val="tr"/>
@@ -364,16 +363,16 @@
       <a name="output" val="true"/>
       <a name="width" val="3"/>
     </comp>
+    <comp lib="0" loc="(1270,1160)" name="Tunnel">
+      <a name="facing" val="east"/>
+      <a name="label" val="EPC_in"/>
+      <a name="labelfont" val="SansSerif bold 8"/>
+      <a name="width" val="32"/>
+    </comp>
     <comp lib="0" loc="(1270,180)" name="Constant">
       <a name="facing" val="north"/>
       <a name="value" val="0x3"/>
       <a name="width" val="3"/>
-    </comp>
-    <comp lib="0" loc="(1370,1110)" name="Tunnel">
-      <a name="facing" val="north"/>
-      <a name="label" val="EPC_in"/>
-      <a name="labelfont" val="SansSerif bold 8"/>
-      <a name="width" val="32"/>
     </comp>
     <comp lib="0" loc="(1380,1180)" name="Tunnel">
       <a name="facing" val="east"/>
@@ -608,6 +607,11 @@
       <a name="inputs" val="3"/>
       <a name="size" val="30"/>
     </comp>
+    <comp lib="1" loc="(1300,1160)" name="OR Gate">
+      <a name="facing" val="west"/>
+      <a name="size" val="30"/>
+      <a name="width" val="32"/>
+    </comp>
     <comp lib="1" loc="(1580,1130)" name="OR Gate">
       <a name="size" val="30"/>
     </comp>
@@ -624,12 +628,8 @@
       <a name="facing" val="west"/>
       <a name="size" val="30"/>
     </comp>
-    <comp lib="10" loc="(1000,790)" name="Bypass"/>
-    <comp lib="10" loc="(1210,910)" name="Flush"/>
-    <comp lib="10" loc="(1510,1180)" name="Exception_Generator"/>
-    <comp lib="10" loc="(240,830)" name="PC"/>
-    <comp lib="10" loc="(270,770)" name="Instr_Fecher_V2"/>
-    <comp lib="10" loc="(580,840)" name="Dec"/>
+    <comp lib="11" loc="(1000,520)" name="Branch"/>
+    <comp lib="11" loc="(1000,650)" name="ALU"/>
     <comp lib="2" loc="(1050,600)" name="Multiplexer">
       <a name="size" val="20"/>
       <a name="width" val="32"/>
@@ -706,11 +706,15 @@
     <comp lib="5" loc="(580,1025)" name="Text">
       <a name="text" val="Enables"/>
     </comp>
-    <comp lib="6" loc="(1000,520)" name="Branch"/>
-    <comp lib="6" loc="(1000,650)" name="ALU"/>
-    <comp lib="7" loc="(1930,370)" name="MMU"/>
-    <comp lib="8" loc="(580,460)" name="REG"/>
-    <comp lib="8" loc="(580,640)" name="REGE"/>
+    <comp lib="6" loc="(1000,790)" name="Bypass"/>
+    <comp lib="6" loc="(1210,910)" name="Flush"/>
+    <comp lib="6" loc="(1510,1180)" name="Exception_Generator"/>
+    <comp lib="6" loc="(240,830)" name="PC"/>
+    <comp lib="6" loc="(270,770)" name="Instr_Fecher_V2"/>
+    <comp lib="6" loc="(580,840)" name="Dec"/>
+    <comp lib="8" loc="(1930,370)" name="MMU"/>
+    <comp lib="9" loc="(580,460)" name="REG"/>
+    <comp lib="9" loc="(580,640)" name="REGE"/>
     <comp loc="(1150,870)" name="EXtoMEM"/>
     <comp loc="(1580,870)" name="MEMtoWB"/>
     <comp loc="(1880,840)" name="Halt_Unit"/>
@@ -791,6 +795,7 @@
     <wire from="(1250,170)" to="(1250,510)"/>
     <wire from="(1260,130)" to="(1260,140)"/>
     <wire from="(1260,570)" to="(1290,570)"/>
+    <wire from="(1270,1160)" to="(1300,1160)"/>
     <wire from="(1270,170)" to="(1270,180)"/>
     <wire from="(1290,340)" to="(1290,570)"/>
     <wire from="(1290,340)" to="(1700,340)"/>
@@ -806,12 +811,16 @@
     <wire from="(1300,320)" to="(1700,320)"/>
     <wire from="(1300,840)" to="(1300,1020)"/>
     <wire from="(1310,830)" to="(1310,1010)"/>
+    <wire from="(1330,1150)" to="(1370,1150)"/>
+    <wire from="(1330,1170)" to="(1390,1170)"/>
     <wire from="(1340,430)" to="(1340,760)"/>
     <wire from="(1340,430)" to="(1910,430)"/>
     <wire from="(1340,760)" to="(1350,760)"/>
     <wire from="(1360,440)" to="(1360,730)"/>
     <wire from="(1360,440)" to="(1930,440)"/>
-    <wire from="(1370,870)" to="(1370,1110)"/>
+    <wire from="(1370,1150)" to="(1370,1160)"/>
+    <wire from="(1370,1160)" to="(1390,1160)"/>
+    <wire from="(1370,870)" to="(1370,1150)"/>
     <wire from="(1380,1180)" to="(1390,1180)"/>
     <wire from="(1380,750)" to="(1410,750)"/>
     <wire from="(1390,210)" to="(1390,220)"/>

@@ -609,7 +609,7 @@
       <circ-port dir="in" pin="830,560" x="250" y="120"/>
       <circ-port dir="out" pin="660,1600" x="250" y="60"/>
       <circ-port dir="out" pin="830,1040" x="250" y="140"/>
-      <circ-port dir="out" pin="830,390" x="250" y="30"/>
+      <circ-port dir="out" pin="830,400" x="250" y="30"/>
       <circ-port dir="out" pin="830,520" x="250" y="100"/>
       <circ-port dir="out" pin="960,790" x="250" y="80"/>
       <circ-port dir="out" pin="960,810" x="250" y="160"/>
@@ -687,7 +687,7 @@
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="0" loc="(830,390)" name="Pin">
+    <comp lib="0" loc="(830,400)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
       <a name="label" val="EPC_Out"/>
@@ -739,6 +739,9 @@
     </comp>
     <comp lib="2" loc="(450,360)" name="Multiplexer">
       <a name="selloc" val="tr"/>
+      <a name="width" val="32"/>
+    </comp>
+    <comp lib="2" loc="(620,400)" name="Multiplexer">
       <a name="width" val="32"/>
     </comp>
     <comp lib="2" loc="(660,1550)" name="Multiplexer">
@@ -839,13 +842,17 @@
     <wire from="(430,330)" to="(430,340)"/>
     <wire from="(430,510)" to="(430,930)"/>
     <wire from="(430,930)" to="(500,930)"/>
-    <wire from="(440,400)" to="(460,400)"/>
+    <wire from="(440,400)" to="(450,400)"/>
     <wire from="(440,480)" to="(440,840)"/>
     <wire from="(440,840)" to="(660,840)"/>
     <wire from="(450,360)" to="(460,360)"/>
+    <wire from="(450,400)" to="(450,470)"/>
+    <wire from="(450,400)" to="(460,400)"/>
+    <wire from="(450,470)" to="(600,470)"/>
     <wire from="(450,650)" to="(450,710)"/>
     <wire from="(450,710)" to="(510,710)"/>
     <wire from="(460,360)" to="(460,390)"/>
+    <wire from="(460,360)" to="(580,360)"/>
     <wire from="(460,390)" to="(500,390)"/>
     <wire from="(460,400)" to="(460,410)"/>
     <wire from="(460,410)" to="(500,410)"/>
@@ -920,8 +927,11 @@
     <wire from="(560,910)" to="(690,910)"/>
     <wire from="(570,690)" to="(650,690)"/>
     <wire from="(580,1500)" to="(580,1510)"/>
-    <wire from="(590,390)" to="(590,1510)"/>
-    <wire from="(590,390)" to="(830,390)"/>
+    <wire from="(580,360)" to="(580,410)"/>
+    <wire from="(580,410)" to="(590,410)"/>
+    <wire from="(590,440)" to="(590,1510)"/>
+    <wire from="(590,440)" to="(650,440)"/>
+    <wire from="(600,420)" to="(600,470)"/>
     <wire from="(600,520)" to="(600,1510)"/>
     <wire from="(600,520)" to="(830,520)"/>
     <wire from="(610,1500)" to="(610,1510)"/>
@@ -930,9 +940,12 @@
     <wire from="(610,560)" to="(830,560)"/>
     <wire from="(620,1500)" to="(620,1510)"/>
     <wire from="(620,1500)" to="(630,1500)"/>
+    <wire from="(620,400)" to="(650,400)"/>
     <wire from="(630,1500)" to="(630,1510)"/>
     <wire from="(630,1500)" to="(640,1500)"/>
     <wire from="(640,1500)" to="(640,1510)"/>
+    <wire from="(650,400)" to="(650,440)"/>
+    <wire from="(650,400)" to="(830,400)"/>
     <wire from="(650,690)" to="(650,1510)"/>
     <wire from="(660,1550)" to="(660,1600)"/>
     <wire from="(660,880)" to="(660,1510)"/>

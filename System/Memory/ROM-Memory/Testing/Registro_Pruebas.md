@@ -25,9 +25,9 @@
     *   **Qué prueba y por qué:** Asegura que el hardware detecte instrucciones ilegales o fallos lógicos, salte al vector correcto de interrupción y registre el motivo del fallo.
 
 *   **Prueba 7: Cambio de Contexto y Syscalls**
-    *   **Estado:** [ En proceso ] (Sin empezar / En proceso / Finalizada)
+    *   **Estado:** [ Finalizada ] (Sin empezar / En proceso / Finalizada)
     *   **Qué prueba y por qué:** Comprueba el flujo completo de petición de servicios al sistema operativo, desde la llamada inicial hasta el retorno seguro.
 
 *   **Prueba 8: Protección General y MMU**
-    *   **Estado:** [ Sin Empezar ] (Sin empezar / En proceso / Finalizada)
+    *   **Estado:** [ En Proceso ] (Sin empezar / En proceso / Finalizada)
     *   **Qué prueba y por qué:** Valida los sistemas de seguridad del procesador y el mapeo de memoria virtual, forzando excepciones como fallos de página o de protección general.
