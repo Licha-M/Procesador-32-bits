@@ -17,15 +17,15 @@
     *   **Qué prueba y por qué:** Valida los multiplexores de tamaño de memoria para asegurar que se lee y escribe la fracción correcta de la palabra en RAM en direcciones alineadas.
 
 *   **Prueba 5: Lectura/Escritura del Banco Especial**
-    *   **Estado:** [ Sin Empezar ] (Sin empezar / En proceso / Finalizada)
+    *   **Estado:** [ Finalizada ] (Sin empezar / En proceso / Finalizada)
     *   **Qué prueba y por qué:** Valida las rutas de datos y la correcta transferencia de información entre el banco de registros normales y el banco de registros especiales.
 
 *   **Prueba 6: Excepciones Básicas y Causa**
-    *   **Estado:** [ Sin Empezar ] (Sin empezar / En proceso / Finalizada)
+    *   **Estado:** [ Finalizada ] (Sin empezar / En proceso / Finalizada)
     *   **Qué prueba y por qué:** Asegura que el hardware detecte instrucciones ilegales o fallos lógicos, salte al vector correcto de interrupción y registre el motivo del fallo.
 
 *   **Prueba 7: Cambio de Contexto y Syscalls**
-    *   **Estado:** [ Sin Empezar ] (Sin empezar / En proceso / Finalizada)
+    *   **Estado:** [ En proceso ] (Sin empezar / En proceso / Finalizada)
     *   **Qué prueba y por qué:** Comprueba el flujo completo de petición de servicios al sistema operativo, desde la llamada inicial hasta el retorno seguro.
 
 *   **Prueba 8: Protección General y MMU**
