@@ -1,0 +1,121 @@
+; =======================================================================
+; PRUEBA 8: Paginación (MMU), PDE, PTE y Protección General
+; =======================================================================
+
+; -----------------------------------------------------------------------
+; TRUCO DE DIRECCIONAMIENTO PARA EL HANDLER EN ROM
+; -----------------------------------------------------------------------
+; Dado que el ensamblador no permite usar etiquetas como operandos de LDI,
+; forzamos la ubicación del handler matemáticamente. 
+; El salto incondicional 'JMP main' ocupa exactamente 3 instrucciones (12 bytes).
+; Por lo tanto, el handler inicia con precisión quirúrgica en 0xFFF0000C.
+JMP main
+
+; === EXCEPTION HANDLER (Dirección fija: 0xFFF0000C) ===
+handler_mmu:
+    CYE R7, R10        ; Lee la causa del fallo (RE 7 = Cuase) hacia R10
+    HLT                ; Detiene el sistema. Para la prueba de RO, R10 debe ser '2' (Page Fault STR)
+
+; === FLUJO PRINCIPAL ===
+main:
+    ; 1. Configurar el vector SysJMP (Apunta al handler en 0xFFF0000C)
+    H LDI R1, 0xFFF0
+    SLT ADI R1, 0x000C
+    CYR R1, R12        ; RE 12 = SysJMP
+    
+    ; 2. Inicializar las estructuras de paginación (PDE y PTEs)
+    CAL init_mmu_tables
+    
+    ; 3. Cargar el CR3 y el PCID
+    ; El Page Directory (PD) lo hemos ubicado en la dirección física 0x1000
+    H LDI R1, 0x0000
+    SLT ADI R1, 0x1000
+    CYR R1, R4         ; RE 4 = CR3
+    
+    ; Asignamos un PCID de prueba (Ej: 1)
+    LDI R1, 1
+    CYR R1, R3         ; RE 3 = PCID
+    
+    ; 4. Activar la MMU y el TLB
+    ; Según la estructura de CR0: Bit 0 = En_MMU, Bit 1 = En_TLB. (Valor = 3)
+    LDI R1, 3
+    CYR R1, R6         ; RE 6 = CR0. ¡A partir de aquí la memoria es Virtual!
+    
+    ; 5. Prueba 1: Acceso válido (No debe fallar)
+    CAL test_valid_access
+    
+    ; 6. Prueba 2: Forzar Page Fault por Violación de Permisos (ReadOnly)
+    CAL force_page_fault
+    
+    ; Si la CPU llega aquí sin saltar al handler, la protección de la MMU falló.
+    HLT
+
+
+; =======================================================================
+; SUBRUTINAS DE CONFIGURACIÓN Y PRUEBA
+; =======================================================================
+
+init_mmu_tables:
+    ; Layout Físico Elegido:
+    ; 0x1000 -> Page Directory (PD)
+    ; 0x2000 -> Page Table para la RAM (PT_RAM)
+    ; 0x3000 -> Page Table para la ROM (PT_ROM)
+    
+    ; --- Mapeo del Page Directory (PD) ---
+    ; PD[0] apuntará a PT_RAM. Flags: Present(1). Valor: 0x2001
+    H LDI R1, 0x0000
+    SLT ADI R1, 0x1000      ; R1 = Base PD
+    H LDI R2, 0x0000
+    SLT ADI R2, 0x2001
+    int STR R1, R2, 0       ; PD[0] = 0x2001
+    
+    ; PD[1023] apuntará a PT_ROM. Flags: Present(1). Valor: 0x3001
+    ; Índice 1023 * 4 bytes = 4092 (0x0FFC)
+    H LDI R2, 0x0000
+    SLT ADI R2, 0x3001
+    int STR R1, R2, 4092    ; PD[1023] = 0x3001
+    
+; --- Mapeo de la Page Table de RAM ---
+    H LDI R1, 0x0000
+    SLT ADI R1, 0x2000      ; R1 = Base PT_RAM
+    
+    ; Página 1 (Acceso Válido): Virtual 0x5000 -> Física 0x5000 
+    ; Flags: Present(1). Valor: 0x5001
+    ; Índice: 5. (5 * 4 = 20)
+    H LDI R2, 0x0000
+    SLT ADI R2, 0x5001
+    int STR R1, R2, 20      ; PT_RAM[5] = 0x5001
+    
+    ; Página 2 (Acceso Inválido): Virtual 0x6000 -> Física 0x6000
+    ; Flags: Present(1) + ReadOnly(2). Valor: 0x6003
+    ; Índice: 6. (6 * 4 = 24)
+    H LDI R2, 0x0000
+    SLT ADI R2, 0x6003
+    int STR R1, R2, 24      ; PT_RAM[6] = 0x6003
+
+    ; Pagina 3: Mapeo del Stack (Página 0: Virtual 0x0000 -> Física 0x0000)
+    ; Flags: Present(1). Valor: 0x0001
+    ; Índice: 0. (0 * 4 = 0)
+    H LDI R2, 0x0000
+    SLT ADI R2, 0x0001
+    int STR R1, R2, 0       ; PT_RAM[0] = 0x0001
+    
+    RET
+
+test_valid_access:
+    ; Escribir un valor (0x9999) en 0x5000. La MMU debe dejarlo pasar.
+    H LDI R1, 0x0000
+    SLT ADI R1, 0x5000
+    LDI R2, 0x9999
+    int STR R1, R2, 0
+    RET
+
+force_page_fault:
+    ; Intentar escribir un valor (0xDEAD) en 0x6000. 
+    ; Al estar marcada como ReadOnly (bit 1 encendido), el hardware 
+    ; debe abortar la operación y disparar la excepción.
+    H LDI R1, 0x0000
+    SLT ADI R1, 0x6000
+    LDI R2, 0xDEAD
+    int STR R1, R2, 0       ; ¡Boom! Dispara Exception 2 (Page Fault STR)
+    RET
