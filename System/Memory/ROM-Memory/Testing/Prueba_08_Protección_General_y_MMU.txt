@@ -1,121 +1,89 @@
 ; =======================================================================
-; PRUEBA 8: Paginación (MMU), PDE, PTE y Protección General
+; PRUEBA 8: Paginación (MMU), Page Walk Puro, Permisos y Protección
 ; =======================================================================
 
-; -----------------------------------------------------------------------
-; TRUCO DE DIRECCIONAMIENTO PARA EL HANDLER EN ROM
-; -----------------------------------------------------------------------
-; Dado que el ensamblador no permite usar etiquetas como operandos de LDI,
-; forzamos la ubicación del handler matemáticamente. 
-; El salto incondicional 'JMP main' ocupa exactamente 3 instrucciones (12 bytes).
-; Por lo tanto, el handler inicia con precisión quirúrgica en 0xFFF0000C.
 JMP main
 
-; === EXCEPTION HANDLER (Dirección fija: 0xFFF0000C) ===
+; === EXCEPTION HANDLER (Dirección fija en ROM: 0xFFF0000C) ===
 handler_mmu:
-    CYE R7, R10        ; Lee la causa del fallo (RE 7 = Cuase) hacia R10
-    HLT                ; Detiene el sistema. Para la prueba de RO, R10 debe ser '2' (Page Fault STR)
+    CYE R7, R10        ; Lee causa de la excepción (RE 7). Debe ser 1 (Page Fault).
+    CYE R6, R11        ; Lee CR0 (RE 6). La parte alta contiene el Error Code.
+    HLT                ; Detiene el procesador. Prueba completada con éxito.
 
-; === FLUJO PRINCIPAL ===
+; === PROGRAMA PRINCIPAL ===
 main:
-    ; 1. Configurar el vector SysJMP (Apunta al handler en 0xFFF0000C)
+    ; 1. Configurar el vector SysJMP (Apunta a handler_mmu en 0xFFF0000C)
     H LDI R1, 0xFFF0
     SLT ADI R1, 0x000C
     CYR R1, R12        ; RE 12 = SysJMP
-    
-    ; 2. Inicializar las estructuras de paginación (PDE y PTEs)
-    CAL init_mmu_tables
-    
-    ; 3. Cargar el CR3 y el PCID
-    ; El Page Directory (PD) lo hemos ubicado en la dirección física 0x1000
+
+    ; 2. Inicialización de las Tablas de Páginas en RAM
+
+    ; --- Page Directory (PD) en 0x1000 ---
     H LDI R1, 0x0000
-    SLT ADI R1, 0x1000
-    CYR R1, R4         ; RE 4 = CR3
-    
-    ; Asignamos un PCID de prueba (Ej: 1)
-    LDI R1, 1
-    CYR R1, R3         ; RE 3 = PCID
-    
-    ; 4. Activar la MMU y el TLB
-    ; Según la estructura de CR0: Bit 0 = En_MMU, Bit 1 = En_TLB. (Valor = 3)
-    LDI R1, 3
-    CYR R1, R6         ; RE 6 = CR0. ¡A partir de aquí la memoria es Virtual!
-    
-    ; 5. Prueba 1: Acceso válido (No debe fallar)
-    CAL test_valid_access
-    
-    ; 6. Prueba 2: Forzar Page Fault por Violación de Permisos (ReadOnly)
-    CAL force_page_fault
-    
-    ; Si la CPU llega aquí sin saltar al handler, la protección de la MMU falló.
-    HLT
+    SLT ADI R1, 0x1000      ; R1 = Base PD (0x1000)
 
-
-; =======================================================================
-; SUBRUTINAS DE CONFIGURACIÓN Y PRUEBA
-; =======================================================================
-
-init_mmu_tables:
-    ; Layout Físico Elegido:
-    ; 0x1000 -> Page Directory (PD)
-    ; 0x2000 -> Page Table para la RAM (PT_RAM)
-    ; 0x3000 -> Page Table para la ROM (PT_ROM)
-    
-    ; --- Mapeo del Page Directory (PD) ---
-    ; PD[0] apuntará a PT_RAM. Flags: Present(1). Valor: 0x2001
-    H LDI R1, 0x0000
-    SLT ADI R1, 0x1000      ; R1 = Base PD
+    ; PD[0] -> PT_RAM (0x2000). Flags: Present(1) = 0x2001
     H LDI R2, 0x0000
     SLT ADI R2, 0x2001
-    int STR R1, R2, 0       ; PD[0] = 0x2001
-    
-    ; PD[1023] apuntará a PT_ROM. Flags: Present(1). Valor: 0x3001
-    ; Índice 1023 * 4 bytes = 4092 (0x0FFC)
+    int STR R1, R2, 0       ; Escribe 0x2001 en 0x1000
+
+    ; PD[1023] -> PT_ROM (0x3000). Flags: Present(1) + Executable(16) = 0x3011
     H LDI R2, 0x0000
-    SLT ADI R2, 0x3001
-    int STR R1, R2, 4092    ; PD[1023] = 0x3001
-    
-; --- Mapeo de la Page Table de RAM ---
+    SLT ADI R2, 0x3011
+    int STR R1, R2, 4092    ; Escribe 0x3011 en 0x1FFC (1023 * 4)
+
+    ; --- Page Table de ROM (PT_ROM) en 0x3000 ---
     H LDI R1, 0x0000
-    SLT ADI R1, 0x2000      ; R1 = Base PT_RAM
-    
-    ; Página 1 (Acceso Válido): Virtual 0x5000 -> Física 0x5000 
-    ; Flags: Present(1). Valor: 0x5001
-    ; Índice: 5. (5 * 4 = 20)
+    SLT ADI R1, 0x3000      ; R1 = Base PT_ROM (0x3000)
+
+    ; PTE[768] Mapeo de Virtual 0xFFF00000 -> Física 0xFFF00000 (ROM)
+    ; Flags: Present(1) + Executable(16) = 0x0011. Valor: 0xFFF00011
+    ; Dirección final de la entrada en RAM: 0x3000 + 3072 = 0x3C00
+    H LDI R2, 0xFFF0
+    SLT ADI R2, 0x0011
+    int STR R1, R2, 3072    ; Escribe 0xFFF00011 en 0x3C00
+
+    ; --- Page Table de RAM (PT_RAM) en 0x2000 ---
+    H LDI R1, 0x0000
+    SLT ADI R1, 0x2000      ; R1 = Base PT_RAM (0x2000)
+
+    ; PTE[5] Página de Lectura/Escritura Válida (0x5000 -> 0x5000)
+    ; Flags: Present(1) = 0x5001. Offset: 5 * 4 = 20
     H LDI R2, 0x0000
     SLT ADI R2, 0x5001
-    int STR R1, R2, 20      ; PT_RAM[5] = 0x5001
-    
-    ; Página 2 (Acceso Inválido): Virtual 0x6000 -> Física 0x6000
-    ; Flags: Present(1) + ReadOnly(2). Valor: 0x6003
-    ; Índice: 6. (6 * 4 = 24)
+    int STR R1, R2, 20      ; Escribe 0x5001 en 0x2014
+
+    ; PTE[6] Página de Solo Lectura (0x6000 -> 0x6000)
+    ; Flags: Present(1) + ReadOnly(2) = 0x6003. Offset: 6 * 4 = 24
     H LDI R2, 0x0000
     SLT ADI R2, 0x6003
-    int STR R1, R2, 24      ; PT_RAM[6] = 0x6003
+    int STR R1, R2, 24      ; Escribe 0x6003 en 0x2018
 
-    ; Pagina 3: Mapeo del Stack (Página 0: Virtual 0x0000 -> Física 0x0000)
-    ; Flags: Present(1). Valor: 0x0001
-    ; Índice: 0. (0 * 4 = 0)
-    H LDI R2, 0x0000
-    SLT ADI R2, 0x0001
-    int STR R1, R2, 0       ; PT_RAM[0] = 0x0001
-    
-    RET
+    ; 3. Cargar Registros de Control de la MMU
+    H LDI R1, 0x0000
+    SLT ADI R1, 0x1000
+    CYR R1, R4         ; RE 4 (CR3) = Base del Page Directory (0x1000)
 
-test_valid_access:
-    ; Escribir un valor (0x9999) en 0x5000. La MMU debe dejarlo pasar.
+    LDI R1, 1
+    CYR R1, R3         ; RE 3 (PCID) = 1
+
+    ; 4. Activar la MMU (Sin TLB para evaluar Page Walk puro)
+    ; CR0 Bit 0 (En_MMU) = 1, Bit 1 (En_TLB) = 0
+    LDI R1, 1
+    CYR R1, R6         ; RE 6 (CR0) = 1. ¡Memoria Virtual Activa!
+
+    ; 5. Prueba 1: Acceso a Memoria Válido (0x5000)
     H LDI R1, 0x0000
     SLT ADI R1, 0x5000
     LDI R2, 0x9999
-    int STR R1, R2, 0
-    RET
+    int STR R1, R2, 0       ; MMU traduce 0x5000 y permite la escritura
 
-force_page_fault:
-    ; Intentar escribir un valor (0xDEAD) en 0x6000. 
-    ; Al estar marcada como ReadOnly (bit 1 encendido), el hardware 
-    ; debe abortar la operación y disparar la excepción.
+    ; 6. Prueba 2: Forzar Excepción de Page Fault (0x6000)
     H LDI R1, 0x0000
     SLT ADI R1, 0x6000
     LDI R2, 0xDEAD
-    int STR R1, R2, 0       ; ¡Boom! Dispara Exception 2 (Page Fault STR)
-    RET
+    int STR R1, R2, 0       ; Al ser ReadOnly (Bit 1=1), la MMU aborta
+                           ; y salta inmediatamente a handler_mmu (0xFFF0000C).
+
+    HLT                ; Trampa de seguridad (no debe alcanzarse).
