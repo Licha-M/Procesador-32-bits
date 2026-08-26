@@ -70,7 +70,7 @@ main:
 
     ; 4. Activar la MMU (Sin TLB para evaluar Page Walk puro)
     ; CR0 Bit 0 (En_MMU) = 1, Bit 1 (En_TLB) = 0
-    LDI R1, 1
+    LDI R1, 3
     CYR R1, R6         ; RE 6 (CR0) = 1. ¡Memoria Virtual Activa!
 
     ; 5. Prueba 1: Acceso a Memoria Válido (0x5000)
