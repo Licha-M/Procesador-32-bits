@@ -15,14 +15,11 @@
     - Declaración:   mi_etiqueta:
     - Uso en saltos: JMP mi_etiqueta  /  BRH =, mi_etiqueta  /  CAL mi_etiqueta
     - El ensamblador expande automáticamente cada salto a etiqueta en
-      6 instrucciones usando R14 (scratch bajo/shift) y R15 (scratch alto/dest):
+      3 instrucciones usando R15 (scratch alto/dest):
 
-        LDI  R15, <high16>      ; parte alta de la dirección de 32 bits
-        LDI  R14, 16            ; cantidad de shift
-        LSH  R15, R14, R15      ; mueve parte alta a [31:16]
-        LDI  R14, <low16>       ; parte baja de la dirección
-        ADD  R15, R14, R15      ; R15 = dirección completa de 32 bits
-        JMP/BRH/CAL R15         ; salto efectivo
+        H LDI  R15, <high16_comp> ; parte alta de la dirección (con compensación)
+        SLT ADI    R15, <low16>       ; parte baja (ADI hace extensión de signo)
+        JMP/BRH/CAL R15           ; salto efectivo
 
   Uso:
     python assembler.py                  → abre selector de archivo gráfico
@@ -102,22 +99,24 @@ MEM_INSTRUCTIONS = {'LOD', 'STR'}
 JUMP_INSTRUCTIONS = {'JMP', 'BRH', 'CAL'}
 
 # ── Condiciones para BRH (4 bits en [23:20]) ─────────────────────────────────
-# Orden especificado: =  !=  >  <  >=  <=  OV  NOV  (empezando en 0)
+# Orden real de hardware (flags del banco de flags, empezando en 0):
+#   0 Zero  1 Not Zero  2 Negative  3 Not Negative  4 Carry  5 Not Carry
+#   6 Overflow  7 Not Overflow
 CONDITIONS: dict[str, int] = {
     '=':   0b0000,   # 0 — Igual         (Zero flag activo)
     'EQ':  0b0000,   #     Alias de =
-    '!=':  0b0001,   # 1 — Distinto      (Zero flag inactivo)
+    '!=':  0b0001,   # 1 — Distinto      (Zero flag inactivo → Not Zero)
     'NE':  0b0001,   #     Alias de !=
-    '>':   0b0010,   # 2 — Mayor que     (con signo)
-    'GT':  0b0010,   #     Alias de >
-    '<':   0b0011,   # 3 — Menor que     (con signo)
-    'LT':  0b0011,   #     Alias de <
-    '>=':  0b0100,   # 4 — Mayor o igual (con signo)
-    'GE':  0b0100,   #     Alias de >=
-    '<=':  0b0101,   # 5 — Menor o igual (con signo)
-    'LE':  0b0101,   #     Alias de <=
+    'N':   0b0010,   # 2 — Negative      (Negative flag activo)
+    'NEG': 0b0010,   #     Alias de N
+    'NN':  0b0011,   # 3 — Not Negative  (Negative flag inactivo)
+    'POS': 0b0011,   #     Alias de NN
+    'C':   0b0100,   # 4 — Carry         (Carry flag activo)
+    'CS':  0b0100,   #     Alias de C
+    'NC':  0b0101,   # 5 — Not Carry     (Carry flag inactivo)
+    'CC':  0b0101,   #     Alias de NC
     'OV':  0b0110,   # 6 — Overflow activo
-    'NOV': 0b0111,   # 7 — Sin overflow
+    'NOV': 0b0111,   # 7 — Sin overflow  (Not Overflow)
 }
 
 
@@ -210,53 +209,47 @@ def build_word(tipo: int, opcode: int, operands: int) -> int:
 def expand_label_address(address: int, jump_mnemonic: str,
                           cond: int | None, src_line: int) -> list[int]:
     """
-    Expande un salto a etiqueta en 6 palabras de 32 bits.
+    Expande un salto a etiqueta en 3 palabras de 32 bits.
 
     Para la dirección de 32 bits:
-      1) LDI  R15, <high16>      → parte alta
-      2) LDI  R14, 16            → cantidad de shift
-      3) LSH  R15, R14, R15      → R15 = high16 << 16
-      4) LDI  R14, <low16>       → parte baja
-      5) ADD  R15, R14, R15      → R15 = dirección completa
-      6) JMP/BRH/CAL  R15        → salto efectivo
+      1) H LDI R15, <high16_comp>  → parte alta compensada
+      2) SLT ADI   R15, <low16>        → parte baja con extensión de signo
+      3) JMP/BRH/CAL R15           → salto efectivo
 
-    Por qué siempre 6 instrucciones:
+    Por qué siempre 3 instrucciones:
       Mantener tamaño fijo permite que el ensamblador resuelva
       correctamente las referencias hacia adelante (forward references)
       sin iteraciones adicionales, ya que el tamaño de cada bloque
       es conocido desde el primer pase.
     """
     hi = SCRATCH_HIGH
-    lo = SCRATCH_LOW
 
     high16 = (address >> 16) & 0xFFFF
     low16  =  address        & 0xFFFF
 
-    # 1: LDI R15, high16
-    w1 = build_word(0, OPCODES['LDI'], (hi << 20) | high16)
-    # 2: LDI R14, 16
-    w2 = build_word(0, OPCODES['LDI'], (lo << 20) | 16)
-    # 3: LSH R15, R14, R15  → [23:20]=R15, [19:16]=R14, [15:12]=R15
-    w3 = build_word(0, OPCODES['LSH'], (hi << 20) | (lo << 16) | (hi << 12))
-    # 4: LDI R14, low16
-    w4 = build_word(0, OPCODES['LDI'], (lo << 20) | low16)
-    # 5: ADD R15, R14, R15
-    w5 = build_word(0, OPCODES['ADD'], (hi << 20) | (lo << 16) | (hi << 12))
+    # Compensación por extensión de signo de ADI
+    if low16 >= 0x8000:
+        high16 = (high16 + 1) & 0xFFFF
 
-    # 6: instrucción de salto efectiva usando R15
+    # 1: H LDI R15, high16_comp (tipo=4)
+    w1 = build_word(4, OPCODES['LDI'], (hi << 20) | high16)
+    # 2: ADI R15, low16 (Silencioso, tipo=4)
+    w2 = build_word(4, OPCODES['ADI'], (hi << 20) | low16)
+
+    # 3: instrucción de salto efectiva usando R15
     if jump_mnemonic == 'JMP':
-        w6 = build_word(0, OPCODES['JMP'], hi << 16)
+        w3 = build_word(0, OPCODES['JMP'], hi << 16)
     elif jump_mnemonic == 'CAL':
-        w6 = build_word(0, OPCODES['CAL'], hi << 16)
+        w3 = build_word(0, OPCODES['CAL'], hi << 16)
     elif jump_mnemonic == 'BRH':
         # cond en [23:20], R15 en [19:16]
-        w6 = build_word(0, OPCODES['BRH'], (cond << 20) | (hi << 16))
+        w3 = build_word(0, OPCODES['BRH'], (cond << 20) | (hi << 16))
     else:
         raise AssemblerError(
             f"Instrucción de salto desconocida: '{jump_mnemonic}'", src_line
         )
 
-    return [w1, w2, w3, w4, w5, w6]
+    return [w1, w2, w3]
 
 
 # =============================================================================
@@ -280,10 +273,31 @@ def encode_single(tokens: list[str], line_num: int) -> int:
     """
     first = tokens[0].upper()
 
-    # Detectar prefijo de tipo de memoria
+    # Detectar prefijo de tipo de memoria o silencioso
     tipo = 0b000
-    if first in MEM_TYPES:
+    is_mem_prefix = False
+    is_hl_prefix = False
+    
+    if first == 'SLT':
+        tipo = 0b100
+        tokens = tokens[1:]
+        if not tokens:
+            raise AssemblerError(
+                f"Se esperaba nemotécnico después de '{first}'.", line_num
+            )
+        first = tokens[0].upper()
+    elif first in ('H', 'L'):
+        tipo = 0b100 if first == 'H' else 0b000
+        is_hl_prefix = True
+        tokens = tokens[1:]
+        if not tokens:
+            raise AssemblerError(
+                f"Se esperaba nemotécnico después de '{first}'.", line_num
+            )
+        first = tokens[0].upper()
+    elif first in MEM_TYPES:
         tipo = MEM_TYPES[first]
+        is_mem_prefix = True
         tokens = tokens[1:]
         if not tokens:
             raise AssemblerError(
@@ -303,9 +317,17 @@ def encode_single(tokens: list[str], line_num: int) -> int:
             f"Nemotécnico desconocido: '{mnemonic}'. "
             f"Válidos: {', '.join(sorted(OPCODES.keys()))}", line_num
         )
-    if tipo != 0b000 and mnemonic not in MEM_INSTRUCTIONS:
+    if is_mem_prefix and mnemonic not in MEM_INSTRUCTIONS:
         raise AssemblerError(
             f"El prefijo de tipo de memoria no aplica a '{mnemonic}'.", line_num
+        )
+    if is_hl_prefix and mnemonic != 'LDI':
+        raise AssemblerError(
+            f"El prefijo '{'H' if tipo == 0b100 else 'L'}' solo aplica a 'LDI'.", line_num
+        )
+    if not is_hl_prefix and tipo == 0b100 and mnemonic not in ('ADD','SUB','MUL','DIV','NOR','AND','XOR','RSH','LSH','ADI'):
+        raise AssemblerError(
+            f"El prefijo SLT solo aplica a operaciones aritméticas (incluyendo ADI).", line_num
         )
 
     op = OPCODES[mnemonic]
@@ -323,7 +345,7 @@ def encode_single(tokens: list[str], line_num: int) -> int:
         ra = parse_register(args[0], line_num)
         rb = parse_register(args[1], line_num)
         rc = parse_register(args[2], line_num)
-        return build_word(0, op, (ra << 20) | (rb << 16) | (rc << 12))
+        return build_word(tipo, op, (ra << 20) | (rb << 16) | (rc << 12))
 
     # ── GOF — [23:20]=RA ────────────────────────────────────────────────────
     elif mnemonic == 'GOF':
@@ -336,14 +358,14 @@ def encode_single(tokens: list[str], line_num: int) -> int:
         _require_argc(args, 2, 'LDI', line_num, hint="LDI R0, 1000")
         ra  = parse_register(args[0], line_num)
         imm = parse_immediate(args[1], line_num, bits=16, signed=False)
-        return build_word(0, op, (ra << 20) | imm)
+        return build_word(tipo, op, (ra << 20) | imm)
 
     # ── ADI — [23:20]=RA  [15:0]=IMM16 (con signo) ──────────────────────────
     elif mnemonic == 'ADI':
         _require_argc(args, 2, 'ADI', line_num, hint="ADI R0, -5")
         ra  = parse_register(args[0], line_num)
         imm = parse_immediate(args[1], line_num, bits=16, signed=True)
-        return build_word(0, op, (ra << 20) | imm)
+        return build_word(tipo, op, (ra << 20) | imm)
 
     # ── JMP — [19:16]=RB ────────────────────────────────────────────────────
     elif mnemonic == 'JMP':
@@ -398,11 +420,12 @@ def encode_single(tokens: list[str], line_num: int) -> int:
         ra = parse_register(args[1], line_num)
         return build_word(0, op, (rc << 20) | (ra << 16))
 
-    # ── CYR — [23:20]=RA (normal → especial) ────────────────────────────────
+    # ── CYR — [23:20]=RA (normal) [19:16]=RC (especial) ────────────────────────────────
     elif mnemonic == 'CYR':
-        _require_argc(args, 1, 'CYR', line_num, hint="CYR R0")
+        _require_argc(args, 2, 'CYR', line_num, hint="CYR R0, R1")
         ra = parse_register(args[0], line_num)
-        return build_word(0, op, ra << 20)
+        rc = parse_register(args[1], line_num)
+        return build_word(0, op, (ra << 20) | (rc << 16))
 
     else:
         raise AssemblerError(
@@ -435,7 +458,7 @@ class PendingInstruction:
     Instrucción que puede necesitar expansión de etiqueta.
     
     Si 'label_target' no es None, esta instrucción es un salto a etiqueta
-    y se expandirá en 6 palabras durante el segundo pase.
+    y se expandirá en 3 palabras durante el segundo pase.
     Si es None, 'words' ya tiene la palabra final codificada.
     """
     def __init__(self, words: list[int] | None = None,
@@ -449,7 +472,7 @@ class PendingInstruction:
         self.jump_mnemonic = jump_mnemonic  # JMP / BRH / CAL
         self.cond          = cond           # Condición para BRH (o None)
         self.src_line      = src_line       # Número de línea fuente
-        self.size          = size           # Cuántas palabras ocupa (1 o 6)
+        self.size          = size           # Cuántas palabras ocupa (1 o 3)
 
 
 def first_pass(lines: list[str]) -> tuple[dict[str, int], list[PendingInstruction], list[str]]:
@@ -457,7 +480,7 @@ def first_pass(lines: list[str]) -> tuple[dict[str, int], list[PendingInstructio
     PRIMER PASE: detecta etiquetas y construye la lista de instrucciones pendientes.
 
     - Las instrucciones simples se codifican en este pase.
-    - Los saltos a etiqueta se marcan como PendingInstruction(size=6)
+    - Los saltos a etiqueta se marcan como PendingInstruction(size=3)
       para que la dirección de cada etiqueta sea correcta aunque
       la etiqueta esté definida más adelante (forward reference).
     - Las etiquetas se almacenan en 'label_map' con su dirección
@@ -495,11 +518,9 @@ def first_pass(lines: list[str]) -> tuple[dict[str, int], list[PendingInstructio
                 continue          # Línea solo con etiqueta
 
         # ── Detectar salto a etiqueta ─────────────────────────────────────────
-        # Detectar prefijo de tipo de memoria (no aplica a saltos, pero avanzamos)
+        # Detectar prefijo de tipo de memoria o silencioso (no aplica a saltos, pero avanzamos)
         first = tokens[0].upper()
-        mem_prefix = None
-        if first in MEM_TYPES:
-            mem_prefix = first
+        if first in MEM_TYPES or first in ('SLT', 'H', 'L'):
             if len(tokens) > 1:
                 first = tokens[1].upper()
 
@@ -522,7 +543,7 @@ def first_pass(lines: list[str]) -> tuple[dict[str, int], list[PendingInstructio
 
             # ¿El destino es una etiqueta (no un registro)?
             if dest_tok and is_label_name(dest_tok) and not re.fullmatch(r'R(1[0-5]|[0-9])', dest_tok.upper()):
-                # Reservar 6 posiciones (expansión de dirección de 32 bits)
+                # Reservar 3 posiciones (expansión de dirección de 32 bits)
                 cond = None
                 if mnemonic == 'BRH':
                     cond_tok = args[0].strip()
@@ -541,9 +562,9 @@ def first_pass(lines: list[str]) -> tuple[dict[str, int], list[PendingInstructio
                     jump_mnemonic = mnemonic,
                     cond          = cond,
                     src_line      = line_num,
-                    size          = 6,   # Siempre 6 palabras por diseño
+                    size          = 3,   # Siempre 3 palabras por diseño
                 ))
-                address += 6
+                address += 3
                 continue
 
         # ── Instrucción normal (codificación directa) ─────────────────────────
@@ -567,7 +588,7 @@ def second_pass(label_map: dict[str, int],
     """
     SEGUNDO PASE: resuelve las referencias a etiquetas y genera las palabras finales.
 
-    Cada PendingInstruction con label_target se expande en 6 palabras
+    Cada PendingInstruction con label_target se expande en 3 palabras
     usando la dirección registrada en label_map durante el primer pase.
 
     Devuelve: ([(src_line, address, word), ...], errors)
@@ -584,11 +605,11 @@ def second_pass(label_map: dict[str, int],
                 errors.append(
                     f"[Línea {instr.src_line}] Etiqueta no definida: '{name}'."
                 )
-                address += 6
+                address += 3
                 continue
 
-            # La base de la ROM es 0xFFF00000, los saltos deben incluirla
-            target_addr = label_map[name] | 0xFFF00000
+            # La base de la ROM es 0xFFF00000, los saltos deben ser direcciones de bytes (multiplicado por 4)
+            target_addr = (label_map[name] * 4) | 0xFFF00000
             words = expand_label_address(
                 target_addr,
                 instr.jump_mnemonic,
@@ -682,8 +703,7 @@ def write_rom_logisim(instructions: list[tuple[int,int,int]],
             row += BYTES_PER_ROW
 
         # Vector de reset (salto a 0xFFF00000)
-        f.write("fffe0: 0c f0 ff f0 0c e0 00 10 0a fe f0 00 0c e0 00 00\n")
-        f.write("ffff0: 02 fe f0 00 0e 0f 00 00 00 00 00 00 00 00 00 00\n")
+        f.write("ffff0: 8c f0 ff f0 8d f0 00 00 0e 0f 00 00 00 00 00 00\n")
 
 
 def write_annotated_hex(instructions: list[tuple[int,int,int]],

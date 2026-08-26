@@ -6,7 +6,7 @@
 
 LDI R1, 0           ; R1 = F(0) = 0 (Valor actual)
 LDI R2, 1           ; R2 = F(1) = 1 (Siguiente valor)
-LDI R3, 10          ; R3 = Contador N (calcularemos hasta F(10))
+LDI R3, 47          ; R3 = Contador N (calcularemos hasta F(47))
 
 loop_fibonacci:
 ; R4 (temp) = R1 + R2

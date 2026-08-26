@@ -11,9 +11,10 @@
     </tool>
     <tool name="Probe">
       <a name="appearance" val="classic"/>
-      <a name="facing" val="west"/>
+      <a name="facing" val="south"/>
     </tool>
     <tool name="Tunnel">
+      <a name="facing" val="east"/>
       <a name="labelfont" val="SansSerif bold 8"/>
     </tool>
     <tool name="Pull Resistor">
@@ -101,29 +102,61 @@
     <a name="circuitnamedboxfixedsize" val="true"/>
     <a name="simulationFrequency" val="2048000.0"/>
     <comp lib="0" loc="(250,270)" name="Clock">
-      <a name="highDuration" val="20"/>
-      <a name="lowDuration" val="20"/>
+      <a name="highDuration" val="50"/>
+      <a name="lowDuration" val="50"/>
+    </comp>
+    <comp lib="0" loc="(480,440)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
+    <comp lib="0" loc="(560,150)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
+    <comp lib="0" loc="(560,170)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
+    <comp lib="0" loc="(560,200)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
     </comp>
     <comp lib="5" loc="(250,300)" name="Button"/>
+    <comp lib="5" loc="(310,250)" name="LED">
+      <a name="facing" val="east"/>
+    </comp>
     <comp lib="8" loc="(470,480)" name="ROM_BIOS"/>
     <comp lib="8" loc="(600,110)" name="Memory"/>
     <comp lib="9" loc="(550,250)" name="Die"/>
     <comp loc="(310,270)" name="On_Off_Sys"/>
     <wire from="(250,270)" to="(260,270)"/>
     <wire from="(250,300)" to="(260,300)"/>
+    <wire from="(310,250)" to="(340,250)"/>
     <wire from="(310,270)" to="(340,270)"/>
     <wire from="(310,300)" to="(340,300)"/>
     <wire from="(350,140)" to="(350,210)"/>
     <wire from="(370,140)" to="(370,210)"/>
     <wire from="(400,140)" to="(400,210)"/>
     <wire from="(430,140)" to="(430,210)"/>
-    <wire from="(430,420)" to="(430,450)"/>
+    <wire from="(430,420)" to="(430,440)"/>
+    <wire from="(430,440)" to="(430,450)"/>
+    <wire from="(430,440)" to="(480,440)"/>
     <wire from="(450,140)" to="(450,210)"/>
     <wire from="(460,140)" to="(460,210)"/>
     <wire from="(460,420)" to="(460,450)"/>
-    <wire from="(480,140)" to="(480,210)"/>
-    <wire from="(510,140)" to="(510,210)"/>
-    <wire from="(540,140)" to="(540,210)"/>
+    <wire from="(480,140)" to="(480,170)"/>
+    <wire from="(480,170)" to="(480,210)"/>
+    <wire from="(480,170)" to="(560,170)"/>
+    <wire from="(510,140)" to="(510,200)"/>
+    <wire from="(510,200)" to="(510,210)"/>
+    <wire from="(510,200)" to="(560,200)"/>
+    <wire from="(540,140)" to="(540,150)"/>
+    <wire from="(540,150)" to="(540,210)"/>
+    <wire from="(540,150)" to="(560,150)"/>
   </circuit>
   <circuit name="On_Off_Sys">
     <a name="appearance" val="custom"/>

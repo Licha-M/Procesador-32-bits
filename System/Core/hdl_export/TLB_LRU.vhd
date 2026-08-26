@@ -9,22 +9,10 @@
 --    · Escritura y actualización de edad LRU SÍNCRONA (flanco de subida).
 --    · 64 entradas. Cada entrada guarda:
 --        valid  (1 bit)
---        global (1 bit)  ← NUEVO: metadata separada, no vive en 'frame'
 --        vpn    (20 bits, virt_addr[31:12])
 --        pcid_k (8 bits,  pcid[7:0])
---        frame  (32 bits) — contiene SOLO el marco físico, sin bits "prestados"
+--        frame  (32 bits)
 --        age    (6 bits, 0 = LRU, 63 = MRU)
---
---  CORRECCIÓN (bug de aliasing dato/control):
---    Antes, tlb_frame(i)(3) se usaba como flag "página global, ignorar PCID".
---    Eso causaba dos problemas:
---      1. Cualquier frame cuyo bit 3 fuera 1 por coincidencia producía hits
---         cruzados entre procesos (violación de aislamiento).
---      2. Era imposible tener una página con bit3=1 en el frame real sin que
---         también se comportara como global.
---    SOLUCIÓN: Se agrega tlb_global (array t_valid separado) y el pin de
---    entrada write_global : in STD_LOGIC.  El campo frame almacena únicamente
---    el marco físico, sin bits "prestados" para control.
 --
 --  POLÍTICA LRU (orden relativo siempre preservado):
 --    · En HIT  → sea A = age[hit_idx] ANTES de promover.
@@ -68,10 +56,7 @@ entity TLB_LRU is
 
         -- Escritura (SÍNCRONA con reemplazo LRU automático)
         write_en      : in  STD_LOGIC;                      -- Habilitar escritura
-        write_phys    : in  STD_LOGIC_VECTOR(31 downto 0);  -- Marco físico a insertar
-        -- Flag de "página global": cuando '1' la entrada matchea con cualquier
-        -- PCID.  Se guarda en metadata separada (tlb_global), NO en write_phys.
-        write_global  : in  STD_LOGIC
+        write_phys    : in  STD_LOGIC_VECTOR(31 downto 0)   -- Marco físico a insertar
     );
 end TLB_LRU;
 
@@ -97,14 +82,11 @@ architecture Behavioral of TLB_LRU is
     -- -------------------------------------------------------------------------
     -- Registros de la TLB
     -- -------------------------------------------------------------------------
-    signal tlb_valid  : t_valid;
-    signal tlb_global : t_valid;  -- '1' = página global (bypass de PCID).
-                                  -- Metadata separada: NO comparte celda con
-                                  -- tlb_frame para evitar aliasing dato/control.
-    signal tlb_vpn    : t_vpn;
-    signal tlb_pcid   : t_pcid;
-    signal tlb_frame  : t_frame;  -- Marco físico puro, sin bits "prestados".
-    signal tlb_age    : t_age;
+    signal tlb_valid : t_valid;
+    signal tlb_vpn   : t_vpn;
+    signal tlb_pcid  : t_pcid;
+    signal tlb_frame : t_frame;
+    signal tlb_age   : t_age;
 
     -- -------------------------------------------------------------------------
     -- Señales de resultado del bloque combinacional
@@ -123,17 +105,9 @@ begin
     -- (simulación) y devuelve hit + phys_frame.
     -- También actualiza las señales internas s_hit_found / s_hit_idx que
     -- serán leídas por el bloque síncrono para el aging LRU en hit.
-    --
-    -- CONDICIÓN DE HIT (corregida):
-    --   Una entrada coincide si:
-    --     a) Es válida.
-    --     b) Su VPN coincide con la dirección virtual de búsqueda.
-    --     c) Su PCID coincide con el PCID actual  — O BIEN —
-    --        tlb_global(i) = '1'  (página global: ignora PCID).
-    --   El flag global se consulta en su propio registro, NUNCA en tlb_frame.
     -- =========================================================================
     comb_lookup : process(lookup_en, virt_addr, pcid,
-                          tlb_valid, tlb_global, tlb_vpn, tlb_pcid, tlb_frame)
+                          tlb_valid, tlb_vpn, tlb_pcid, tlb_frame)
         variable v_vpn   : std_logic_vector(VPN_BITS-1  downto 0);
         variable v_pcid  : std_logic_vector(PCID_BITS-1 downto 0);
         variable v_found : std_logic;
@@ -154,13 +128,10 @@ begin
             for i in 0 to NUM_ENTRIES-1 loop
                 if tlb_valid(i) = '1'
                    and tlb_vpn(i)  = v_vpn
-                   -- Bypass de PCID usando tlb_global(i), NO tlb_frame(i)(3).
-                   -- Esto garantiza que el campo frame sea un dato puro y que
-                   -- ningún frame con bit3=1 accidental produzca hits cruzados.
-                   and (tlb_pcid(i) = v_pcid or tlb_global(i) = '1')
+                   and (tlb_pcid(i) = v_pcid or tlb_frame(i)(3) = '1')
                 then
                     v_found := '1';
-                    v_frame := tlb_frame(i);  -- frame limpio, sin bits de control
+                    v_frame := tlb_frame(i);
                     v_idx   := i;
                     -- No hay break en VHDL; si hubiera dos hits (no debería)
                     -- el último índice gana. En una TLB correcta no hay duplicados.
@@ -206,9 +177,8 @@ begin
             -- -----------------------------------------------------------------
             if reset = '1' then
                 for i in 0 to NUM_ENTRIES-1 loop
-                    tlb_valid(i)  <= '0';
-                    tlb_global(i) <= '0';  -- también limpiar el bit global
-                    tlb_age(i)    <= (others => '0');
+                    tlb_valid(i) <= '0';
+                    tlb_age(i)   <= (others => '0');
                 end loop;
 
             -- -----------------------------------------------------------------
@@ -246,15 +216,12 @@ begin
                     v_victim_age := v_min_age;            -- edad LRU real
                 end if;
 
-                -- Paso 3: Insertar la nueva entrada como MRU.
-                --   tlb_frame recibe el marco físico puro.
-                --   tlb_global recibe el flag semántico por su propio pin.
-                tlb_vpn(v_target)    <= v_vpn;
-                tlb_pcid(v_target)   <= v_pcid_w;
-                tlb_frame(v_target)  <= write_phys;    -- dato puro, sin flags
-                tlb_global(v_target) <= write_global;  -- metadata separada
-                tlb_valid(v_target)  <= '1';
-                tlb_age(v_target)    <= to_unsigned(MAX_AGE, AGE_BITS);
+                -- Paso 3: Insertar la nueva entrada como MRU
+                tlb_vpn(v_target)   <= v_vpn;
+                tlb_pcid(v_target)  <= v_pcid_w;
+                tlb_frame(v_target) <= write_phys;
+                tlb_valid(v_target) <= '1';
+                tlb_age(v_target)   <= to_unsigned(MAX_AGE, AGE_BITS);
 
                 -- Paso 4: Decrementar SOLO las entradas más recientes que la víctima.
                 --   Invariante: si age[i] <= v_victim_age, esas entradas ya eran
@@ -305,16 +272,13 @@ end Behavioral;
 --       · La actualización LRU del hit se efectúa en el siguiente flanco.
 --
 --  2. ESCRITURA (síncrona):
---       · Pon write_en = '1', virt_addr, pcid, write_phys y write_global.
---       · write_global = '1' → la página ignora PCID en futuros lookups
---         (páginas del kernel compartidas, ej. IDT, GDT).
---       · write_global = '0' → página normal, PCID-específica.
+--       · Pon write_en = '1', virt_addr, pcid y write_phys en los pines.
 --       · La inserción y el reemplazo LRU ocurren en el flanco de subida.
 --       · write_en tiene prioridad sobre lookup_en si llegan juntos.
 --
 --  3. RESET:
 --       · reset = '1' (síncrono) invalida todas las entradas en el
---         siguiente flanco de subida. También limpia todos los bits global.
+--         siguiente flanco de subida.
 --
 --  4. AJUSTE DE TAMAÑO:
 --       · Para una TLB más pequeña (y más rápida en Logisim) baja
@@ -328,10 +292,4 @@ end Behavioral;
 --       · Compila con GHDL y exporta el netlist.
 --       · El loop de 64 entradas genera lógica paralela; si el simulador
 --         va lento, reduce NUM_ENTRIES a 16 y ajusta AGE_BITS.
---
---  6. CONTRATO DE INTERFAZ (write_global):
---       · El pin write_global es el único mecanismo para marcar una
---         página como global.  Nunca encodees este flag en write_phys.
---       · Típicamente, páginas del kernel (ring 0) se insertan con
---         write_global='1'; páginas de usuario con write_global='0'.
 -- =============================================================================

@@ -1,0 +1,47 @@
+; =======================================================================
+; PRUEBA 6: Excepciones Básicas y Causa (SysJMP en RAM)
+; =======================================================================
+
+; 1. Escribir el Handler de Excepciones en RAM
+; -----------------------------------------------------------------------
+; Dado que el programa principal vive en ROM, primero "escribimos" 
+; dinámicamente las instrucciones de nuestro handler en la RAM.
+; Base de la RAM elegida: 0x00001000
+
+H LDI R1, 0x0000    ; Parte alta de la dirección de RAM
+SLT ADI R1, 0x1000  ; Parte baja, R1 = 0x00001000 (Puntero a RAM)
+
+; Construimos manualmente la instrucción 'CYE R7, R3' (OpCode 20)
+; Lee la causa (RE7) y la guarda en R3. Codificación: 0x14730000
+H LDI R2, 0x1473    
+SLT ADI R2, 0x0000  
+int STR R1, R2, 0   ; RAM[0x1000] = CYE R7, R3
+
+; Construimos manualmente la instrucción 'HLT' (OpCode 1)
+; Detiene el núcleo. Codificación: 0x01000000
+H LDI R3, 0x0100    
+SLT ADI R3, 0x0000  
+int STR R1, R3, 4   ; RAM[0x1004] = HLT
+
+; 2. Configurar el vector SysJMP
+; -----------------------------------------------------------------------
+; Movemos la dirección base del handler (0x1000) al Registro Especial 12 
+; (SysJMP) mediante la instrucción CYR
+CYR R1, R12         ; Sys-JMP (RE 12) = 0x00001000
+
+; 3. Provocar la Excepción
+; -----------------------------------------------------------------------
+; Para desencadenar un error predecible usaremos un 'Alignment Fault' (Causa 6).
+; La lectura de instrucciones exige que los accesos terminen en '00' (alineación 
+; de 4 bytes). Saltaremos a una dirección desalineada.
+LDI R4, 3           ; R4 = 0x00000003 (Dirección inválida, no termina en 00)
+JMP R4              ; Falla el hardware, cancela el salto y dispara la excepción
+
+; =======================================================================
+; A partir de aquí el código es inalcanzable. El hardware debe:
+; 1. Cancelar el JMP y cargar el número '6' en el RE 7 (Cuase).
+; 2. Copiar el SysJMP (0x1000) al PC.
+; 3. Ejecutar las instrucciones alojadas en la RAM (CYE y HLT).
+; Al finalizar la prueba, el registro normal R3 debe contener el valor '6'.
+; =======================================================================
+NOP                 ; Instrucción nula, relleno

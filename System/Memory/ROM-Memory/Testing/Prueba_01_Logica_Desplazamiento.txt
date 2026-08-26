@@ -1,0 +1,32 @@
+; ==========================================================
+; Prueba 1 (Fase 1): Logica y Desplazamiento (Compuertas ALU)
+; Motivo: verificar que AND, NOR, XOR y RSH funcionan
+; correctamente con valores conocidos, antes de introducir
+; saltos complejos.
+; ==========================================================
+
+; --- Operandos conocidos ---
+LDI R1, 204         ; R1 = 11001100 (0xCC)
+LDI R2, 170         ; R2 = 10101010 (0xAA)
+
+; --- AND ---
+; Esperado: R3 = 10001000 = 136 (0x88)
+AND R1, R2, R3
+
+; --- NOR ---
+; OR(R1,R2) = 11101110 en el byte bajo; como R1 y R2 valen 0
+; en los 24 bits superiores, NOR pone esos bits en 1.
+; Esperado: R4 = 0xFFFFFF11 (byte bajo = 00010001)
+NOR R1, R2, R4
+
+; --- XOR ---
+; Esperado: R5 = 01100110 = 102 (0x66)
+XOR R1, R2, R5
+
+; --- RSH ---
+LDI R6, 2           ; Cantidad de bits a desplazar
+; Esperado: R7 = R1 >> 2 = 00110011 = 51 (0x33)
+RSH R1, R6, R7
+
+; Fin: revisar R3=136, R4=0xFFFFFF11, R5=102, R7=51
+HLT

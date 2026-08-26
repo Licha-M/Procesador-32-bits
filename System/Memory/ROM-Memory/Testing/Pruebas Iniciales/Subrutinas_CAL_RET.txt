@@ -9,9 +9,8 @@ CAL multiplicar_x4  ; Llamamos a la subrutina (5 * 4 = 20)
 ; Al regresar, R1 valdrá 20
 
 ; Segunda llamada a la subrutina
-LDI R1, 12
-CAL multiplicar_x4  ; (12 * 4 = 48)
-; Al regresar, R1 valdrá 48
+CAL multiplicar_x4  ; (20 * 4 = 80)
+; Al regresar, R1 valdrá 80
 
 HLT                 ; Detenemos el núcleo del SO
 

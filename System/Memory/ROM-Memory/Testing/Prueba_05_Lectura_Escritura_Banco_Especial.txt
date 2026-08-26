@@ -1,0 +1,30 @@
+; =======================================================================
+; PRUEBA 5: Transferencia Banco Normal <-> Banco Especial
+; =======================================================================
+
+; 1. Cargar patrones de prueba reconocibles en los registros normales
+LDI R1, 0xAAAA      ; Patrón alternante 1
+LDI R2, 0x5555      ; Patrón alternante 2
+LDI R3, 0xFFFF      ; Patrón de todos unos
+
+; 2. Transferir datos: Banco Normal -> Banco Especial (Instrucción CYR)
+; Sintaxis: CYR R_Normal, R_Especial
+; Nota: El ensamblador utiliza la misma nomenclatura (R0-R15) para los argumentos de ambos bancos
+CYR R1, R2          ; Mueve R1 Normal (0xAAAA) -> R2 Especial (SP)
+CYR R2, R3          ; Mueve R2 Normal (0x5555) -> R3 Especial (PCID)
+CYR R3, R4          ; Mueve R3 Normal (0xFFFF) -> R4 Especial (CR3)
+
+; 3. Limpiar los registros normales origen para asegurar que la lectura 
+; posterior realmente provenga del banco especial y no de un valor residual.
+LDI R1, 0x0000
+LDI R2, 0x0000
+LDI R3, 0x0000
+
+; 4. Transferir datos: Banco Especial -> Banco Normal (Instrucción CYE)
+; Sintaxis: CYE R_Especial, R_Normal
+CYE R2, R5          ; Mueve R2 Especial (SP) -> R5 Normal. Resultado esperado en R5: 0xAAAA
+CYE R3, R6          ; Mueve R3 Especial (PCID) -> R6 Normal. Resultado esperado en R6: 0x5555
+CYE R4, R7          ; Mueve R4 Especial (CR3) -> R7 Normal. Resultado esperado en R7: 0xFFFF
+
+; 5. Finalizar ejecución
+HLT                 ; Detiene el núcleo

@@ -1,0 +1,61 @@
+; ==========================================================
+; Prueba 4 (Fase 1): Acceso a Memoria Natural
+; Motivo: validar los multiplexores de tamano de memoria al
+; leer y escribir en RAM, usando los prefijos char (8 bits),
+; short (16 bits) e int (32 bits), en direcciones alineadas
+; (offset terminado en 00, es decir multiplo de 4).
+; ==========================================================
+
+LDI R1, 200            ; R1 = direccion base en RAM (200 = ...11001000,
+                         ; alineada a palabra de 4 bytes)
+
+; ----------------------------------------------------------
+; Sub-prueba A: escritura/lectura de palabra completa (int)
+; ----------------------------------------------------------
+LDI R2, 4660             ; R2 = 0x00001234
+int STR R1, R2, 0          ; RAM[200] (32 bits) = 0x00001234
+int LOD R1, R3, 0            ; Esperado: R3 = 4660 (0x00001234)
+
+; ----------------------------------------------------------
+; Sub-prueba B: escritura/lectura de 1 byte (char) sobre la
+; misma palabra, para ver que el mux solo toca 8 bits.
+; ----------------------------------------------------------
+LDI R4, 255                ; R4 = 0xFF
+char STR R1, R4, 0           ; Sobreescribe solo 1 byte en offset 0
+
+int LOD R1, R5, 0              ; Releemos la palabra completa.
+                                 ; Comparar R5 contra R3 (4660):
+                                 ; deben diferir en EXACTAMENTE 8 bits
+                                 ; (un solo byte cambio a 0xFF). Cual
+                                 ; byte cambio (el mas o menos
+                                 ; significativo) revela la convencion
+                                 ; de tu mux/endianness para offset 0.
+
+char LOD R1, R6, 0               ; Lectura aislada de 1 byte.
+                                   ; Esperado: R6 = 255 (0x000000FF),
+                                   ; sin arrastrar bits de bytes vecinos
+
+; ----------------------------------------------------------
+; Sub-prueba C: escritura/lectura de medio-palabra (short)
+; en una direccion distinta, para no interferir con B.
+; ----------------------------------------------------------
+LDI R7, 4386                ; R7 = 0x00001122
+int STR R1, R7, 4             ; RAM[204] (32 bits) = 0x00001122
+
+LDI R8, 43981                  ; R8 = 0x0000ABCD
+short STR R1, R8, 4              ; Sobreescribe solo 16 bits en offset 4
+
+int LOD R1, R9, 4                  ; Releemos la palabra completa.
+                                     ; Comparar R9 contra 4386 (0x1122):
+                                     ; deben diferir en EXACTAMENTE 16
+                                     ; bits (la mitad alta o baja paso
+                                     ; a valer 0xABCD).
+
+short LOD R1, R10, 4                 ; Lectura aislada de 16 bits.
+                                       ; Esperado: R10 = 43981 (0x0000ABCD)
+
+; Fin: revisar R3=4660, R6=255, R10=43981 (lecturas del mismo tamano
+; que la escritura son inequivocas). R5 y R9 sirven para confirmar,
+; comparando contra el valor previo, que el mux solo modifico la
+; fraccion correcta de la palabra y dejo el resto intacto.
+HLT
