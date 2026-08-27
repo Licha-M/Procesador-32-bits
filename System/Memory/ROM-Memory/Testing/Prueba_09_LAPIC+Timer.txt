@@ -1,0 +1,54 @@
+; =======================================================================
+; PRUEBA DE LAPIC: Timer e Interrupciones por Hardware (IRQ 6) - CORREGIDO
+; =======================================================================
+
+JMP main
+
+; === INTERRUPT HANDLER (Vector 6) ===
+handler_lapic_timer:
+    LDI R10, 0x0001     ; Flag de éxito: R10 = 1
+
+    ; --- Carga limpia de la base LAPIC (0xFEE00000) ---
+    LDI R1, 0x0000      ; Parte baja = 0x0000
+    H LDI R1, 0xFEE0    ; Parte alta = 0xFEE0 -> R1 = 0xFEE00000
+    
+    ; --- Reconocimiento de Interrupción (EOI) ---
+    LDI R2, 1           ; Bit 0 = 1 para EOI
+    int STR R1, R2, 16  ; Reg 4 (EOI): Offset 0x10 (16 decimal)
+
+    HLT                 ; Fin de prueba exitosa.
+
+; === PROGRAMA PRINCIPAL ===
+main:
+    ; 1. Configurar SysJMP (0xFFF0000C)
+    H LDI R1, 0xFFF0    ; Parte alta = 0xFFF0 -> R1 = 0xFFF0000C
+    SLT ADI R1, 0x000C      ; Parte baja = 0x000C
+    CYR R1, R12         ; RE 12 = SysJMP
+    LDI R1, 0x0000
+
+    ; 2. Cargar Dirección Base del LAPIC (0xFEE00000)
+    LDI R1, 0x0000      ; Parte baja = 0x0000
+    H LDI R1, 0xFEE0    ; Parte alta = 0xFEE0 -> R1 = 0xFEE00000
+
+    ; 3. Habilitar LAPIC y Periféricos (Reg 2 - APIC_Config, Offset 0x08)
+    LDI R2, 0x3           ; Bit 0 (En_LAPIC) + Bit 1 (En_Perif_IRQs) = 3
+    CYR R2, R8
+    
+    int STR R1, R2, 8   
+
+    ; 4. Configurar Task Priority Register (Reg 3 - TPR, Offset 0x0C)
+    LDI R2, 0           ; Permite pasar todas las IRQs
+    int STR R1, R2, 12  
+
+    ; 5. Configurar Timer Limit PRIMERO (Reg 6 - Timer Limit, Offset 0x18)
+    LDI R2, 100         ; Conteo de 100 ciclos
+    int STR R1, R2, 24  
+
+    ; 6. Configurar y Habilitar Timer Config (Reg 5 - Timer Config, Offset 0x14)
+    ; Vector 6 (0x06) + Enable Bit 7 (0x80) = 0x86 (134 decimal)
+    LDI R2, 134
+    int STR R1, R2, 20  
+
+; === BUCLE DE ESPERA ===
+wait_loop:
+    JMP wait_loop
