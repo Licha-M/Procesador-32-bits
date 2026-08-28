@@ -15,11 +15,22 @@
     - Declaración:   mi_etiqueta:
     - Uso en saltos: JMP mi_etiqueta  /  BRH =, mi_etiqueta  /  CAL mi_etiqueta
     - El ensamblador expande automáticamente cada salto a etiqueta en
-      3 instrucciones usando R15 (scratch alto/dest):
+      3 instrucciones usando R15 (scratch para dirección de salto):
 
         H LDI  R15, <high16_comp> ; parte alta de la dirección (con compensación)
         SLT ADI    R15, <low16>       ; parte baja (ADI hace extensión de signo)
         JMP/BRH/CAL R15           ; salto efectivo
+
+  LDI de 32 bits (expansión automática):
+    - Cuando el inmediato de LDI no cabe en 16 bits (valor > 0xFFFF),
+      el ensamblador genera automáticamente 3 instrucciones:
+
+        LDI    Rx, 0              ; poner el registro a 0
+        H LDI  Rx, <high16_comp> ; parte alta (con compensación de signo)
+        SLT ADI   Rx, <low16>    ; parte baja (extensión de signo, silencioso)
+
+    - No se necesita ninguna sintaxis especial: LDI R5, 0xDEADBEEF
+      se convierte automáticamente en las 3 instrucciones anteriores.
 
   Uso:
     python assembler.py                  → abre selector de archivo gráfico
@@ -47,10 +58,10 @@ except ImportError:
 # Ruta de salida por defecto (imagen ROM de Logisim)
 ROM_OUTPUT_PATH = r"d:\Yo\Escritorio\Procesador-32-bits\System\Memory\ROM-Memory\ROM"
 
-# Registros scratch reservados para expansión de etiquetas.
-# ¡No usar R14 ni R15 para otros propósitos cuando se usan etiquetas!
-SCRATCH_HIGH  = 15   # R15: guarda la parte alta desplazada / dirección final
-SCRATCH_LOW   = 14   # R14: guarda la parte baja / cantidad de shift (temporal)
+# Registro scratch reservado para expansión de etiquetas en saltos.
+# ¡No usar R15 para otros propósitos cuando se usen saltos a etiquetas!
+SCRATCH_REG   = 15   # R15: guarda la dirección de salto calculada
+SCRATCH_HIGH  = 15   # Alias de compatibilidad hacia atrás
 
 
 # =============================================================================
@@ -188,6 +199,38 @@ def parse_immediate(token: str, line_num: int, bits: int = 16,
     return value
 
 
+def parse_immediate_any(token: str, line_num: int) -> int:
+    """
+    Parsea un valor inmediato sin restricción de rango previa.
+    Devuelve el valor entero en bruto (puede ser mayor a 16 bits).
+    Soporta decimal, 0xHEX, 0bBIN y negativos.
+    El llamador decide si es válido para 16 o 32 bits.
+    """
+    token = token.strip()
+    try:
+        if token.lower().startswith('0x'):
+            value = int(token, 16)
+        elif token.lower().startswith('0b'):
+            value = int(token, 2)
+        else:
+            value = int(token)
+    except ValueError:
+        raise AssemblerError(
+            f"Inmediato inválido: '{token}'. "
+            f"Use decimal (123), hexadecimal (0xFF) o binario (0b1010).",
+            line_num
+        )
+    # Permitir rango de 32 bits con signo o sin signo
+    if not (-(1 << 31) <= value <= 0xFFFFFFFF):
+        raise AssemblerError(
+            f"Inmediato {value} fuera del rango de 32 bits.", line_num
+        )
+    # Normalizar negativo a complemento a dos de 32 bits
+    if value < 0:
+        value = value & 0xFFFFFFFF
+    return value
+
+
 def is_label_name(token: str) -> bool:
     """Verifica si el token es un nombre de etiqueta válido (no número ni registro)."""
     # Etiqueta: empieza con letra o _, solo letras/dígitos/_
@@ -222,7 +265,7 @@ def expand_label_address(address: int, jump_mnemonic: str,
       sin iteraciones adicionales, ya que el tamaño de cada bloque
       es conocido desde el primer pase.
     """
-    hi = SCRATCH_HIGH
+    hi = SCRATCH_REG
 
     high16 = (address >> 16) & 0xFFFF
     low16  =  address        & 0xFFFF
@@ -248,6 +291,37 @@ def expand_label_address(address: int, jump_mnemonic: str,
         raise AssemblerError(
             f"Instrucción de salto desconocida: '{jump_mnemonic}'", src_line
         )
+
+    return [w1, w2, w3]
+
+
+def expand_ldi_32(ra: int, value32: int) -> list[int]:
+    """
+    Expande un LDI con valor de 32 bits en 3 palabras de 32 bits.
+
+    Para cargar un valor de 32 bits en el registro RA:
+      1) LDI    RA, 0              → poner el registro a 0
+      2) H LDI  RA, <high16_comp>  → cargar parte alta (tipo=4, desplazada)
+      3) SLT ADI   RA, <low16>     → sumar parte baja (silencioso, tipo=4)
+
+    La compensación en high16 corrige la extensión de signo que ADI
+    aplica al low16 cuando su bit 15 está activo.
+    """
+    value32 = value32 & 0xFFFFFFFF   # Garantizar 32 bits sin signo
+
+    high16 = (value32 >> 16) & 0xFFFF
+    low16  =  value32        & 0xFFFF
+
+    # Compensación por extensión de signo de ADI
+    if low16 >= 0x8000:
+        high16 = (high16 + 1) & 0xFFFF
+
+    # 1: LDI RA, 0  — limpiar el registro (tipo=0)
+    w1 = build_word(0, OPCODES['LDI'], (ra << 20) | 0)
+    # 2: H LDI RA, high16_comp  — parte alta (tipo=4)
+    w2 = build_word(4, OPCODES['LDI'], (ra << 20) | high16)
+    # 3: SLT ADI RA, low16  — parte baja silenciosa (tipo=4)
+    w3 = build_word(4, OPCODES['ADI'], (ra << 20) | low16)
 
     return [w1, w2, w3]
 
@@ -353,10 +427,11 @@ def encode_single(tokens: list[str], line_num: int) -> int:
         ra = parse_register(args[0], line_num)
         return build_word(0, op, ra << 20)
 
-    # ── LDI — [23:20]=RA  [15:0]=IMM16 ─────────────────────────────────────
+    # ── LDI — [23:20]=RA  [15:0]=IMM16 (o expansión automática 32 bits) ──────
     elif mnemonic == 'LDI':
         _require_argc(args, 2, 'LDI', line_num, hint="LDI R0, 1000")
         ra  = parse_register(args[0], line_num)
+        # Intentar parsear como valor de hasta 32 bits para detectar si necesita expansión
         imm = parse_immediate(args[1], line_num, bits=16, signed=False)
         return build_word(tipo, op, (ra << 20) | imm)
 
@@ -475,6 +550,59 @@ class PendingInstruction:
         self.size          = size           # Cuántas palabras ocupa (1 o 3)
 
 
+def _try_encode_ldi32(tokens: list[str], line_num: int
+                      ) -> tuple[list[int] | None, bool]:
+    """
+    Detecta si la instrucción es un LDI con inmediato de 32 bits y la expande.
+
+    Retorna:
+      (words, True)   → LDI de 32 bits: words tiene las 3 palabras expandidas.
+      (None, False)   → No es un LDI de 32 bits; el llamador debe usar encode_single.
+
+    Solo actúa sobre instrucciones LDI sin prefijo de tipo de memoria ni H/L
+    (los LDI con prefijo explícito H/L/SLT siempre son de 16 bits y se pasan
+    directamente a encode_single).
+    """
+    # Identificar el nemotécnico considerando posibles prefijos
+    idx = 0
+    first = tokens[idx].upper() if tokens else ''
+
+    # Si tiene prefijo (H, L, SLT, o tipo de memoria), no es candidato a expansión de 32 bits
+    if first in ('H', 'L', 'SLT') or first in MEM_TYPES:
+        return None, False
+
+    if first != 'LDI':
+        return None, False
+
+    # Es un LDI sin prefijo: comprobar si el inmediato supera 16 bits
+    args = tokens[1:]
+    if len(args) != 2:
+        # Dejar que encode_single genere el error de cantidad de operandos
+        return None, False
+
+    # Parsear el registro (deja que encode_single maneje errores de registro)
+    try:
+        ra = parse_register(args[0], line_num)
+    except AssemblerError:
+        return None, False
+
+    # Parsear el inmediato como valor de hasta 32 bits
+    raw = args[1].strip()
+    try:
+        value = parse_immediate_any(raw, line_num)
+    except AssemblerError:
+        # Si falla como 32 bits también fallará en encode_single, dejarlo pasar
+        return None, False
+
+    # Si cabe en 16 bits sin signo, es un LDI normal → sin expansión
+    if 0 <= value <= 0xFFFF:
+        return None, False
+
+    # Valor de 32 bits: expandir automáticamente
+    words = expand_ldi_32(ra, value)
+    return words, True
+
+
 def first_pass(lines: list[str]) -> tuple[dict[str, int], list[PendingInstruction], list[str]]:
     """
     PRIMER PASE: detecta etiquetas y construye la lista de instrucciones pendientes.
@@ -568,16 +696,32 @@ def first_pass(lines: list[str]) -> tuple[dict[str, int], list[PendingInstructio
                 continue
 
         # ── Instrucción normal (codificación directa) ─────────────────────────
+        # Detección especial: LDI con inmediato de 32 bits → expansión automática
         try:
-            word = encode_single(tokens, line_num)
-            pending.append(PendingInstruction(
-                words    = [word],
-                src_line = line_num,
-                size     = 1,
-            ))
-            address += 1
+            words, expanded = _try_encode_ldi32(tokens, line_num)
         except AssemblerError as e:
             errors.append(str(e))
+            continue
+
+        if expanded:
+            # LDI de 32 bits: expandido en 3 instrucciones automáticamente
+            pending.append(PendingInstruction(
+                words    = words,
+                src_line = line_num,
+                size     = 3,
+            ))
+            address += 3
+        else:
+            try:
+                word = encode_single(tokens, line_num)
+                pending.append(PendingInstruction(
+                    words    = [word],
+                    src_line = line_num,
+                    size     = 1,
+                ))
+                address += 1
+            except AssemblerError as e:
+                errors.append(str(e))
 
     return label_map, pending, errors
 
@@ -772,6 +916,12 @@ class AssemblerGUI:
         tk.Entry(rom_frame, textvariable=self.rom_var, width=65).pack(side='left', padx=5)
         tk.Button(rom_frame, text="…", command=self._browse_rom).pack(side='left')
 
+        # ── Opciones ──────────────────────────────────────────────────────────
+        opts_frame = tk.Frame(self.root, padx=12, pady=4)
+        opts_frame.pack(fill='x')
+        self.gen_list_var = tk.BooleanVar(value=True)
+        tk.Checkbutton(opts_frame, text="Generar listado anotado (.hex)", variable=self.gen_list_var).pack(side='left')
+
         # ── Área de log ───────────────────────────────────────────────────────
         lf = tk.Frame(self.root, padx=12, pady=4)
         lf.pack(fill='both', expand=True)
@@ -842,13 +992,18 @@ class AssemblerGUI:
 
         # Escribir ROM
         write_rom_logisim(instructions, rom_path)
-        # Escribir listado anotado junto al fuente
-        ann_path = os.path.splitext(source)[0] + "_listado.hex"
-        write_annotated_hex(instructions, label_map, ann_path)
+        
+        # Escribir listado anotado junto al fuente (si está activado)
+        if self.gen_list_var.get():
+            ann_path = os.path.splitext(source)[0] + "_listado.hex"
+            write_annotated_hex(instructions, label_map, ann_path)
+        else:
+            ann_path = None
 
         self._log(f"\n✓  {len(instructions)} palabra(s) ensamblada(s).\n", 'ok')
         self._log(f"  ROM Logisim : {rom_path}", 'ok')
-        self._log(f"  Listado     : {ann_path}", 'ok')
+        if ann_path:
+            self._log(f"  Listado     : {ann_path}", 'ok')
 
         # Mostrar etiquetas
         if label_map:
@@ -882,8 +1037,20 @@ class AssemblerGUI:
 def main():
     if len(sys.argv) > 1:
         # ── Modo CLI ──────────────────────────────────────────────────────────
-        source_path = sys.argv[1]
-        rom_path    = sys.argv[2] if len(sys.argv) > 2 else ROM_OUTPUT_PATH
+        args = sys.argv[1:]
+        gen_list = True
+        
+        if '--no-list' in args:
+            gen_list = False
+            args.remove('--no-list')
+
+        if not args:
+            print("[ERROR] Falta archivo fuente.")
+            print("  Uso: python assembler.py [--no-list] fuente.txt [salida_ROM]")
+            sys.exit(1)
+
+        source_path = args[0]
+        rom_path    = args[1] if len(args) > 1 else ROM_OUTPUT_PATH
 
         print("=" * 62)
         print("  Ensamblador — Procesador 32 bits")
@@ -902,12 +1069,16 @@ def main():
             sys.exit(1)
 
         write_rom_logisim(instructions, rom_path)
-        ann_path = os.path.splitext(source_path)[0] + "_listado.hex"
-        write_annotated_hex(instructions, label_map, ann_path)
+        if gen_list:
+            ann_path = os.path.splitext(source_path)[0] + "_listado.hex"
+            write_annotated_hex(instructions, label_map, ann_path)
+        else:
+            ann_path = None
 
         print(f"[OK] {len(instructions)} palabra(s) ensamblada(s).")
         print(f"[OK] ROM Logisim : {rom_path}")
-        print(f"[OK] Listado     : {ann_path}")
+        if ann_path:
+            print(f"[OK] Listado     : {ann_path}")
 
         if label_map:
             print("\n[Etiquetas]")
@@ -918,7 +1089,7 @@ def main():
     # ── Modo GUI ──────────────────────────────────────────────────────────────
     if not HAS_TK:
         print("[ERROR] tkinter no está disponible.")
-        print("  Uso: python assembler.py fuente.txt [salida_ROM]")
+        print("  Uso: python assembler.py [--no-list] fuente.txt [salida_ROM]")
         sys.exit(1)
 
     root = tk.Tk()
