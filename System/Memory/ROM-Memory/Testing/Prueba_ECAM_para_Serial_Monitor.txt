@@ -61,6 +61,9 @@ main:
     H LDI R2, 0x0000
     SLT ADI R2, 0x0001
     int STR R1, R2, 4           ; Escribe 0x00000001 en 0xE0001004 (Offset 0x04)
+    
+    ; === PRUEBA DE LECTURA DE REGISTRO ECAM ===
+    int LOD R1, R5, 4       ; Lee 4 bytes de 0xE0001004 (Offset 0x04) y guarda en R5
 
 
     ; -------------------------------------------------------------------
