@@ -1,0 +1,90 @@
+; =======================================================================
+; CONFIGURACIÓN ECAM PARA PUERTO 1 Y DISPOSITIVO FINAL (SIN MMU / LAPIC)
+; =======================================================================
+
+main:
+    ; -------------------------------------------------------------------
+    ; 1. CONFIGURACIÓN DEL PUERTO 1 (SWITCH A - FUNCIÓN 1)
+    ; Base ECAM Switch A (Puerto 1): 0xE0001000
+    ; -------------------------------------------------------------------
+    
+    ; Cargar Dirección Base del Puerto 1 en R1
+    H LDI R1, 0xE000
+    SLT ADI R1, 0x1000          ; R1 = 0xE0001000
+
+    ; --- Configurar Buses (Offset 0x10) ---
+    ; Primary Bus = 0x00, Secondary Bus = 0x01, Subordinate Bus = 0x01
+    ; Valor a escribir: 0x00010100
+    H LDI R2, 0x0001
+    SLT ADI R2, 0x0100
+    int STR R1, R2, 16          ; Escribe en 0xE0001010 (Offset 0x10)
+
+    ; --- Configurar Rango MMIO: M-Base y M-Limit (Offset 0x18) ---
+    ; M-Base = 0xF000 (0xF0000000), M-Limit = 0xF00F (0xF00F0000)
+    ; Valor a escribir: 0xF00FF000
+    ; Nota: Se compensa la extensión de signo de 0xF000 (0xF00F + 1 = 0xF010)
+    LDI R2, 0x0000
+    H LDI R2, 0xF010
+    SLT ADI R2, 0xF000
+    int STR R1, R2, 24          ; Escribe en 0xE0001018 (Offset 0x18)
+
+
+    ; -------------------------------------------------------------------
+    ; 2. CONFIGURACIÓN DEL DISPOSITIVO FINAL (EXTENSIÓN RÁPIDA 1)
+    ; Base ECAM Extensión Rápida 1: 0xE0080000
+    ; -------------------------------------------------------------------
+    
+    ; Cargar Dirección Base del Dispositivo Final en R3
+    H LDI R3, 0xE001
+    SLT ADI R3, 0x0000          ; R3 = 0xE0080000
+
+    ; --- Configurar BAR 0 (Offset 0x10) ---
+    ; Asignación provisional dentro del rango MMIO (0xF0000000)
+    LDI R2, 0x0000
+    H LDI R2, 0xF000
+    SLT ADI R2, 0x0000
+    int STR R3, R2, 16          ; Escribe en 0xE0080010 (Offset 0x10)
+
+    ; --- Activar Command Register del Dispositivo Final (Offset 0x04) ---
+    ; Bit 0 = 1 (Enable MMIO)
+    H LDI R2, 0x0000
+    SLT ADI R2, 0x0001
+    int STR R3, R2, 4           ; Escribe 0x00000001 en 0xE0080004 (Offset 0x04)
+
+
+    ; -------------------------------------------------------------------
+    ; 3. ACTIVACIÓN FINAL DEL PUERTO 1 (SWITCH A)
+    ; El bit 0 de Command debe activarse AL FINAL de toda la configuración
+    ; -------------------------------------------------------------------
+    
+    LDI R2, 0x0000
+    H LDI R2, 0x0000
+    SLT ADI R2, 0x0001
+    int STR R1, R2, 4           ; Escribe 0x00000001 en 0xE0001004 (Offset 0x04)
+
+
+    ; -------------------------------------------------------------------
+    ; 4. RUTINA DE LA PANTALLA SERIAL
+    ; -------------------------------------------------------------------
+    
+    CAL run_serial_screen      ; Llamada a la aplicación de la pantalla
+
+    HLT                         ; Fin de la ejecución
+
+; =======================================================================
+; ESPACIO PARA EL PROGRAMA DE LA PANTALLA SERIAL
+; =======================================================================
+run_serial_screen:
+    ; --- ESCRIBE TU CÓDIGO AQUÍ ---
+    ; La dirección base MMIO configurada para el dispositivo es 0xF0000000
+    
+    ; Codigo de prueba, deberia salir por el Puerto
+    H LDI R4, 0xF000
+    SLT ADI R4, 0x0000
+    LDI R5, 0x0041          ; Código ASCII 'A'
+    int STR R4, R5, 0       ; Escribir 'A' en la pantalla
+    int STR R4, R5, 1
+    int STR R4, R5, 2
+    int STR R4, R5, 3
+
+    RET

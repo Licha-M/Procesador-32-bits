@@ -46,6 +46,7 @@
       <a name="facing" val="south"/>
     </tool>
     <tool lib="1" name="AND Gate">
+      <a name="facing" val="south"/>
       <a name="size" val="30"/>
     </tool>
     <tool lib="1" name="OR Gate">
@@ -81,16 +82,16 @@
       <rect fill="none" height="40" stroke="#000000" width="70" x="140" y="40"/>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="157" y="110">ECAM</text>
       <circ-anchor facing="east" x="210" y="80"/>
+      <circ-port dir="in" pin="300,10" x="50" y="30"/>
       <circ-port dir="in" pin="300,110" x="50" y="70"/>
       <circ-port dir="in" pin="300,140" x="90" y="20"/>
       <circ-port dir="in" pin="300,190" x="110" y="20"/>
       <circ-port dir="in" pin="300,260" x="190" y="20"/>
       <circ-port dir="in" pin="300,280" x="50" y="90"/>
+      <circ-port dir="in" pin="300,30" x="50" y="40"/>
       <circ-port dir="in" pin="300,300" x="50" y="100"/>
       <circ-port dir="in" pin="300,320" x="50" y="110"/>
-      <circ-port dir="in" pin="300,40" x="50" y="30"/>
       <circ-port dir="in" pin="300,460" x="50" y="120"/>
-      <circ-port dir="in" pin="300,60" x="50" y="40"/>
       <circ-port dir="in" pin="300,90" x="50" y="60"/>
       <circ-port dir="out" pin="920,240" x="130" y="20"/>
       <circ-port dir="out" pin="920,280" x="170" y="20"/>
@@ -100,6 +101,10 @@
     <comp lib="0" loc="(290,170)" name="Constant">
       <a name="value" val="0x10"/>
       <a name="width" val="12"/>
+    </comp>
+    <comp lib="0" loc="(300,10)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="Read"/>
     </comp>
     <comp lib="0" loc="(300,110)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -129,6 +134,10 @@
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
+    <comp lib="0" loc="(300,30)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="Is_ECAM"/>
+    </comp>
     <comp lib="0" loc="(300,300)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="label" val="Class_Code"/>
@@ -141,19 +150,11 @@
       <a name="radix" val="16"/>
       <a name="width" val="8"/>
     </comp>
-    <comp lib="0" loc="(300,40)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="Read"/>
-    </comp>
     <comp lib="0" loc="(300,460)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="label" val="Capabilities_Pointer"/>
       <a name="radix" val="16"/>
       <a name="width" val="12"/>
-    </comp>
-    <comp lib="0" loc="(300,60)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="Is_ECAM"/>
     </comp>
     <comp lib="0" loc="(300,90)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -258,15 +259,16 @@
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="1" loc="(380,50)" name="AND Gate">
+    <comp lib="1" loc="(380,20)" name="AND Gate">
       <a name="size" val="30"/>
     </comp>
     <comp lib="1" loc="(420,220)" name="OR Gate">
       <a name="size" val="30"/>
     </comp>
-    <comp lib="1" loc="(430,80)" name="NOT Gate">
+    <comp lib="1" loc="(420,80)" name="AND Gate">
       <a name="facing" val="south"/>
-      <a name="size" val="20"/>
+      <a name="negate1" val="true"/>
+      <a name="size" val="30"/>
     </comp>
     <comp lib="1" loc="(480,170)" name="PLA">
       <a name="in_width" val="3"/>
@@ -320,16 +322,16 @@
     </comp>
     <comp loc="(700,220)" name="Common_ECAM"/>
     <wire from="(290,170)" to="(330,170)"/>
+    <wire from="(300,10)" to="(350,10)"/>
     <wire from="(300,110)" to="(590,110)"/>
     <wire from="(300,140)" to="(580,140)"/>
     <wire from="(300,190)" to="(320,190)"/>
     <wire from="(300,260)" to="(310,260)"/>
     <wire from="(300,280)" to="(310,280)"/>
+    <wire from="(300,30)" to="(340,30)"/>
     <wire from="(300,300)" to="(620,300)"/>
     <wire from="(300,320)" to="(310,320)"/>
-    <wire from="(300,40)" to="(350,40)"/>
     <wire from="(300,460)" to="(320,460)"/>
-    <wire from="(300,60)" to="(350,60)"/>
     <wire from="(300,90)" to="(600,90)"/>
     <wire from="(310,260)" to="(310,270)"/>
     <wire from="(310,270)" to="(620,270)"/>
@@ -345,20 +347,24 @@
     <wire from="(320,230)" to="(320,460)"/>
     <wire from="(320,230)" to="(330,230)"/>
     <wire from="(320,460)" to="(340,460)"/>
+    <wire from="(340,30)" to="(340,40)"/>
+    <wire from="(340,30)" to="(350,30)"/>
+    <wire from="(340,40)" to="(410,40)"/>
     <wire from="(370,170)" to="(440,170)"/>
     <wire from="(370,210)" to="(390,210)"/>
     <wire from="(370,220)" to="(380,220)"/>
+    <wire from="(380,20)" to="(430,20)"/>
     <wire from="(380,220)" to="(380,230)"/>
     <wire from="(380,230)" to="(390,230)"/>
     <wire from="(380,460)" to="(710,460)"/>
-    <wire from="(380,50)" to="(430,50)"/>
+    <wire from="(410,40)" to="(410,50)"/>
+    <wire from="(420,160)" to="(440,160)"/>
     <wire from="(420,220)" to="(430,220)"/>
-    <wire from="(430,160)" to="(440,160)"/>
+    <wire from="(420,80)" to="(420,160)"/>
     <wire from="(430,180)" to="(430,220)"/>
     <wire from="(430,180)" to="(440,180)"/>
-    <wire from="(430,50)" to="(430,60)"/>
-    <wire from="(430,50)" to="(870,50)"/>
-    <wire from="(430,80)" to="(430,160)"/>
+    <wire from="(430,20)" to="(430,40)"/>
+    <wire from="(430,20)" to="(870,20)"/>
     <wire from="(460,170)" to="(470,170)"/>
     <wire from="(460,220)" to="(490,220)"/>
     <wire from="(470,100)" to="(470,170)"/>
@@ -426,7 +432,7 @@
     <wire from="(810,230)" to="(810,400)"/>
     <wire from="(810,230)" to="(840,230)"/>
     <wire from="(860,100)" to="(860,220)"/>
-    <wire from="(870,50)" to="(870,220)"/>
+    <wire from="(870,20)" to="(870,220)"/>
     <wire from="(880,240)" to="(920,240)"/>
   </circuit>
   <circuit name="Common_ECAM">

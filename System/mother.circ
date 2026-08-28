@@ -20,6 +20,9 @@
     <tool name="Pull Resistor">
       <a name="facing" val="east"/>
     </tool>
+    <tool name="Clock">
+      <a name="facing" val="south"/>
+    </tool>
     <tool name="Constant">
       <a name="value" val="0x500"/>
       <a name="width" val="16"/>
@@ -54,8 +57,8 @@
   <lib desc="#I/O" name="5"/>
   <lib desc="#Base" name="6"/>
   <lib desc="#Input/Output-Extra" name="7"/>
-  <lib desc="file#CPU.circ" name="8"/>
-  <lib desc="file#Memory\Main_Memories.circ" name="9"/>
+  <lib desc="file#Memory\Main_Memories.circ" name="8"/>
+  <lib desc="file#CPU.circ" name="9"/>
   <main name="main"/>
   <options>
     <a name="gateUndefined" val="ignore"/>
@@ -104,7 +107,12 @@
     <comp lib="0" loc="(250,300)" name="Pin">
       <a name="appearance" val="NewPins"/>
     </comp>
-    <comp lib="0" loc="(480,440)" name="Probe">
+    <comp lib="0" loc="(510,430)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
+    <comp lib="0" loc="(510,450)" name="Probe">
       <a name="appearance" val="classic"/>
       <a name="facing" val="west"/>
       <a name="radix" val="16"/>
@@ -124,12 +132,52 @@
       <a name="facing" val="west"/>
       <a name="radix" val="16"/>
     </comp>
+    <comp lib="0" loc="(720,340)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
+    <comp lib="0" loc="(720,360)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
+    <comp lib="0" loc="(720,380)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
+    <comp lib="0" loc="(720,400)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
+    <comp lib="0" loc="(720,420)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
+    <comp lib="0" loc="(720,440)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
+    <comp lib="0" loc="(720,460)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
+    <comp lib="0" loc="(720,480)" name="Probe">
+      <a name="appearance" val="classic"/>
+      <a name="facing" val="west"/>
+      <a name="radix" val="16"/>
+    </comp>
     <comp lib="5" loc="(310,250)" name="LED">
       <a name="facing" val="east"/>
     </comp>
-    <comp lib="8" loc="(550,250)" name="Die"/>
-    <comp lib="9" loc="(470,480)" name="ROM_BIOS"/>
-    <comp lib="9" loc="(600,110)" name="Memory"/>
+    <comp lib="8" loc="(470,490)" name="ROM_BIOS"/>
+    <comp lib="8" loc="(600,110)" name="Memory"/>
+    <comp lib="9" loc="(550,250)" name="Die"/>
     <comp loc="(310,270)" name="On_Off_Sys"/>
     <wire from="(250,270)" to="(260,270)"/>
     <wire from="(250,300)" to="(260,300)"/>
@@ -140,12 +188,14 @@
     <wire from="(370,140)" to="(370,210)"/>
     <wire from="(400,140)" to="(400,210)"/>
     <wire from="(430,140)" to="(430,210)"/>
-    <wire from="(430,420)" to="(430,440)"/>
-    <wire from="(430,440)" to="(430,450)"/>
-    <wire from="(430,440)" to="(480,440)"/>
+    <wire from="(430,420)" to="(430,450)"/>
+    <wire from="(430,450)" to="(430,460)"/>
+    <wire from="(430,450)" to="(510,450)"/>
     <wire from="(450,140)" to="(450,210)"/>
     <wire from="(460,140)" to="(460,210)"/>
-    <wire from="(460,420)" to="(460,450)"/>
+    <wire from="(460,420)" to="(460,430)"/>
+    <wire from="(460,430)" to="(460,460)"/>
+    <wire from="(460,430)" to="(510,430)"/>
     <wire from="(480,140)" to="(480,170)"/>
     <wire from="(480,170)" to="(480,210)"/>
     <wire from="(480,170)" to="(560,170)"/>
@@ -155,6 +205,28 @@
     <wire from="(540,140)" to="(540,150)"/>
     <wire from="(540,150)" to="(540,210)"/>
     <wire from="(540,150)" to="(560,150)"/>
+    <wire from="(550,340)" to="(720,340)"/>
+    <wire from="(550,350)" to="(710,350)"/>
+    <wire from="(550,360)" to="(700,360)"/>
+    <wire from="(550,370)" to="(690,370)"/>
+    <wire from="(550,380)" to="(680,380)"/>
+    <wire from="(550,390)" to="(670,390)"/>
+    <wire from="(550,400)" to="(660,400)"/>
+    <wire from="(550,410)" to="(650,410)"/>
+    <wire from="(650,410)" to="(650,480)"/>
+    <wire from="(650,480)" to="(720,480)"/>
+    <wire from="(660,400)" to="(660,460)"/>
+    <wire from="(660,460)" to="(720,460)"/>
+    <wire from="(670,390)" to="(670,440)"/>
+    <wire from="(670,440)" to="(720,440)"/>
+    <wire from="(680,380)" to="(680,420)"/>
+    <wire from="(680,420)" to="(720,420)"/>
+    <wire from="(690,370)" to="(690,400)"/>
+    <wire from="(690,400)" to="(720,400)"/>
+    <wire from="(700,360)" to="(700,380)"/>
+    <wire from="(700,380)" to="(720,380)"/>
+    <wire from="(710,350)" to="(710,360)"/>
+    <wire from="(710,360)" to="(720,360)"/>
   </circuit>
   <circuit name="On_Off_Sys">
     <a name="appearance" val="custom"/>
