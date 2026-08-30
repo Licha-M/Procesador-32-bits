@@ -5,6 +5,7 @@
   <lib desc="#Wiring" name="0">
     <tool name="Splitter">
       <a name="appear" val="center"/>
+      <a name="facing" val="west"/>
       <a name="fanout" val="3"/>
       <a name="incoming" val="3"/>
     </tool>
@@ -16,6 +17,7 @@
       <a name="facing" val="south"/>
     </tool>
     <tool name="Tunnel">
+      <a name="facing" val="east"/>
       <a name="labelfont" val="SansSerif bold 8"/>
     </tool>
     <tool name="Pull Resistor">
@@ -25,7 +27,6 @@
       <a name="facing" val="south"/>
     </tool>
     <tool name="Constant">
-      <a name="facing" val="west"/>
       <a name="value" val="0x500"/>
       <a name="width" val="16"/>
     </tool>
@@ -48,16 +49,16 @@
     </tool>
   </lib>
   <lib desc="#Base" name="5"/>
-  <lib desc="file#MEM.circ" name="6"/>
-  <lib desc="file#LAPIC.circ" name="7"/>
+  <lib desc="file#Registros.circ" name="6"/>
+  <lib desc="file#Unidad_Aritmetica.circ" name="7"/>
   <lib desc="file#Control_FLush.circ" name="8"/>
-  <lib desc="file#..\Memory\Main_Memories.circ" name="9">
+  <lib desc="file#LAPIC.circ" name="9"/>
+  <lib desc="file#..\Memory\Main_Memories.circ" name="10">
     <tool name="ROM_BIOS">
       <a name="facing" val="north"/>
     </tool>
   </lib>
-  <lib desc="file#Registros.circ" name="10"/>
-  <lib desc="file#Unidad_Aritmetica.circ" name="11"/>
+  <lib desc="file#MEM.circ" name="11"/>
   <main name="Pipeline_Core"/>
   <options>
     <a name="gateUndefined" val="ignore"/>
@@ -224,7 +225,7 @@
       <a name="selloc" val="tr"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="7" loc="(620,410)" name="Local_APIC"/>
+    <comp lib="9" loc="(620,410)" name="Local_APIC"/>
     <comp loc="(470,410)" name="Pipeline_Core"/>
     <wire from="(230,380)" to="(240,380)"/>
     <wire from="(240,100)" to="(390,100)"/>
@@ -595,6 +596,11 @@
       <a name="labelfont" val="SansSerif bold 8"/>
       <a name="width" val="32"/>
     </comp>
+    <comp lib="0" loc="(590,580)" name="Tunnel">
+      <a name="label" val="SP"/>
+      <a name="labelfont" val="SansSerif bold 8"/>
+      <a name="width" val="32"/>
+    </comp>
     <comp lib="0" loc="(590,610)" name="Tunnel">
       <a name="label" val="EPC"/>
       <a name="labelfont" val="SansSerif bold 8"/>
@@ -603,11 +609,6 @@
     <comp lib="0" loc="(590,660)" name="Tunnel">
       <a name="label" val="En_INTs"/>
       <a name="labelfont" val="SansSerif bold 8"/>
-    </comp>
-    <comp lib="0" loc="(590,680)" name="Tunnel">
-      <a name="label" val="SP"/>
-      <a name="labelfont" val="SansSerif bold 8"/>
-      <a name="width" val="32"/>
     </comp>
     <comp lib="0" loc="(590,700)" name="Tunnel">
       <a name="label" val="RegE_MMU"/>
@@ -656,10 +657,7 @@
       <a name="facing" val="west"/>
       <a name="size" val="30"/>
     </comp>
-    <comp lib="10" loc="(580,460)" name="REG"/>
-    <comp lib="10" loc="(580,640)" name="REGE"/>
-    <comp lib="11" loc="(1000,520)" name="Branch"/>
-    <comp lib="11" loc="(1000,650)" name="ALU"/>
+    <comp lib="11" loc="(1890,250)" name="MMU"/>
     <comp lib="2" loc="(1050,600)" name="Multiplexer">
       <a name="size" val="20"/>
       <a name="width" val="32"/>
@@ -741,7 +739,10 @@
     <comp lib="5" loc="(580,1025)" name="Text">
       <a name="text" val="Enables"/>
     </comp>
-    <comp lib="6" loc="(1890,250)" name="MMU"/>
+    <comp lib="6" loc="(580,460)" name="REG"/>
+    <comp lib="6" loc="(580,640)" name="REGE"/>
+    <comp lib="7" loc="(1000,520)" name="Branch"/>
+    <comp lib="7" loc="(1000,650)" name="ALU"/>
     <comp lib="8" loc="(1000,790)" name="Bypass"/>
     <comp lib="8" loc="(1210,910)" name="Flush"/>
     <comp lib="8" loc="(1510,1180)" name="Exception_Generator"/>
@@ -1080,10 +1081,10 @@
     <wire from="(530,790)" to="(590,790)"/>
     <wire from="(580,460)" to="(670,460)"/>
     <wire from="(580,510)" to="(670,510)"/>
+    <wire from="(580,580)" to="(590,580)"/>
     <wire from="(580,610)" to="(590,610)"/>
     <wire from="(580,640)" to="(670,640)"/>
     <wire from="(580,660)" to="(590,660)"/>
-    <wire from="(580,680)" to="(590,680)"/>
     <wire from="(580,700)" to="(590,700)"/>
     <wire from="(580,720)" to="(590,720)"/>
     <wire from="(580,740)" to="(590,740)"/>
@@ -2322,7 +2323,7 @@
       <a name="labelfont" val="SansSerif bold 8"/>
     </comp>
     <comp lib="0" loc="(660,600)" name="Constant">
-      <a name="value" val="0x2"/>
+      <a name="value" val="0xe"/>
       <a name="width" val="4"/>
     </comp>
     <comp lib="0" loc="(660,680)" name="Constant">

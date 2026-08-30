@@ -1,0 +1,9 @@
+main:
+CAL suma
+HLT
+
+suma:
+LDI R1, 1
+LDI R2, 5
+ADD R1, R2, R3
+RET

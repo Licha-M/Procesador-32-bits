@@ -921,25 +921,11 @@
       <a name="addrWidth" val="20"/>
       <a name="appearance" val="logisim_evolution"/>
       <a name="contents">addr/data: 20 8
-8c 10 e0 0 8d 10 10 0
-8c 20 0 1 8d 20 1 0
-53 12 0 10 c 20 0 0
-8c 20 f0 10 8d 20 f0 0
-53 12 0 18 8c 30 e0 1
-8d 30 0 0 c 20 0 0
-8c 20 f0 0 8d 20 0 0
-53 32 0 10 8c 20 0 0
-8d 20 0 1 53 32 0 4
-c 20 0 0 8c 20 0 0
-8d 20 0 1 53 12 0 4
-52 15 0 4 8c f0 ff f0
-8d f0 0 6c 10 f 0 0
-1 0 0 0 8c 40 f0 0
-8d 40 0 0 c 50 0 41
-53 45 0 0 53 45 0 1
-53 45 0 2 53 45 0 3
-11 1048423*0 8c f0 ff f0 8d f0
-0 0 e f
+8c f0 ff f0 8d f0 0 10
+10 f 0 0 1 0 0 0
+c 10 0 1 c 20 0 5
+2 12 30 0 11 1048531*0 8c f0
+ff f0 8d f0 0 0 e f
 </a>
       <a name="line" val="octo"/>
       <a name="misaligned" val="true"/>
