@@ -61,12 +61,10 @@ except ImportError:
 # Ruta de salida por defecto (imagen ROM de Logisim)
 ROM_OUTPUT_PATH = r"d:\Yo\Escritorio\Procesador-32-bits\System\Memory\ROM-Memory\ROM"
 
-# [NUEVO] Plantilla de comando para compilar .c → .s con el backend LLVM/clang.
-# Usar {input} para el archivo de entrada y {output} para el .s de salida.
-# Ejemplo (ajusta flags, triple y CPU a tu instalación):
-#   clang -target ISA32_LM --mtriple=ISA32_LM -S -o {output} {input}
-# Si dejas la variable vacía ("") el modo de compilación C quedará deshabilitado.
-COMPILER_CMD_TEMPLATE = ""  # <-- COMPLETAR con el comando exacto de tu clang
+# [NUEVO] Comandos de compilación para C/C++ → LLVM IR → .s
+# 1. Crear los .ll:  clang++ -O2 -S -emit-llvm archivo1.c -o archivo1.ll
+# 2. Unir .ll:        llvm-link archivo1.ll archivo2.ll -S -o unido.ll
+# 3. Pasar a .s:      llc -march=isa32_lm unido.ll -o final.s
 
 # [NUEVO] Nombre del .s combinado cuando se compilan varios .c (relativo al
 # directorio del primer .c si no se indica ruta de salida).
@@ -944,21 +942,14 @@ def write_annotated_hex(instructions: list[tuple[int,int,int]],
 #  [NUEVO] PIPELINE MULTI-ARCHIVO: .c → .s → ROM
 # =============================================================================
 
-def compile_c_to_s(c_path: str, s_path: str, log_fn=None) -> list[str]:
+def compile_c_to_ll(c_path: str, ll_path: str, log_fn=None) -> list[str]:
     """
-    Compila un archivo .c/.C a .s usando COMPILER_CMD_TEMPLATE.
-    Devuelve lista de errores (vacía si OK).
+    Compila un archivo .c/.C a .ll usando clang++:
+      clang++ -O2 -S -emit-llvm archivo1.c -o archivo1.ll
     """
-    if not COMPILER_CMD_TEMPLATE:
-        return [
-            f"COMPILER_CMD_TEMPLATE no configurado. "
-            f"Edita la variable al inicio de assembler.py con el comando "
-            f"exacto de tu clang para compilar .c → .s."
-        ]
-
-    cmd = COMPILER_CMD_TEMPLATE.format(input=c_path, output=s_path)
+    cmd = f'clang++ -O2 -S -emit-llvm "{c_path}" -o "{ll_path}"'
     if log_fn:
-        log_fn(f"  Compilando: {os.path.basename(c_path)}", 'info')
+        log_fn(f"  Generando .ll: {os.path.basename(c_path)}", 'info')
         log_fn(f"  $ {cmd}", 'info')
 
     try:
@@ -966,7 +957,7 @@ def compile_c_to_s(c_path: str, s_path: str, log_fn=None) -> list[str]:
             cmd, shell=True, capture_output=True, text=True
         )
     except Exception as e:
-        return [f"Error al invocar el compilador: {e}"]
+        return [f"Error al invocar clang++: {e}"]
 
     errors = []
     if result.returncode != 0:
@@ -974,6 +965,80 @@ def compile_c_to_s(c_path: str, s_path: str, log_fn=None) -> list[str]:
         for line in (result.stderr or result.stdout).splitlines():
             errors.append(f"  {line}")
     return errors
+
+
+def link_ll_files(ll_paths: list[str], output_ll_path: str, log_fn=None) -> list[str]:
+    """
+    Une múltiples archivos .ll en uno solo usando llvm-link:
+      llvm-link archivo1.ll archivo2.ll -S -o unido.ll
+    """
+    if len(ll_paths) == 1:
+        try:
+            shutil.copyfile(ll_paths[0], output_ll_path)
+            return []
+        except Exception as e:
+            return [f"Error al copiar archivo .ll: {e}"]
+
+    inputs_str = " ".join(f'"{p}"' for p in ll_paths)
+    cmd = f'llvm-link {inputs_str} -S -o "{output_ll_path}"'
+    if log_fn:
+        log_fn(f"  Uniendo {len(ll_paths)} archivos .ll con llvm-link...", 'info')
+        log_fn(f"  $ {cmd}", 'info')
+
+    try:
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True
+        )
+    except Exception as e:
+        return [f"Error al invocar llvm-link: {e}"]
+
+    errors = []
+    if result.returncode != 0:
+        errors.append("Error al unir archivos .ll con llvm-link:")
+        for line in (result.stderr or result.stdout).splitlines():
+            errors.append(f"  {line}")
+    return errors
+
+
+def compile_ll_to_s(ll_path: str, s_path: str, log_fn=None) -> list[str]:
+    """
+    Convierte el archivo .ll a ensamblador .s usando llc:
+      llc -march=isa32_lm unido.ll -o final.s
+    """
+    cmd = f'llc -march=isa32_lm "{ll_path}" -o "{s_path}"'
+    if log_fn:
+        log_fn(f"  Generando .s con llc...", 'info')
+        log_fn(f"  $ {cmd}", 'info')
+
+    try:
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True
+        )
+    except Exception as e:
+        return [f"Error al invocar llc: {e}"]
+
+    errors = []
+    if result.returncode != 0:
+        errors.append("Error generando .s con llc:")
+        for line in (result.stderr or result.stdout).splitlines():
+            errors.append(f"  {line}")
+    return errors
+
+
+def compile_c_to_s(c_path: str, s_path: str, log_fn=None) -> list[str]:
+    """
+    Compila un único archivo .c/.C a .s usando clang++ y llc.
+    """
+    tmp_dir = tempfile.mkdtemp(prefix="isa32_asm_")
+    try:
+        base = os.path.splitext(os.path.basename(c_path))[0]
+        ll_path = os.path.join(tmp_dir, base + ".ll")
+        errs = compile_c_to_ll(c_path, ll_path, log_fn=log_fn)
+        if errs:
+            return errs
+        return compile_ll_to_s(ll_path, s_path, log_fn=log_fn)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def _rename_local_labels_in_lines(lines: list[str], prefix: str) -> list[str]:
@@ -1035,15 +1100,6 @@ def merge_asm_files(s_paths: list[str],
                     log_fn=None) -> list[str]:
     """
     [NUEVO] Fusiona varios archivos .s en uno solo.
-
-    Pasos:
-    1. Leer cada archivo y renombrar sus etiquetas locales.
-    2. Detectar colisiones de símbolos globales.
-    3. Separar secciones .text y .rodata de cada archivo.
-    4. Concatenar: todos los .text, luego todos los .rodata.
-    5. Escribir el .s combinado.
-
-    Devuelve lista de errores.
     """
     errors = []
     all_text_lines:   list[str] = []
@@ -1121,44 +1177,53 @@ def compile_and_assemble(c_paths: list[str],
                           log_fn=None
                           ) -> tuple[list[tuple[int,int,int]], list[str], dict[str,int]]:
     """
-    [NUEVO] Pipeline completo: .c → .s → ROM.
+    [NUEVO] Pipeline completo: .c → .ll → (llvm-link) → .s → ROM.
 
-    1. Compila cada .c a .s en un directorio temporal.
-    2. Fusiona los .s en uno solo junto al primer .c.
-    3. Ensambla el .s combinado.
+    1. Compila cada .c a .ll con clang++ -O2 -S -emit-llvm <archivo.c> -o <archivo.ll>.
+    2. Si son más de uno, une los .ll con llvm-link <ll1> <ll2> -S -o unido.ll.
+    3. Convierte el .ll unido a .s con llc -march=isa32_lm unido.ll -o final.s.
+    4. Ensambla el .s final.
 
     Devuelve: (instructions, errors, label_map)
     """
     errors = []
     tmp_dir = tempfile.mkdtemp(prefix="isa32_asm_")
-    s_paths = []
 
     try:
+        # 1. Crear los .ll por cada .c
+        ll_paths = []
         for c_path in c_paths:
             base = os.path.splitext(os.path.basename(c_path))[0]
-            s_path = os.path.join(tmp_dir, base + ".s")
-            errs = compile_c_to_s(c_path, s_path, log_fn=log_fn)
+            ll_path = os.path.join(tmp_dir, base + ".ll")
+            errs = compile_c_to_ll(c_path, ll_path, log_fn=log_fn)
             if errs:
                 errors.extend(errs)
             else:
-                s_paths.append(s_path)
+                ll_paths.append(ll_path)
 
         if errors:
             return [], errors, {}
 
-        # Determinar ruta del .s combinado
+        # 2. Unir archivos .ll cuando son más de uno
+        unido_ll = os.path.join(tmp_dir, "unido.ll")
+        errs = link_ll_files(ll_paths, unido_ll, log_fn=log_fn)
+        if errs:
+            return [], errs, {}
+
+        # 3. Pasar a .s con llc
         first_dir = os.path.dirname(os.path.abspath(c_paths[0]))
         first_base = os.path.splitext(os.path.basename(c_paths[0]))[0]
-        combined_s = os.path.join(first_dir, first_base + COMBINED_ASM_SUFFIX)
+        final_s = os.path.join(first_dir, first_base + COMBINED_ASM_SUFFIX)
 
-        errs = merge_asm_files(s_paths, combined_s, log_fn=log_fn)
+        errs = compile_ll_to_s(unido_ll, final_s, log_fn=log_fn)
         if errs:
             return [], errs, {}
 
         if log_fn:
-            log_fn(f"  Archivo .s combinado: {combined_s}", 'ok')
+            log_fn(f"  Archivo .s generado: {final_s}", 'ok')
 
-        return assemble_source(combined_s)
+        # 4. Ensamblar .s a ROM
+        return assemble_source(final_s)
 
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
