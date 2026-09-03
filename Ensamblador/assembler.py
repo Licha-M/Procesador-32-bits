@@ -1,46 +1,49 @@
 #!/usr/bin/env python3
 """
 =============================================================================
-  Ensamblador — Procesador 32 bits
+  Ensamblador — Procesador 32 bits  (compatible con salida LLVM / ISA32_LM)
 =============================================================================
-  Convierte un archivo fuente .txt/.asm en un archivo de imagen de ROM
+  Convierte un archivo fuente .txt/.asm/.s en un archivo de imagen de ROM
   compatible con Logisim (formato: v3.0 hex words addressed).
 
+  También puede compilar uno o más archivos .c/.C invocando el backend
+  LLVM/clang configurado en COMPILER_CMD_TEMPLATE y luego ensamblando
+  el .s combinado resultante.
+
   Formato de instrucción (32 bits fijos):
-    [31:29]  Tipo        (3 bits)   — modo de acceso a memoria o 000
+    [31:29]  Tipo        (3 bits)   — modo de acceso a memoria o prefijo
     [28:24]  OpCode      (5 bits)   — código de operación
     [23:0]   Operandos   (24 bits)  — registros, inmediatos, condición
 
-  Soporte de etiquetas:
-    - Declaración:   mi_etiqueta:
-    - Uso en saltos: JMP mi_etiqueta  /  BRH =, mi_etiqueta  /  CAL mi_etiqueta
-    - El ensamblador expande automáticamente cada salto a etiqueta en
-      3 instrucciones usando R15 (scratch para dirección de salto):
-
-        H LDI  R15, <high16_comp> ; parte alta de la dirección (con compensación)
-        SLT ADI    R15, <low16>       ; parte baja (ADI hace extensión de signo)
-        JMP/BRH/CAL R15           ; salto efectivo
-
-  LDI de 32 bits (expansión automática):
-    - Cuando el inmediato de LDI no cabe en 16 bits (valor > 0xFFFF),
-      el ensamblador genera automáticamente 3 instrucciones:
-
-        LDI    Rx, 0              ; poner el registro a 0
-        H LDI  Rx, <high16_comp> ; parte alta (con compensación de signo)
-        SLT ADI   Rx, <low16>    ; parte baja (extensión de signo, silencioso)
-
-    - No se necesita ninguna sintaxis especial: LDI R5, 0xDEADBEEF
-      se convierte automáticamente en las 3 instrucciones anteriores.
+  CAMBIOS respecto al ensamblador original:
+  ─────────────────────────────────────────
+  [NUEVO]  Soporte de sintaxis LLVM:
+             • Directivas ignoradas: .file, .text, .globl, .type, .size,
+               .ident, .section ".note.GNU-stack"
+             • Sección .rodata + directivas .p2align y .long
+             • Etiquetas locales LLVM (.LBBn_m, .Lfunc_endN, etc.)
+             • Etiquetas entre comillas dobles (nombres mangled C++)
+             • Pseudo-operadores %hi(label) y %lo(label)
+  [NUEVO]  Modo multi-archivo .c → .s → ROM (sección 4 del spec)
+  [NUEVO]  CLI extendido: --no-list, múltiples archivos .c
+  [NUEVO]  GUI extendida: selección múltiple, acepta .c/.C
+  [ELIMINADO] Auto-expansión de saltos a etiqueta (ya la hace LLVM)
+  [ELIMINADO] Auto-expansión de LDI de 32 bits (ya la hace LLVM)
+  [MANTENIDO] Todo lo demás: opcodes, codificación, formato ROM, vector reset
 
   Uso:
-    python assembler.py                  → abre selector de archivo gráfico
-    python assembler.py programa.txt     → ensamblado por CLI
+    python assembler.py                              → GUI
+    python assembler.py programa.s [ROM]             → ensambla .s/.asm/.txt
+    python assembler.py [--no-list] f1.c f2.c [ROM] → compila+ensambla .c
 =============================================================================
 """
 
 import sys
 import os
 import re
+import subprocess
+import shutil
+import tempfile
 
 # ─── Importación opcional de tkinter (GUI) ───────────────────────────────────
 try:
@@ -58,17 +61,22 @@ except ImportError:
 # Ruta de salida por defecto (imagen ROM de Logisim)
 ROM_OUTPUT_PATH = r"d:\Yo\Escritorio\Procesador-32-bits\System\Memory\ROM-Memory\ROM"
 
-# Registro scratch reservado para expansión de etiquetas en saltos.
-# ¡No usar R15 para otros propósitos cuando se usen saltos a etiquetas!
-SCRATCH_REG   = 15   # R15: guarda la dirección de salto calculada
-SCRATCH_HIGH  = 15   # Alias de compatibilidad hacia atrás
+# [NUEVO] Plantilla de comando para compilar .c → .s con el backend LLVM/clang.
+# Usar {input} para el archivo de entrada y {output} para el .s de salida.
+# Ejemplo (ajusta flags, triple y CPU a tu instalación):
+#   clang -target ISA32_LM --mtriple=ISA32_LM -S -o {output} {input}
+# Si dejas la variable vacía ("") el modo de compilación C quedará deshabilitado.
+COMPILER_CMD_TEMPLATE = ""  # <-- COMPLETAR con el comando exacto de tu clang
+
+# [NUEVO] Nombre del .s combinado cuando se compilan varios .c (relativo al
+# directorio del primer .c si no se indica ruta de salida).
+COMBINED_ASM_SUFFIX = "_combined.s"
 
 
 # =============================================================================
-#  TABLA DE INSTRUCCIONES (ISA)
+#  TABLA DE INSTRUCCIONES (ISA) — copiar exacta del original
 # =============================================================================
 
-# OpCodes de 5 bits
 OPCODES: dict[str, int] = {
     'NOP': 0b00000,   #  0 — No operación
     'HLT': 0b00001,   #  1 — Detiene el núcleo (kernel)
@@ -96,38 +104,29 @@ OPCODES: dict[str, int] = {
     'SRT': 0b10111,   # 23 — Vuelve al SO (dirección en EPC) [kernel]
 }
 
-# Prefijos de tipo de acceso a memoria (3 bits → campo Tipo [31:29])
 MEM_TYPES: dict[str, int] = {
     'CHAR':  0b000,   # 8 bits
     'SHORT': 0b001,   # 16 bits
     'INT':   0b010,   # 32 bits
 }
 
-# Instrucciones que REQUIEREN prefijo de tipo de memoria
 MEM_INSTRUCTIONS = {'LOD', 'STR'}
 
-# Instrucciones de salto que pueden recibir etiqueta como operando
-JUMP_INSTRUCTIONS = {'JMP', 'BRH', 'CAL'}
-
-# ── Condiciones para BRH (4 bits en [23:20]) ─────────────────────────────────
-# Orden real de hardware (flags del banco de flags, empezando en 0):
-#   0 Zero  1 Not Zero  2 Negative  3 Not Negative  4 Carry  5 Not Carry
-#   6 Overflow  7 Not Overflow
 CONDITIONS: dict[str, int] = {
-    '=':   0b0000,   # 0 — Igual         (Zero flag activo)
-    'EQ':  0b0000,   #     Alias de =
-    '!=':  0b0001,   # 1 — Distinto      (Zero flag inactivo → Not Zero)
-    'NE':  0b0001,   #     Alias de !=
-    'N':   0b0010,   # 2 — Negative      (Negative flag activo)
-    'NEG': 0b0010,   #     Alias de N
-    'NN':  0b0011,   # 3 — Not Negative  (Negative flag inactivo)
-    'POS': 0b0011,   #     Alias de NN
-    'C':   0b0100,   # 4 — Carry         (Carry flag activo)
-    'CS':  0b0100,   #     Alias de C
-    'NC':  0b0101,   # 5 — Not Carry     (Carry flag inactivo)
-    'CC':  0b0101,   #     Alias de NC
-    'OV':  0b0110,   # 6 — Overflow activo
-    'NOV': 0b0111,   # 7 — Sin overflow  (Not Overflow)
+    '=':   0b0000,
+    'EQ':  0b0000,
+    '!=':  0b0001,
+    'NE':  0b0001,
+    'N':   0b0010,
+    'NEG': 0b0010,
+    'NN':  0b0011,
+    'POS': 0b0011,
+    'C':   0b0100,
+    'CS':  0b0100,
+    'NC':  0b0101,
+    'CC':  0b0101,
+    'OV':  0b0110,
+    'NOV': 0b0111,
 }
 
 
@@ -199,46 +198,35 @@ def parse_immediate(token: str, line_num: int, bits: int = 16,
     return value
 
 
-def parse_immediate_any(token: str, line_num: int) -> int:
+# [NUEVO] Regex para nombres de etiqueta válidos en el nuevo ensamblador.
+# Acepta:
+#   - Etiquetas clásicas:       [A-Za-z_][A-Za-z0-9_]*
+#   - Etiquetas locales LLVM:   .[A-Za-z_][A-Za-z0-9_.$]*
+#   - Etiquetas entre comillas: "cualquier cosa" (se quitan las comillas)
+_LABEL_PLAIN_RE  = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+_LABEL_LOCAL_RE  = re.compile(r'^\.[A-Za-z_][A-Za-z0-9_.@$]*$')
+_LABEL_QUOTED_RE = re.compile(r'^"([^"]*)"$')
+
+def normalize_label(raw: str) -> str | None:
     """
-    Parsea un valor inmediato sin restricción de rango previa.
-    Devuelve el valor entero en bruto (puede ser mayor a 16 bits).
-    Soporta decimal, 0xHEX, 0bBIN y negativos.
-    El llamador decide si es válido para 16 o 32 bits.
+    Normaliza un nombre de etiqueta (quita comillas si las tiene).
+    Devuelve el nombre normalizado, o None si no es una etiqueta válida.
     """
-    token = token.strip()
-    try:
-        if token.lower().startswith('0x'):
-            value = int(token, 16)
-        elif token.lower().startswith('0b'):
-            value = int(token, 2)
-        else:
-            value = int(token)
-    except ValueError:
-        raise AssemblerError(
-            f"Inmediato inválido: '{token}'. "
-            f"Use decimal (123), hexadecimal (0xFF) o binario (0b1010).",
-            line_num
-        )
-    # Permitir rango de 32 bits con signo o sin signo
-    if not (-(1 << 31) <= value <= 0xFFFFFFFF):
-        raise AssemblerError(
-            f"Inmediato {value} fuera del rango de 32 bits.", line_num
-        )
-    # Normalizar negativo a complemento a dos de 32 bits
-    if value < 0:
-        value = value & 0xFFFFFFFF
-    return value
+    raw = raw.strip()
+    m = _LABEL_QUOTED_RE.match(raw)
+    if m:
+        return m.group(1)   # Contenido sin comillas
+    if _LABEL_PLAIN_RE.match(raw) or _LABEL_LOCAL_RE.match(raw):
+        return raw
+    return None
 
 
-def is_label_name(token: str) -> bool:
-    """Verifica si el token es un nombre de etiqueta válido (no número ni registro)."""
-    # Etiqueta: empieza con letra o _, solo letras/dígitos/_
-    return bool(re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', token))
+def is_valid_label_name(token: str) -> bool:
+    return normalize_label(token) is not None
 
 
 # =============================================================================
-#  CONSTRUCCIÓN DE PALABRAS
+#  CONSTRUCCIÓN DE PALABRAS — copiar exacta del original
 # =============================================================================
 
 def build_word(tipo: int, opcode: int, operands: int) -> int:
@@ -249,85 +237,112 @@ def build_word(tipo: int, opcode: int, operands: int) -> int:
     return (tipo << 29) | (opcode << 24) | (operands & 0xFFFFFF)
 
 
-def expand_label_address(address: int, jump_mnemonic: str,
-                          cond: int | None, src_line: int) -> list[int]:
+# =============================================================================
+#  CÁLCULO DE %hi / %lo  — fórmula exacta del original (expand_label_address)
+#  [NUEVO] Ahora expuesta como función pública para ser usada por el parser
+#          de pseudo-operadores, en lugar de expandir instrucciones completas.
+# =============================================================================
+
+def compute_hi_lo(word_address: int) -> tuple[int, int]:
     """
-    Expande un salto a etiqueta en 3 palabras de 32 bits.
+    Calcula los valores de %hi y %lo para una etiqueta cuya dirección de
+    palabra (en la ROM) es word_address.
 
-    Para la dirección de 32 bits:
-      1) H LDI R15, <high16_comp>  → parte alta compensada
-      2) SLT ADI   R15, <low16>        → parte baja con extensión de signo
-      3) JMP/BRH/CAL R15           → salto efectivo
+    La base de la ROM es 0xFFF00000; la dirección de byte es word_address * 4.
+    La compensación de signo es necesaria porque ADI hace sign-extend de low16.
 
-    Por qué siempre 3 instrucciones:
-      Mantener tamaño fijo permite que el ensamblador resuelva
-      correctamente las referencias hacia adelante (forward references)
-      sin iteraciones adicionales, ya que el tamaño de cada bloque
-      es conocido desde el primer pase.
+    Devuelve (high16, low16) listos para codificarse en H LDI / SLT ADI.
     """
-    hi = SCRATCH_REG
+    target_addr = (word_address * 4) | 0xFFF00000
+    high16 = (target_addr >> 16) & 0xFFFF
+    low16  =  target_addr        & 0xFFFF
 
-    high16 = (address >> 16) & 0xFFFF
-    low16  =  address        & 0xFFFF
-
-    # Compensación por extensión de signo de ADI
+    # Compensación: si low16 >= 0x8000, ADI lo sign-extenderá negativamente,
+    # por lo que hay que sumar 1 a high16 de antemano.
     if low16 >= 0x8000:
         high16 = (high16 + 1) & 0xFFFF
 
-    # 1: H LDI R15, high16_comp (tipo=4)
-    w1 = build_word(4, OPCODES['LDI'], (hi << 20) | high16)
-    # 2: ADI R15, low16 (Silencioso, tipo=4)
-    w2 = build_word(4, OPCODES['ADI'], (hi << 20) | low16)
-
-    # 3: instrucción de salto efectiva usando R15
-    if jump_mnemonic == 'JMP':
-        w3 = build_word(0, OPCODES['JMP'], hi << 16)
-    elif jump_mnemonic == 'CAL':
-        w3 = build_word(0, OPCODES['CAL'], hi << 16)
-    elif jump_mnemonic == 'BRH':
-        # cond en [23:20], R15 en [19:16]
-        w3 = build_word(0, OPCODES['BRH'], (cond << 20) | (hi << 16))
-    else:
-        raise AssemblerError(
-            f"Instrucción de salto desconocida: '{jump_mnemonic}'", src_line
-        )
-
-    return [w1, w2, w3]
-
-
-def expand_ldi_32(ra: int, value32: int) -> list[int]:
-    """
-    Expande un LDI con valor de 32 bits en 3 palabras de 32 bits.
-
-    Para cargar un valor de 32 bits en el registro RA:
-      1) LDI    RA, 0              → poner el registro a 0
-      2) H LDI  RA, <high16_comp>  → cargar parte alta (tipo=4, desplazada)
-      3) SLT ADI   RA, <low16>     → sumar parte baja (silencioso, tipo=4)
-
-    La compensación en high16 corrige la extensión de signo que ADI
-    aplica al low16 cuando su bit 15 está activo.
-    """
-    value32 = value32 & 0xFFFFFFFF   # Garantizar 32 bits sin signo
-
-    high16 = (value32 >> 16) & 0xFFFF
-    low16  =  value32        & 0xFFFF
-
-    # Compensación por extensión de signo de ADI
-    if low16 >= 0x8000:
-        high16 = (high16 + 1) & 0xFFFF
-
-    # 1: LDI RA, 0  — limpiar el registro (tipo=0)
-    w1 = build_word(0, OPCODES['LDI'], (ra << 20) | 0)
-    # 2: H LDI RA, high16_comp  — parte alta (tipo=4)
-    w2 = build_word(4, OPCODES['LDI'], (ra << 20) | high16)
-    # 3: SLT ADI RA, low16  — parte baja silenciosa (tipo=4)
-    w3 = build_word(4, OPCODES['ADI'], (ra << 20) | low16)
-
-    return [w1, w2, w3]
+    return high16, low16
 
 
 # =============================================================================
-#  CODIFICACIÓN DE INSTRUCCIÓN SIMPLE
+#  TOKENIZADOR EXTENDIDO
+# =============================================================================
+
+# [NUEVO] Directivas que se reconocen y descartan silenciosamente.
+_IGNORED_DIRECTIVES = {
+    '.file', '.text', '.globl', '.type', '.size',
+    '.ident', '.section',
+}
+
+# [NUEVO] Regex para detectar el inicio de una sección .rodata
+_RODATA_SECTION_RE = re.compile(
+    r'^\s*\.section\s+\.rodata\b', re.IGNORECASE
+)
+_TEXT_SECTION_RE = re.compile(
+    r'^\s*\.text\b', re.IGNORECASE
+)
+_P2ALIGN_RE = re.compile(
+    r'^\s*\.p2align\s+(\d+)(?:\s*,\s*0x[0-9a-fA-F]+)?\s*(?:;.*)?$'
+)
+_LONG_RE = re.compile(
+    r'^\s*\.long\s+(-?\d+|0x[0-9a-fA-F]+)\s*(?:;.*)?$', re.IGNORECASE
+)
+
+# [NUEVO] Regex para pseudo-operadores %hi(label) y %lo(label)
+#  El nombre de etiqueta puede ir opcionalmente entre comillas.
+_PSEUDO_RE = re.compile(
+    r'^%(hi|lo)\(("(?:[^"]*)"|\S+)\)$', re.IGNORECASE
+)
+
+
+def tokenize_line(raw_line: str) -> list[str]:
+    """
+    Elimina comentarios (;) y divide la línea en tokens.
+    Separadores: espacios, tabs, comas.
+
+    [NUEVO] Maneja etiquetas entre comillas como un token único,
+    sin partirlas por espacios/comas internas.
+    """
+    # Quitar comentario ';'
+    # Pero hay que tener cuidado con comillas que contienen ';'
+    # En la práctica el .s de LLVM no tiene ';' dentro de los strings,
+    # así que la heurística simple de split(';')[0] es suficiente.
+    code = raw_line.split(';')[0].strip()
+    if not code:
+        return []
+
+    # [NUEVO] Tokenizador que respeta las comillas dobles como un bloque.
+    tokens: list[str] = []
+    i = 0
+    buf = ""
+    while i < len(code):
+        ch = code[i]
+        if ch == '"':
+            # Leer hasta la comilla de cierre
+            j = code.find('"', i + 1)
+            if j == -1:
+                buf += code[i:]
+                i = len(code)
+            else:
+                buf += code[i:j+1]
+                i = j + 1
+        elif ch in (' ', '\t', ','):
+            if buf:
+                tokens.append(buf)
+                buf = ""
+            i += 1
+        else:
+            buf += ch
+            i += 1
+    if buf:
+        tokens.append(buf)
+
+    return tokens
+
+
+# =============================================================================
+#  CODIFICACIÓN DE INSTRUCCIÓN SIMPLE — igual que el original
 # =============================================================================
 
 def _require_argc(args: list, expected: int, mnemonic: str,
@@ -340,24 +355,28 @@ def _require_argc(args: list, expected: int, mnemonic: str,
         )
 
 
-def encode_single(tokens: list[str], line_num: int) -> int:
+def encode_single(tokens: list[str], line_num: int,
+                  label_map: dict[str, int] | None = None,
+                  current_address: int = 0) -> int:
     """
     Codifica una sola instrucción (sin expandir etiquetas).
-    Solo se llama con instrucciones que NO requieren expansión de etiqueta.
+
+    [NUEVO] Recibe label_map y current_address para poder resolver
+    pseudo-operadores %hi()/%lo() en la segunda pasada.
     """
     first = tokens[0].upper()
 
     # Detectar prefijo de tipo de memoria o silencioso
     tipo = 0b000
     is_mem_prefix = False
-    is_hl_prefix = False
-    
+    is_hl_prefix  = False
+
     if first == 'SLT':
         tipo = 0b100
         tokens = tokens[1:]
         if not tokens:
             raise AssemblerError(
-                f"Se esperaba nemotécnico después de '{first}'.", line_num
+                f"Se esperaba nemotécnico después de 'SLT'.", line_num
             )
         first = tokens[0].upper()
     elif first in ('H', 'L'):
@@ -375,12 +394,12 @@ def encode_single(tokens: list[str], line_num: int) -> int:
         tokens = tokens[1:]
         if not tokens:
             raise AssemblerError(
-                f"Se esperaba nemotécnico después de '{first}'.", line_num
+                f"Se esperaba nemotécnico después del prefijo de tipo.", line_num
             )
         first = tokens[0].upper()
     elif first in MEM_INSTRUCTIONS:
         raise AssemblerError(
-            f"'{first}' requiere prefijo de tipo: char, short o int.", line_num
+            f"'{first}' requiere prefijo de tipo: CHAR, SHORT o INT.", line_num
         )
 
     mnemonic = first
@@ -399,7 +418,8 @@ def encode_single(tokens: list[str], line_num: int) -> int:
         raise AssemblerError(
             f"El prefijo '{'H' if tipo == 0b100 else 'L'}' solo aplica a 'LDI'.", line_num
         )
-    if not is_hl_prefix and tipo == 0b100 and mnemonic not in ('ADD','SUB','MUL','DIV','NOR','AND','XOR','RSH','LSH','ADI'):
+    if not is_hl_prefix and tipo == 0b100 and mnemonic not in (
+            'ADD','SUB','MUL','DIV','NOR','AND','XOR','RSH','LSH','ADI'):
         raise AssemblerError(
             f"El prefijo SLT solo aplica a operaciones aritméticas (incluyendo ADI).", line_num
         )
@@ -412,7 +432,6 @@ def encode_single(tokens: list[str], line_num: int) -> int:
         return build_word(0, op, 0)
 
     # ── Tres registros: ADD SUB MUL DIV NOR AND XOR RSH LSH ─────────────────
-    #    [23:20]=RA  [19:16]=RB  [15:12]=RC
     elif mnemonic in ('ADD','SUB','MUL','DIV','NOR','AND','XOR','RSH','LSH'):
         _require_argc(args, 3, mnemonic, line_num,
                       hint=f"{mnemonic} R0, R1, R2")
@@ -427,30 +446,39 @@ def encode_single(tokens: list[str], line_num: int) -> int:
         ra = parse_register(args[0], line_num)
         return build_word(0, op, ra << 20)
 
-    # ── LDI — [23:20]=RA  [15:0]=IMM16 (o expansión automática 32 bits) ──────
+    # ── LDI — [23:20]=RA  [15:0]=IMM16 ─────────────────────────────────────
+    # [NUEVO] El segundo operando puede ser %hi(label) o una etiqueta entre
+    # comillas (en cuyo caso se trata como %hi de la etiqueta misma si es
+    # H LDI, o %lo si es SLT precedente — pero en la práctica el .s de LLVM
+    # siempre usa la sintaxis explícita %hi/%lo, así que aquí solo cubrimos
+    # el caso de etiqueta entre comillas como referencia directa a %hi).
     elif mnemonic == 'LDI':
         _require_argc(args, 2, 'LDI', line_num, hint="LDI R0, 1000")
         ra  = parse_register(args[0], line_num)
-        # Intentar parsear como valor de hasta 32 bits para detectar si necesita expansión
-        imm = parse_immediate(args[1], line_num, bits=16, signed=False)
+        imm = _resolve_imm_or_pseudo(args[1], line_num, label_map,
+                                     pseudo_kind='hi' if is_hl_prefix else None,
+                                     bits=16, signed=False)
         return build_word(tipo, op, (ra << 20) | imm)
 
     # ── ADI — [23:20]=RA  [15:0]=IMM16 (con signo) ──────────────────────────
     elif mnemonic == 'ADI':
         _require_argc(args, 2, 'ADI', line_num, hint="ADI R0, -5")
         ra  = parse_register(args[0], line_num)
-        imm = parse_immediate(args[1], line_num, bits=16, signed=True)
+        # [NUEVO] SLT ADI Rx, %lo(label) → pseudo-operador %lo
+        imm = _resolve_imm_or_pseudo(args[1], line_num, label_map,
+                                     pseudo_kind='lo' if tipo == 0b100 else None,
+                                     bits=16, signed=True)
         return build_word(tipo, op, (ra << 20) | imm)
 
     # ── JMP — [19:16]=RB ────────────────────────────────────────────────────
     elif mnemonic == 'JMP':
-        _require_argc(args, 1, 'JMP', line_num, hint="JMP R1  ó  JMP etiqueta")
+        _require_argc(args, 1, 'JMP', line_num, hint="JMP R1")
         rb = parse_register(args[0], line_num)
         return build_word(0, op, rb << 16)
 
     # ── BRH — [23:20]=COND  [19:16]=RB ─────────────────────────────────────
     elif mnemonic == 'BRH':
-        _require_argc(args, 2, 'BRH', line_num, hint="BRH =, R1  ó  BRH !=, etiqueta")
+        _require_argc(args, 2, 'BRH', line_num, hint="BRH =, R1")
         cond_tok = args[0].strip()
         if cond_tok.upper() in CONDITIONS:
             cond = CONDITIONS[cond_tok.upper()]
@@ -466,14 +494,14 @@ def encode_single(tokens: list[str], line_num: int) -> int:
 
     # ── CAL — [19:16]=RB ────────────────────────────────────────────────────
     elif mnemonic == 'CAL':
-        _require_argc(args, 1, 'CAL', line_num, hint="CAL R1  ó  CAL subrutina")
+        _require_argc(args, 1, 'CAL', line_num, hint="CAL R1")
         rb = parse_register(args[0], line_num)
         return build_word(0, op, rb << 16)
 
     # ── LOD — [31:29]=Tipo  [23:20]=RA  [19:16]=RB  [15:0]=Offset ──────────
     elif mnemonic == 'LOD':
         _require_argc(args, 3, 'LOD', line_num,
-                      hint="int LOD R0, R1, 100")
+                      hint="INT LOD R0, R1, 100")
         ra     = parse_register(args[0], line_num)
         rb     = parse_register(args[1], line_num)
         offset = parse_immediate(args[2], line_num, bits=16, signed=True)
@@ -482,7 +510,7 @@ def encode_single(tokens: list[str], line_num: int) -> int:
     # ── STR — [31:29]=Tipo  [23:20]=RA  [19:16]=RB  [15:0]=Offset ──────────
     elif mnemonic == 'STR':
         _require_argc(args, 3, 'STR', line_num,
-                      hint="int STR R0, R1, 0")
+                      hint="INT STR R0, R1, 0")
         ra     = parse_register(args[0], line_num)
         rb     = parse_register(args[1], line_num)
         offset = parse_immediate(args[2], line_num, bits=16, signed=True)
@@ -495,7 +523,7 @@ def encode_single(tokens: list[str], line_num: int) -> int:
         ra = parse_register(args[1], line_num)
         return build_word(0, op, (rc << 20) | (ra << 16))
 
-    # ── CYR — [23:20]=RA (normal) [19:16]=RC (especial) ────────────────────────────────
+    # ── CYR — [23:20]=RA (normal) [19:16]=RC (especial) ────────────────────
     elif mnemonic == 'CYR':
         _require_argc(args, 2, 'CYR', line_num, hint="CYR R0, R1")
         ra = parse_register(args[0], line_num)
@@ -508,131 +536,202 @@ def encode_single(tokens: list[str], line_num: int) -> int:
         )
 
 
-# =============================================================================
-#  TOKENIZADOR
-# =============================================================================
+# [NUEVO] Resuelve un operando inmediato que puede ser:
+#   • Un literal numérico normal (decimal/hex/bin)
+#   • Un pseudo-operador %hi(label) o %lo(label)
+#   • Una etiqueta entre comillas usada como %hi o %lo según pseudo_kind
+def _resolve_imm_or_pseudo(token: str, line_num: int,
+                            label_map: dict[str, int] | None,
+                            pseudo_kind: str | None,
+                            bits: int = 16,
+                            signed: bool = False) -> int:
+    """
+    Intenta resolver token como:
+    1. Pseudo-operador %hi(x) o %lo(x) explícito.
+    2. Etiqueta entre comillas (tratada como %hi/%lo según pseudo_kind).
+    3. Valor numérico directo.
 
-def tokenize_line(raw_line: str) -> list[str]:
+    label_map puede ser None en la primera pasada; en ese caso los pseudo-
+    operadores y referencias a etiqueta retornan 0 como placeholder
+    (serán resueltos en la segunda pasada).
     """
-    Elimina comentarios (;) y divide la línea en tokens.
-    Separadores: espacios, tabs, comas.
-    """
-    code = raw_line.split(';')[0].strip()
-    if not code:
-        return []
-    return [t for t in re.split(r'[\s,]+', code) if t]
+    token = token.strip()
+
+    # ── %hi(label) o %lo(label) ──────────────────────────────────────────────
+    m = _PSEUDO_RE.match(token)
+    if m:
+        kind  = m.group(1).lower()   # 'hi' o 'lo'
+        lname_raw = m.group(2)
+        lname = normalize_label(lname_raw)
+        if lname is None:
+            raise AssemblerError(
+                f"Nombre de etiqueta inválido en {token}: '{lname_raw}'.", line_num
+            )
+        if label_map is None:
+            return 0   # Placeholder para primera pasada
+        if lname not in label_map:
+            raise AssemblerError(
+                f"Etiqueta no definida: '{lname}' (referenciada en {token}).", line_num
+            )
+        hi16, lo16 = compute_hi_lo(label_map[lname])
+        val = hi16 if kind == 'hi' else lo16
+        # El valor ya está en rango 0–0xFFFF; lo devolvemos como 16 bits.
+        return val & 0xFFFF
+
+    # ── Etiqueta entre comillas usada como %hi o %lo directo ─────────────────
+    # Ejemplo: H LDI R2, ".L__const...." → %hi(".L__const....")
+    #          SLT ADI R2, ".L__const...." → %lo(".L__const....")
+    m2 = _LABEL_QUOTED_RE.match(token)
+    if m2:
+        lname = m2.group(1)
+        if pseudo_kind is None:
+            raise AssemblerError(
+                f"Referencia a etiqueta '{lname}' sin contexto H/SLT.", line_num
+            )
+        if label_map is None:
+            return 0   # Placeholder
+        if lname not in label_map:
+            raise AssemblerError(
+                f"Etiqueta no definida: '{lname}'.", line_num
+            )
+        hi16, lo16 = compute_hi_lo(label_map[lname])
+        return (hi16 if pseudo_kind == 'hi' else lo16) & 0xFFFF
+
+    # ── Valor numérico normal ─────────────────────────────────────────────────
+    return parse_immediate(token, line_num, bits=bits, signed=signed)
 
 
 # =============================================================================
 #  ENSAMBLADOR EN DOS PASOS
 # =============================================================================
 
-# Representa una instrucción antes de la resolución de etiquetas
 class PendingInstruction:
     """
-    Instrucción que puede necesitar expansión de etiqueta.
-    
-    Si 'label_target' no es None, esta instrucción es un salto a etiqueta
-    y se expandirá en 3 palabras durante el segundo pase.
-    Si es None, 'words' ya tiene la palabra final codificada.
+    Instrucción pendiente de codificación completa.
+
+    [MODIFICADO respecto al original]
+    Ya no existe el campo label_target ni la expansión automática en 3
+    instrucciones.  Ahora hay dos tipos de pendientes:
+      • words != None  → instrucción ya codificada (resultado final)
+      • pending_tokens != None → instrucción que contiene %hi/%lo o etiquetas
+                                  entre comillas y necesita resolverse en la
+                                  segunda pasada con el label_map completo.
+    Ambos casos tienen size=1.
+
+    Además, el campo is_raw_word indica una palabra de datos (.long) que se
+    escribe directamente en la ROM sin decodificación de opcode.
     """
-    def __init__(self, words: list[int] | None = None,
-                 label_target: str | None = None,
-                 jump_mnemonic: str | None = None,
-                 cond: int | None = None,
+    def __init__(self,
+                 words: list[int] | None = None,
+                 pending_tokens: list[str] | None = None,
                  src_line: int = 0,
-                 size: int = 1):
-        self.words         = words          # Palabras ya codificadas
-        self.label_target  = label_target   # Nombre de etiqueta a resolver
-        self.jump_mnemonic = jump_mnemonic  # JMP / BRH / CAL
-        self.cond          = cond           # Condición para BRH (o None)
-        self.src_line      = src_line       # Número de línea fuente
-        self.size          = size           # Cuántas palabras ocupa (1 o 3)
+                 is_raw_word: bool = False,
+                 raw_value: int = 0):
+        self.words          = words           # Palabra(s) ya codificadas
+        self.pending_tokens = pending_tokens  # Tokens a resolver en 2ª pasada
+        self.src_line       = src_line
+        self.is_raw_word    = is_raw_word     # [NUEVO] Dato crudo (.long)
+        self.raw_value      = raw_value       # Valor del .long
+        self.size           = 1
 
 
-def _try_encode_ldi32(tokens: list[str], line_num: int
-                      ) -> tuple[list[int] | None, bool]:
+def _tokens_need_second_pass(tokens: list[str]) -> bool:
     """
-    Detecta si la instrucción es un LDI con inmediato de 32 bits y la expande.
-
-    Retorna:
-      (words, True)   → LDI de 32 bits: words tiene las 3 palabras expandidas.
-      (None, False)   → No es un LDI de 32 bits; el llamador debe usar encode_single.
-
-    Solo actúa sobre instrucciones LDI sin prefijo de tipo de memoria ni H/L
-    (los LDI con prefijo explícito H/L/SLT siempre son de 16 bits y se pasan
-    directamente a encode_single).
+    [NUEVO] Determina si la instrucción contiene pseudo-operadores (%hi/%lo)
+    o referencias a etiqueta entre comillas que necesitan resolución diferida.
     """
-    # Identificar el nemotécnico considerando posibles prefijos
-    idx = 0
-    first = tokens[idx].upper() if tokens else ''
-
-    # Si tiene prefijo (H, L, SLT, o tipo de memoria), no es candidato a expansión de 32 bits
-    if first in ('H', 'L', 'SLT') or first in MEM_TYPES:
-        return None, False
-
-    if first != 'LDI':
-        return None, False
-
-    # Es un LDI sin prefijo: comprobar si el inmediato supera 16 bits
-    args = tokens[1:]
-    if len(args) != 2:
-        # Dejar que encode_single genere el error de cantidad de operandos
-        return None, False
-
-    # Parsear el registro (deja que encode_single maneje errores de registro)
-    try:
-        ra = parse_register(args[0], line_num)
-    except AssemblerError:
-        return None, False
-
-    # Parsear el inmediato como valor de hasta 32 bits
-    raw = args[1].strip()
-    try:
-        value = parse_immediate_any(raw, line_num)
-    except AssemblerError:
-        # Si falla como 32 bits también fallará en encode_single, dejarlo pasar
-        return None, False
-
-    # Si cabe en 16 bits sin signo, es un LDI normal → sin expansión
-    if 0 <= value <= 0xFFFF:
-        return None, False
-
-    # Valor de 32 bits: expandir automáticamente
-    words = expand_ldi_32(ra, value)
-    return words, True
+    for t in tokens:
+        if _PSEUDO_RE.match(t):
+            return True
+        if _LABEL_QUOTED_RE.match(t):
+            return True
+    return False
 
 
 def first_pass(lines: list[str]) -> tuple[dict[str, int], list[PendingInstruction], list[str]]:
     """
-    PRIMER PASE: detecta etiquetas y construye la lista de instrucciones pendientes.
+    PRIMER PASE: detecta etiquetas, directivas y construye la lista de
+    instrucciones pendientes.
 
-    - Las instrucciones simples se codifican en este pase.
-    - Los saltos a etiqueta se marcan como PendingInstruction(size=3)
-      para que la dirección de cada etiqueta sea correcta aunque
-      la etiqueta esté definida más adelante (forward reference).
-    - Las etiquetas se almacenan en 'label_map' con su dirección
-      (en palabras, no bytes).
+    [MODIFICADO respecto al original]
+    - Reconoce y descarta directivas LLVM.
+    - Acepta etiquetas locales (punto) y entre comillas.
+    - Soporta sección .rodata, .p2align y .long.
+    - [ELIMINADO] Auto-expansión de saltos a etiqueta.
+    - [ELIMINADO] Auto-expansión de LDI de 32 bits.
+    - Las instrucciones con %hi/%lo se marcan como pending_tokens para
+      resolverse en la segunda pasada.
 
     Devuelve: (label_map, pending_list, errors)
     """
     label_map: dict[str, int] = {}
     pending:   list[PendingInstruction] = []
     errors:    list[str] = []
-    address = 0   # Dirección actual en palabras de 32 bits
+    address = 0
+    in_rodata = False   # [NUEVO] ¿Estamos en sección .rodata?
 
     for line_num, raw_line in enumerate(lines, start=1):
+
+        # ── [NUEVO] Detectar cambio de sección ──────────────────────────────
+        if _RODATA_SECTION_RE.match(raw_line):
+            in_rodata = True
+            continue
+        if _TEXT_SECTION_RE.match(raw_line):
+            in_rodata = False
+            continue
+
+        # ── [NUEVO] .p2align dentro de .rodata ──────────────────────────────
+        mp2 = _P2ALIGN_RE.match(raw_line)
+        if mp2:
+            n = int(mp2.group(1))
+            align_bytes = 1 << n   # 2^N bytes
+            align_words = align_bytes // 4  # En palabras de 32 bits
+            if align_words > 1:
+                # Alinear dirección actual al múltiplo de align_words
+                remainder = address % align_words
+                if remainder != 0:
+                    pad = align_words - remainder
+                    for _ in range(pad):
+                        pending.append(PendingInstruction(
+                            is_raw_word=True, raw_value=0, src_line=line_num
+                        ))
+                    address += pad
+            continue
+
+        # ── [NUEVO] .long dentro de .rodata ─────────────────────────────────
+        mlong = _LONG_RE.match(raw_line)
+        if mlong:
+            raw_val_str = mlong.group(1)
+            try:
+                if raw_val_str.startswith('0x') or raw_val_str.startswith('0X'):
+                    raw_val = int(raw_val_str, 16)
+                else:
+                    raw_val = int(raw_val_str)
+            except ValueError:
+                errors.append(f"[Línea {line_num}] Valor inválido en .long: '{raw_val_str}'.")
+                continue
+            raw_val = raw_val & 0xFFFFFFFF   # 32 bits
+            pending.append(PendingInstruction(
+                is_raw_word=True, raw_value=raw_val, src_line=line_num
+            ))
+            address += 1
+            continue
+
         tokens = tokenize_line(raw_line)
         if not tokens:
             continue
 
-        # ── Detectar definición de etiqueta ──────────────────────────────────
-        # Puede ser solo "mi_etiqueta:" o "mi_etiqueta: INSTRUCCION operandos"
+        # ── [NUEVO] Detectar definición de etiqueta (extendida) ─────────────
+        # IMPORTANTE: debe ir ANTES del filtro de directivas porque las
+        # etiquetas locales LLVM (.LBBn_m:) también empiezan con punto.
         label_token = tokens[0]
         if label_token.endswith(':'):
-            name = label_token[:-1]
-            if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name):
-                errors.append(f"[Línea {line_num}] Nombre de etiqueta inválido: '{name}'.")
+            raw_name = label_token[:-1]
+            name = normalize_label(raw_name)
+            if name is None:
+                errors.append(
+                    f"[Línea {line_num}] Nombre de etiqueta inválido: '{raw_name}'."
+                )
                 continue
             if name in label_map:
                 errors.append(
@@ -641,87 +740,45 @@ def first_pass(lines: list[str]) -> tuple[dict[str, int], list[PendingInstructio
                 )
                 continue
             label_map[name] = address
-            tokens = tokens[1:]   # Remover el token de etiqueta
+            tokens = tokens[1:]
             if not tokens:
-                continue          # Línea solo con etiqueta
+                continue   # Línea solo con etiqueta
 
-        # ── Detectar salto a etiqueta ─────────────────────────────────────────
-        # Detectar prefijo de tipo de memoria o silencioso (no aplica a saltos, pero avanzamos)
-        first = tokens[0].upper()
-        if first in MEM_TYPES or first in ('SLT', 'H', 'L'):
-            if len(tokens) > 1:
-                first = tokens[1].upper()
-
-        mnemonic = first
-
-        # ¿Es un salto que podría tener etiqueta como destino?
-        if mnemonic in JUMP_INSTRUCTIONS:
-            # Determinar cuál token es el posible destino
-            args = tokens[1:]   # Operandos del nemotécnico
-
-            # BRH tiene condición como primer operando: BRH =, destino
-            if mnemonic == 'BRH':
-                if len(args) >= 2:
-                    dest_tok = args[1].strip()
-                else:
-                    dest_tok = None
-            else:
-                # JMP / CAL: un solo operando = destino
-                dest_tok = args[0].strip() if args else None
-
-            # ¿El destino es una etiqueta (no un registro)?
-            if dest_tok and is_label_name(dest_tok) and not re.fullmatch(r'R(1[0-5]|[0-9])', dest_tok.upper()):
-                # Reservar 3 posiciones (expansión de dirección de 32 bits)
-                cond = None
-                if mnemonic == 'BRH':
-                    cond_tok = args[0].strip()
-                    if cond_tok.upper() in CONDITIONS:
-                        cond = CONDITIONS[cond_tok.upper()]
-                    elif cond_tok in CONDITIONS:
-                        cond = CONDITIONS[cond_tok]
-                    else:
-                        errors.append(
-                            f"[Línea {line_num}] Condición inválida: '{cond_tok}'."
-                        )
-                        continue
-
-                pending.append(PendingInstruction(
-                    label_target  = dest_tok,
-                    jump_mnemonic = mnemonic,
-                    cond          = cond,
-                    src_line      = line_num,
-                    size          = 3,   # Siempre 3 palabras por diseño
-                ))
-                address += 3
-                continue
-
-        # ── Instrucción normal (codificación directa) ─────────────────────────
-        # Detección especial: LDI con inmediato de 32 bits → expansión automática
-        try:
-            words, expanded = _try_encode_ldi32(tokens, line_num)
-        except AssemblerError as e:
-            errors.append(str(e))
+        # ── [NUEVO] Detectar y descartar directivas LLVM ────────────────────
+        # (Solo si el primer token no era una etiqueta — ya procesada arriba)
+        first_tok = tokens[0].lower()
+        if first_tok in _IGNORED_DIRECTIVES:
+            continue
+        # Ignorar cualquier otra directiva que empiece con punto
+        # (excepto .long y .p2align que ya se manejan antes de tokenizar)
+        if first_tok.startswith('.') and first_tok not in ('.long', '.p2align'):
             continue
 
-        if expanded:
-            # LDI de 32 bits: expandido en 3 instrucciones automáticamente
+        # ── Instrucción normal ───────────────────────────────────────────────
+        # [MODIFICADO] Ya no hay detección de salto a etiqueta con expansión.
+        # Si la instrucción contiene %hi/%lo la marcamos para segunda pasada;
+        # si no, la codificamos directamente.
+        if _tokens_need_second_pass(tokens):
+            # Guardar tokens tal cual para resolver en segunda pasada
             pending.append(PendingInstruction(
-                words    = words,
-                src_line = line_num,
-                size     = 3,
+                pending_tokens=tokens,
+                src_line=line_num,
             ))
-            address += 3
         else:
             try:
                 word = encode_single(tokens, line_num)
                 pending.append(PendingInstruction(
-                    words    = [word],
-                    src_line = line_num,
-                    size     = 1,
+                    words=[word],
+                    src_line=line_num,
                 ))
-                address += 1
             except AssemblerError as e:
                 errors.append(str(e))
+                pending.append(PendingInstruction(
+                    words=[0],
+                    src_line=line_num,
+                ))   # Placeholder para no perder la dirección
+
+        address += 1
 
     return label_map, pending, errors
 
@@ -730,40 +787,38 @@ def second_pass(label_map: dict[str, int],
                 pending: list[PendingInstruction]
                 ) -> tuple[list[tuple[int, int, int]], list[str]]:
     """
-    SEGUNDO PASE: resuelve las referencias a etiquetas y genera las palabras finales.
+    SEGUNDO PASE: resuelve los pseudo-operadores %hi/%lo con el label_map
+    completo y genera las palabras finales.
 
-    Cada PendingInstruction con label_target se expande en 3 palabras
-    usando la dirección registrada en label_map durante el primer pase.
+    [MODIFICADO respecto al original]
+    Ya no expande saltos a etiqueta (3 palabras). Ahora solo resuelve
+    instrucciones con pending_tokens (que contienen %hi/%lo) y copia
+    directamente las que ya tenían words codificados.
 
     Devuelve: ([(src_line, address, word), ...], errors)
     """
-    result: list[tuple[int, int, int]] = []
-    errors: list[str] = []
+    result:  list[tuple[int, int, int]] = []
+    errors:  list[str] = []
     address = 0
 
     for instr in pending:
-        if instr.label_target is not None:
-            # Resolver etiqueta
-            name = instr.label_target
-            if name not in label_map:
-                errors.append(
-                    f"[Línea {instr.src_line}] Etiqueta no definida: '{name}'."
-                )
-                address += 3
-                continue
-
-            # La base de la ROM es 0xFFF00000, los saltos deben ser direcciones de bytes (multiplicado por 4)
-            target_addr = (label_map[name] * 4) | 0xFFF00000
-            words = expand_label_address(
-                target_addr,
-                instr.jump_mnemonic,
-                instr.cond,
-                instr.src_line,
-            )
-            for w in words:
-                result.append((instr.src_line, address, w))
-                address += 1
+        if instr.is_raw_word:
+            # [NUEVO] Dato crudo (.long): escribir tal cual
+            result.append((instr.src_line, address, instr.raw_value))
+            address += 1
+        elif instr.pending_tokens is not None:
+            # Instrucción con %hi/%lo: codificar ahora con label_map completo
+            try:
+                word = encode_single(instr.pending_tokens, instr.src_line,
+                                     label_map=label_map,
+                                     current_address=address)
+                result.append((instr.src_line, address, word))
+            except AssemblerError as e:
+                errors.append(str(e))
+                result.append((instr.src_line, address, 0))
+            address += 1
         else:
+            # Instrucción ya codificada
             for w in instr.words:
                 result.append((instr.src_line, address, w))
                 address += 1
@@ -774,25 +829,38 @@ def second_pass(label_map: dict[str, int],
 def assemble_source(source_path: str
                     ) -> tuple[list[tuple[int,int,int]], list[str], dict[str,int]]:
     """
-    Pipeline completo de ensamblado.
+    Pipeline completo de ensamblado de un único archivo .s/.asm/.txt.
     Devuelve: (instructions, errors, label_map)
     """
     try:
-        with open(source_path, 'r', encoding='utf-8') as f:
+        with open(source_path, 'r', encoding='utf-8', errors='replace') as f:
             lines = f.readlines()
     except OSError as e:
         return [], [f"No se pudo abrir el archivo: {e}"], {}
 
-    label_map, pending, errors1 = first_pass(lines)
-    if errors1:
-        return [], errors1, label_map
+    return assemble_lines(lines)
 
+
+def assemble_lines(lines: list[str]
+                   ) -> tuple[list[tuple[int,int,int]], list[str], dict[str,int]]:
+    """
+    Pipeline completo de ensamblado a partir de una lista de líneas.
+    Devuelve: (instructions, errors, label_map)
+
+    [MODIFICADO] Siempre se ejecutan ambas pasadas para que los errores de
+    primera pasada (etiquetas duplicadas, sintaxis) y los de segunda pasada
+    (%hi/%lo no resueltos) se acumulen y reporten correctamente.
+    Los errores de primera pasada se notifican al final sin detener la 2ª.
+    """
+    label_map, pending, errors1 = first_pass(lines)
+    # [MODIFICADO] No se sale anticipadamente: siempre correr segunda pasada
+    # para resolver %hi/%lo con el label_map completo.
     instructions, errors2 = second_pass(label_map, pending)
-    return instructions, errors2, label_map
+    return instructions, errors1 + errors2, label_map
 
 
 # =============================================================================
-#  ESCRITURA DEL ARCHIVO ROM (Logisim v3.0 hex words addressed)
+#  ESCRITURA DEL ARCHIVO ROM (Logisim v3.0 hex words addressed) — igual
 # =============================================================================
 
 def write_rom_logisim(instructions: list[tuple[int,int,int]],
@@ -804,18 +872,13 @@ def write_rom_logisim(instructions: list[tuple[int,int,int]],
     Cada instrucción de 32 bits se almacena como 4 bytes en orden big-endian.
     La dirección en el archivo es de bytes: addr_byte = addr_word * 4.
 
-    Formato de salida:
-        v3.0 hex words addressed
-        00000: BB BB BB BB BB BB BB BB BB BB BB BB BB BB BB BB
-        00010: ...
-
-    Las líneas tienen 16 bytes (4 instrucciones) por fila.
-    Las filas vacías (solo ceros) se omiten para mantener el archivo compacto.
+    Las filas vacías (solo ceros) se omiten.
+    Al final se agrega siempre el vector de reset/boot (no recalcular):
+        ffff0: 8c f0 ff f0 8d f0 00 00 0e 0f 00 00 00 00 00 00
     """
-    # Construir mapa de dirección de bytes → byte individual
     byte_map: dict[int, int] = {}
     for _, word_addr, word in instructions:
-        byte_addr = word_addr * 4   # Cada instrucción = 4 bytes
+        byte_addr = word_addr * 4
         byte_map[byte_addr + 0] = (word >> 24) & 0xFF
         byte_map[byte_addr + 1] = (word >> 16) & 0xFF
         byte_map[byte_addr + 2] = (word >>  8) & 0xFF
@@ -825,28 +888,25 @@ def write_rom_logisim(instructions: list[tuple[int,int,int]],
         return
 
     max_byte_addr = max(byte_map.keys())
-
-    # Agrupar en filas de 16 bytes, empezando desde la primera fila con datos
     BYTES_PER_ROW = 16
-    first_row = 0
-    last_row  = (max_byte_addr // BYTES_PER_ROW) * BYTES_PER_ROW
+    last_row = (max_byte_addr // BYTES_PER_ROW) * BYTES_PER_ROW
 
-    # Asegurar que el directorio padre existe
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    parent = os.path.dirname(output_path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
 
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write("v3.0 hex words addressed\n")
 
-        row = first_row
+        row = 0
         while row <= last_row:
             row_bytes = [byte_map.get(row + i, 0) for i in range(BYTES_PER_ROW)]
-            # Solo escribir filas que tengan al menos un byte no cero
             if any(b != 0 for b in row_bytes):
                 hex_bytes = ' '.join(f"{b:02x}" for b in row_bytes)
                 f.write(f"{row:05x}: {hex_bytes}\n")
             row += BYTES_PER_ROW
 
-        # Vector de reset (salto a 0xFFF00000)
+        # Vector de reset — fijo, no regenerar
         f.write("ffff0: 8c f0 ff f0 8d f0 00 00 0e 0f 00 00 00 00 00 00\n")
 
 
@@ -854,10 +914,8 @@ def write_annotated_hex(instructions: list[tuple[int,int,int]],
                         label_map: dict[str, int],
                         output_path: str) -> None:
     """
-    Escribe un archivo .hex anotado (solo para depuración / referencia humana).
-    No es para Logisim, sino para que el programador pueda inspeccionar el código.
+    Escribe un archivo .hex anotado (depuración / referencia humana).
     """
-    # Mapa invertido de dirección → nombre de etiqueta
     addr_to_label = {v: k for k, v in label_map.items()}
 
     with open(output_path, 'w', encoding='utf-8') as f:
@@ -869,7 +927,6 @@ def write_annotated_hex(instructions: list[tuple[int,int,int]],
         f.write("; =====================================================\n")
 
         for src_line, waddr, word in instructions:
-            # Mostrar etiqueta si corresponde
             if waddr in addr_to_label:
                 f.write(f";\n; [{addr_to_label[waddr]}:]\n")
 
@@ -884,15 +941,240 @@ def write_annotated_hex(instructions: list[tuple[int,int,int]],
 
 
 # =============================================================================
-#  INTERFAZ GRÁFICA (tkinter)
+#  [NUEVO] PIPELINE MULTI-ARCHIVO: .c → .s → ROM
+# =============================================================================
+
+def compile_c_to_s(c_path: str, s_path: str, log_fn=None) -> list[str]:
+    """
+    Compila un archivo .c/.C a .s usando COMPILER_CMD_TEMPLATE.
+    Devuelve lista de errores (vacía si OK).
+    """
+    if not COMPILER_CMD_TEMPLATE:
+        return [
+            f"COMPILER_CMD_TEMPLATE no configurado. "
+            f"Edita la variable al inicio de assembler.py con el comando "
+            f"exacto de tu clang para compilar .c → .s."
+        ]
+
+    cmd = COMPILER_CMD_TEMPLATE.format(input=c_path, output=s_path)
+    if log_fn:
+        log_fn(f"  Compilando: {os.path.basename(c_path)}", 'info')
+        log_fn(f"  $ {cmd}", 'info')
+
+    try:
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True
+        )
+    except Exception as e:
+        return [f"Error al invocar el compilador: {e}"]
+
+    errors = []
+    if result.returncode != 0:
+        errors.append(f"Error compilando '{c_path}':")
+        for line in (result.stderr or result.stdout).splitlines():
+            errors.append(f"  {line}")
+    return errors
+
+
+def _rename_local_labels_in_lines(lines: list[str], prefix: str) -> list[str]:
+    """
+    [NUEVO] Renombra etiquetas locales (las que empiezan con '.')
+    agregando `prefix` inmediatamente después del punto inicial.
+    Ejemplo: .LBB1_3  →  .f0_LBB1_3
+
+    Opera sobre el texto crudo de las líneas (no sobre tokens), para
+    preservar el formato del archivo. Usa regex con cuidado de no tocar
+    cosas dentro de comillas dobles (las etiquetas entre comillas son
+    globales y no se renombran).
+    """
+    # Patrón de etiqueta local: punto seguido de identificador
+    local_pat = re.compile(r'(?<!")(\.[A-Za-z_][A-Za-z0-9_.@$]*)(?!")')
+
+    renamed = []
+    for line in lines:
+        # Dividir la línea en segmentos: entre comillas y fuera de comillas
+        result = ""
+        i = 0
+        while i < len(line):
+            if line[i] == '"':
+                # Segmento entre comillas: no modificar
+                j = line.find('"', i + 1)
+                if j == -1:
+                    result += line[i:]
+                    i = len(line)
+                else:
+                    result += line[i:j+1]
+                    i = j + 1
+            elif line[i] == ';':
+                # Comentario: no modificar el resto de la línea
+                result += line[i:]
+                break
+            else:
+                # Segmento normal: aplicar renombrado
+                # Buscar próxima comilla o fin de línea
+                next_quote = line.find('"', i)
+                next_comment = line.find(';', i)
+                end = len(line)
+                if next_quote != -1:
+                    end = min(end, next_quote)
+                if next_comment != -1:
+                    end = min(end, next_comment)
+                segment = line[i:end]
+                segment = local_pat.sub(
+                    lambda m: f".{prefix}_{m.group(1)[1:]}", segment
+                )
+                result += segment
+                i = end
+        renamed.append(result)
+
+    return renamed
+
+
+def merge_asm_files(s_paths: list[str],
+                    output_s_path: str,
+                    log_fn=None) -> list[str]:
+    """
+    [NUEVO] Fusiona varios archivos .s en uno solo.
+
+    Pasos:
+    1. Leer cada archivo y renombrar sus etiquetas locales.
+    2. Detectar colisiones de símbolos globales.
+    3. Separar secciones .text y .rodata de cada archivo.
+    4. Concatenar: todos los .text, luego todos los .rodata.
+    5. Escribir el .s combinado.
+
+    Devuelve lista de errores.
+    """
+    errors = []
+    all_text_lines:   list[str] = []
+    all_rodata_lines: list[str] = []
+    global_symbols:   dict[str, str] = {}   # nombre → archivo origen
+
+    for idx, s_path in enumerate(s_paths):
+        prefix = f"f{idx}"
+        try:
+            with open(s_path, 'r', encoding='utf-8', errors='replace') as f:
+                raw_lines = f.readlines()
+        except OSError as e:
+            errors.append(f"No se pudo leer '{s_path}': {e}")
+            continue
+
+        # Renombrar etiquetas locales
+        lines = _rename_local_labels_in_lines(raw_lines, prefix)
+
+        # Detectar símbolos globales declarados con .globl
+        for line in lines:
+            m = re.match(r'^\s*\.globl\s+(.+)$', line, re.IGNORECASE)
+            if m:
+                sym_raw = m.group(1).strip()
+                sym = normalize_label(sym_raw)
+                if sym is None:
+                    sym = sym_raw
+                if sym in global_symbols:
+                    errors.append(
+                        f"Colisión de símbolo global '{sym}': "
+                        f"definido en '{global_symbols[sym]}' y en '{s_path}'."
+                    )
+                else:
+                    global_symbols[sym] = s_path
+
+        # Separar secciones .text y .rodata
+        in_rodata_section = False
+        for line in lines:
+            if _RODATA_SECTION_RE.match(line):
+                in_rodata_section = True
+                all_rodata_lines.append(line)
+                continue
+            if _TEXT_SECTION_RE.match(line):
+                in_rodata_section = False
+                continue   # No repetir la directiva .text en el combinado
+            if in_rodata_section:
+                all_rodata_lines.append(line)
+            else:
+                all_text_lines.append(line)
+
+        if log_fn:
+            log_fn(f"  Fusionado: {os.path.basename(s_path)}", 'info')
+
+    if errors:
+        return errors
+
+    # Escribir .s combinado
+    try:
+        with open(output_s_path, 'w', encoding='utf-8') as f:
+            f.write("\t.text\n")
+            for line in all_text_lines:
+                f.write(line)
+            if all_rodata_lines:
+                f.write("\n")
+                for line in all_rodata_lines:
+                    f.write(line)
+    except OSError as e:
+        errors.append(f"No se pudo escribir el .s combinado: {e}")
+
+    return errors
+
+
+def compile_and_assemble(c_paths: list[str],
+                          rom_path: str,
+                          generate_listing: bool = True,
+                          log_fn=None
+                          ) -> tuple[list[tuple[int,int,int]], list[str], dict[str,int]]:
+    """
+    [NUEVO] Pipeline completo: .c → .s → ROM.
+
+    1. Compila cada .c a .s en un directorio temporal.
+    2. Fusiona los .s en uno solo junto al primer .c.
+    3. Ensambla el .s combinado.
+
+    Devuelve: (instructions, errors, label_map)
+    """
+    errors = []
+    tmp_dir = tempfile.mkdtemp(prefix="isa32_asm_")
+    s_paths = []
+
+    try:
+        for c_path in c_paths:
+            base = os.path.splitext(os.path.basename(c_path))[0]
+            s_path = os.path.join(tmp_dir, base + ".s")
+            errs = compile_c_to_s(c_path, s_path, log_fn=log_fn)
+            if errs:
+                errors.extend(errs)
+            else:
+                s_paths.append(s_path)
+
+        if errors:
+            return [], errors, {}
+
+        # Determinar ruta del .s combinado
+        first_dir = os.path.dirname(os.path.abspath(c_paths[0]))
+        first_base = os.path.splitext(os.path.basename(c_paths[0]))[0]
+        combined_s = os.path.join(first_dir, first_base + COMBINED_ASM_SUFFIX)
+
+        errs = merge_asm_files(s_paths, combined_s, log_fn=log_fn)
+        if errs:
+            return [], errs, {}
+
+        if log_fn:
+            log_fn(f"  Archivo .s combinado: {combined_s}", 'ok')
+
+        return assemble_source(combined_s)
+
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+# =============================================================================
+#  INTERFAZ GRÁFICA (tkinter) — mantenida y extendida
 # =============================================================================
 
 class AssemblerGUI:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("Ensamblador — Procesador 32 bits")
-        self.root.geometry("860x600")
+        self.root.title("Ensamblador — Procesador 32 bits (LLVM)")
+        self.root.geometry("920x620")
         self.root.resizable(True, True)
+        self._selected_files: list[str] = []
         self._build_ui()
 
     def _build_ui(self):
@@ -903,6 +1185,7 @@ class AssemblerGUI:
         tk.Label(top, text="Fuente:").pack(side='left')
         self.path_var = tk.StringVar()
         tk.Entry(top, textvariable=self.path_var, width=52).pack(side='left', padx=5)
+        # [NUEVO] Botón Examinar acepta múltiples archivos y .c/.C
         tk.Button(top, text="Examinar…",  command=self._browse).pack(side='left')
         tk.Button(top, text="Ensamblar ▶", command=self._run,
                   bg='#2a7ae2', fg='white', relief='flat',
@@ -917,10 +1200,11 @@ class AssemblerGUI:
         tk.Button(rom_frame, text="…", command=self._browse_rom).pack(side='left')
 
         # ── Opciones ──────────────────────────────────────────────────────────
-        opts_frame = tk.Frame(self.root, padx=12, pady=4)
-        opts_frame.pack(fill='x')
-        self.gen_list_var = tk.BooleanVar(value=True)
-        tk.Checkbutton(opts_frame, text="Generar listado anotado (.hex)", variable=self.gen_list_var).pack(side='left')
+        opt_frame = tk.Frame(self.root, padx=12, pady=2)
+        opt_frame.pack(fill='x')
+        self.listing_var = tk.BooleanVar(value=True)
+        tk.Checkbutton(opt_frame, text="Generar listado anotado (.hex)",
+                       variable=self.listing_var).pack(side='left')
 
         # ── Área de log ───────────────────────────────────────────────────────
         lf = tk.Frame(self.root, padx=12, pady=4)
@@ -939,12 +1223,23 @@ class AssemblerGUI:
         self.log.tag_config('lbl',   foreground='#f97316')
 
     def _browse(self):
-        p = filedialog.askopenfilename(
-            title="Seleccionar archivo fuente",
-            filetypes=[("Ensamblador", "*.txt *.asm"), ("Todos", "*.*")]
+        # [NUEVO] Selección múltiple, acepta .c/.C y .s/.asm/.txt
+        files = filedialog.askopenfilenames(
+            title="Seleccionar archivo(s) fuente",
+            filetypes=[
+                ("Fuentes C/ASM", "*.c *.C *.s *.asm *.txt"),
+                ("C/C++",         "*.c *.C"),
+                ("Ensamblador",   "*.s *.asm *.txt"),
+                ("Todos",         "*.*"),
+            ]
         )
-        if p:
-            self.path_var.set(p)
+        if files:
+            self._selected_files = list(files)
+            if len(files) == 1:
+                self.path_var.set(files[0])
+            else:
+                self.path_var.set(f"[{len(files)} archivos] " +
+                                  ", ".join(os.path.basename(f) for f in files))
 
     def _browse_rom(self):
         p = filedialog.asksaveasfilename(
@@ -968,21 +1263,47 @@ class AssemblerGUI:
 
     def _run(self):
         self._clear()
-        source   = self.path_var.get().strip()
         rom_path = self.rom_var.get().strip()
+        generate_listing = self.listing_var.get()
 
-        if not source:
+        # Determinar archivos a procesar
+        files = self._selected_files
+        if not files:
+            source = self.path_var.get().strip()
+            if source:
+                files = [source]
+
+        if not files:
             self._log("⚠  Selecciona primero un archivo fuente.", 'error')
             return
-        if not os.path.isfile(source):
-            self._log(f"✗  Archivo no encontrado: {source}", 'error')
+
+        for f in files:
+            if not os.path.isfile(f):
+                self._log(f"✗  Archivo no encontrado: {f}", 'error')
+                return
+
+        self._log("══════════════════════════════════════════", 'head')
+        # [NUEVO] Distinguir modo .c y modo .s
+        c_files = [f for f in files if f.lower().endswith(('.c', '.C'.lower()))]
+
+        if c_files and len(c_files) == len(files):
+            # Modo compilación C
+            self._log(f"  Compilando {len(c_files)} archivo(s) C → ROM", 'head')
+            self._log("══════════════════════════════════════════", 'head')
+            instructions, errors, label_map = compile_and_assemble(
+                c_files, rom_path,
+                generate_listing=generate_listing,
+                log_fn=self._log
+            )
+        elif len(files) == 1 and not c_files:
+            # Modo ensamblado directo
+            self._log(f"  Ensamblando: {os.path.basename(files[0])}", 'head')
+            self._log("══════════════════════════════════════════", 'head')
+            instructions, errors, label_map = assemble_source(files[0])
+        else:
+            self._log("✗  Mezcla de .c y .s no soportada. "
+                      "Usa solo .c o solo .s.", 'error')
             return
-
-        self._log("══════════════════════════════════════════", 'head')
-        self._log(f"  Ensamblando: {os.path.basename(source)}", 'head')
-        self._log("══════════════════════════════════════════", 'head')
-
-        instructions, errors, label_map = assemble_source(source)
 
         if errors:
             self._log(f"\n✗  {len(errors)} error(es):\n", 'error')
@@ -992,24 +1313,24 @@ class AssemblerGUI:
 
         # Escribir ROM
         write_rom_logisim(instructions, rom_path)
-        
-        # Escribir listado anotado junto al fuente (si está activado)
-        if self.gen_list_var.get():
-            ann_path = os.path.splitext(source)[0] + "_listado.hex"
-            write_annotated_hex(instructions, label_map, ann_path)
-        else:
-            ann_path = None
-
         self._log(f"\n✓  {len(instructions)} palabra(s) ensamblada(s).\n", 'ok')
         self._log(f"  ROM Logisim : {rom_path}", 'ok')
-        if ann_path:
+
+        # Listado anotado
+        if generate_listing:
+            if c_files:
+                base_path = os.path.splitext(c_files[0])[0]
+            else:
+                base_path = os.path.splitext(files[0])[0]
+            ann_path = base_path + "_listado.hex"
+            write_annotated_hex(instructions, label_map, ann_path)
             self._log(f"  Listado     : {ann_path}", 'ok')
 
         # Mostrar etiquetas
         if label_map:
             self._log("\n  Etiquetas definidas:", 'lbl')
             for name, addr in sorted(label_map.items(), key=lambda x: x[1]):
-                self._log(f"    {name:<20} → word {addr:05X}  byte {addr*4:06X}", 'lbl')
+                self._log(f"    {name:<30} → word {addr:05X}  byte {addr*4:06X}", 'lbl')
 
         # Previsualización
         self._log("\n  WADDR BADDR    HEX       BINARIO", 'info')
@@ -1035,32 +1356,66 @@ class AssemblerGUI:
 # =============================================================================
 
 def main():
-    if len(sys.argv) > 1:
-        # ── Modo CLI ──────────────────────────────────────────────────────────
-        args = sys.argv[1:]
-        gen_list = True
-        
+    args = sys.argv[1:]
+
+    # ── Modo CLI ──────────────────────────────────────────────────────────────
+    if args:
+        # [NUEVO] Parseo de --no-list
+        generate_listing = True
         if '--no-list' in args:
-            gen_list = False
-            args.remove('--no-list')
+            generate_listing = False
+            args = [a for a in args if a != '--no-list']
 
         if not args:
-            print("[ERROR] Falta archivo fuente.")
-            print("  Uso: python assembler.py [--no-list] fuente.txt [salida_ROM]")
+            print("[ERROR] No se especificaron archivos de entrada.")
             sys.exit(1)
 
-        source_path = args[0]
-        rom_path    = args[1] if len(args) > 1 else ROM_OUTPUT_PATH
-
         print("=" * 62)
-        print("  Ensamblador — Procesador 32 bits")
+        print("  Ensamblador — Procesador 32 bits (compatible LLVM)")
         print("=" * 62)
 
-        if not os.path.isfile(source_path):
-            print(f"[ERROR] Archivo no encontrado: {source_path}")
+        # Determinar si es modo .c o modo .s/.asm/.txt
+        c_files  = [a for a in args if a.lower().endswith(('.c',))]
+        asm_files = [a for a in args if not a.lower().endswith(('.c',))]
+
+        # Detectar ruta de ROM de salida (último argumento si no es .c ni .s/.asm/.txt)
+        _source_exts = ('.c', '.s', '.asm', '.txt', '.C')
+        rom_path = ROM_OUTPUT_PATH
+        if args and not args[-1].lower().endswith(_source_exts):
+            rom_path = args[-1]
+            args     = args[:-1]
+            c_files  = [a for a in args if a.lower().endswith(('.c',))]
+            asm_files = [a for a in args if not a.lower().endswith(('.c',))]
+
+        # [NUEVO] Modo multi-archivo .c
+        if c_files and not asm_files:
+            for f in c_files:
+                if not os.path.isfile(f):
+                    print(f"[ERROR] Archivo no encontrado: {f}")
+                    sys.exit(1)
+
+            def cli_log(msg, tag=''):
+                print(msg)
+
+            instructions, errors, label_map = compile_and_assemble(
+                c_files, rom_path,
+                generate_listing=generate_listing,
+                log_fn=cli_log
+            )
+
+        elif len(asm_files) == 1 and not c_files:
+            source_path = asm_files[0]
+            if not os.path.isfile(source_path):
+                print(f"[ERROR] Archivo no encontrado: {source_path}")
+                sys.exit(1)
+            instructions, errors, label_map = assemble_source(source_path)
+
+        else:
+            print("[ERROR] Especifica solo archivos .c o un único .s/.asm/.txt.")
+            print("  Uso:")
+            print("    python assembler.py [--no-list] archivo.s [ROM]")
+            print("    python assembler.py [--no-list] f1.c f2.c [ROM]")
             sys.exit(1)
-
-        instructions, errors, label_map = assemble_source(source_path)
 
         if errors:
             print(f"[ERROR] {len(errors)} error(es):\n")
@@ -1069,27 +1424,27 @@ def main():
             sys.exit(1)
 
         write_rom_logisim(instructions, rom_path)
-        if gen_list:
-            ann_path = os.path.splitext(source_path)[0] + "_listado.hex"
-            write_annotated_hex(instructions, label_map, ann_path)
-        else:
-            ann_path = None
-
         print(f"[OK] {len(instructions)} palabra(s) ensamblada(s).")
         print(f"[OK] ROM Logisim : {rom_path}")
-        if ann_path:
+
+        if generate_listing:
+            if c_files:
+                ann_path = os.path.splitext(c_files[0])[0] + "_listado.hex"
+            else:
+                ann_path = os.path.splitext(asm_files[0])[0] + "_listado.hex"
+            write_annotated_hex(instructions, label_map, ann_path)
             print(f"[OK] Listado     : {ann_path}")
 
         if label_map:
             print("\n[Etiquetas]")
             for name, addr in sorted(label_map.items(), key=lambda x: x[1]):
-                print(f"  {name:<20} -> word 0x{addr:05X}  byte 0x{addr*4:06X}")
+                print(f"  {name:<30} -> word 0x{addr:05X}  byte 0x{addr*4:06X}")
         sys.exit(0)
 
     # ── Modo GUI ──────────────────────────────────────────────────────────────
     if not HAS_TK:
         print("[ERROR] tkinter no está disponible.")
-        print("  Uso: python assembler.py [--no-list] fuente.txt [salida_ROM]")
+        print("  Uso: python assembler.py fuente.s [salida_ROM]")
         sys.exit(1)
 
     root = tk.Tk()
