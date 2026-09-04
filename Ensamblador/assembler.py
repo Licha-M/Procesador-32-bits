@@ -62,7 +62,7 @@ except ImportError:
 ROM_OUTPUT_PATH = r"d:\Yo\Escritorio\Procesador-32-bits\System\Memory\ROM-Memory\ROM"
 
 # [NUEVO] Comandos de compilación para C/C++ → LLVM IR → .s
-# 1. Crear los .ll:  clang++ -O2 -S -emit-llvm archivo1.c -o archivo1.ll
+# 1. Crear los .ll:  clang++ -O2 -fno-ms-volatile -S -emit-llvm archivo1.c -o archivo1.ll
 # 2. Unir .ll:        llvm-link archivo1.ll archivo2.ll -S -o unido.ll
 # 3. Pasar a .s:      llc -march=isa32_lm unido.ll -o final.s
 
@@ -862,7 +862,8 @@ def assemble_lines(lines: list[str]
 # =============================================================================
 
 def write_rom_logisim(instructions: list[tuple[int,int,int]],
-                      output_path: str) -> None:
+                      output_path: str,
+                      label_map: dict[str, int] | None = None) -> None:
     """
     Escribe la imagen de ROM en formato Logisim:
         v3.0 hex words addressed
@@ -871,8 +872,14 @@ def write_rom_logisim(instructions: list[tuple[int,int,int]],
     La dirección en el archivo es de bytes: addr_byte = addr_word * 4.
 
     Las filas vacías (solo ceros) se omiten.
-    Al final se agrega siempre el vector de reset/boot (no recalcular):
-        ffff0: 8c f0 ff f0 8d f0 00 00 0e 0f 00 00 00 00 00 00
+    Al final se agrega el vector de reset/boot en 0xFFFF0:
+        H LDI  R0, %hi(main)   → carga parte alta de la dirección de main
+        SLT ADI R0, %lo(main)  → suma parte baja (con signo)
+        JMP R0                 → salta a main
+        NOP                    → relleno
+
+    Si label_map es None o 'main' no está definida, se usa la dirección 0
+    como fallback (equivalente al comportamiento anterior para main en word 0).
     """
     byte_map: dict[int, int] = {}
     for _, word_addr, word in instructions:
@@ -893,6 +900,44 @@ def write_rom_logisim(instructions: list[tuple[int,int,int]],
     if parent:
         os.makedirs(parent, exist_ok=True)
 
+    # ── Vector de reset: salto a main ────────────────────────────────────────
+    # Buscar la dirección de 'main' en el label_map.
+    # Intentar variantes: 'main', '"main"' (nombre mangled entre comillas).
+    main_word_addr = 0
+    if label_map:
+        for candidate in ('main', '"main"'):
+            if candidate in label_map:
+                main_word_addr = label_map[candidate]
+                break
+
+    hi16, lo16 = compute_hi_lo(main_word_addr)
+
+    # H LDI R0, hi16   → tipo=0b100, op=LDI(0b01100), ra=0, imm=hi16
+    # Formato: [31:29]=tipo [28:24]=op [23:20]=ra [19:16]=0 [15:0]=imm
+    word_ldi  = build_word(0b100, OPCODES['LDI'], (0 << 20) | hi16)
+    # SLT ADI R0, lo16 → tipo=0b100, op=ADI(0b01101), ra=0, imm=lo16
+    word_adi  = build_word(0b100, OPCODES['ADI'], (0 << 20) | lo16)
+    # JMP R0           → tipo=0b000, op=JMP(0b01110), rb=0
+    word_jmp  = build_word(0b000, OPCODES['JMP'], 0 << 16)
+    # NOP
+    word_nop  = build_word(0b000, OPCODES['NOP'], 0)
+
+    def _word_to_bytes(w: int) -> list[int]:
+        return [
+            (w >> 24) & 0xFF,
+            (w >> 16) & 0xFF,
+            (w >>  8) & 0xFF,
+             w        & 0xFF,
+        ]
+
+    reset_bytes = (
+        _word_to_bytes(word_ldi) +
+        _word_to_bytes(word_adi) +
+        _word_to_bytes(word_jmp) +
+        _word_to_bytes(word_nop)
+    )
+    reset_hex = ' '.join(f"{b:02x}" for b in reset_bytes)
+
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write("v3.0 hex words addressed\n")
 
@@ -904,8 +949,8 @@ def write_rom_logisim(instructions: list[tuple[int,int,int]],
                 f.write(f"{row:05x}: {hex_bytes}\n")
             row += BYTES_PER_ROW
 
-        # Vector de reset — fijo, no regenerar
-        f.write("ffff0: 8c f0 ff f0 8d f0 00 00 0e 0f 00 00 00 00 00 00\n")
+        # Escribir vector de reset con salto a main
+        f.write(f"ffff0: {reset_hex}\n")
 
 
 def write_annotated_hex(instructions: list[tuple[int,int,int]],
@@ -945,9 +990,9 @@ def write_annotated_hex(instructions: list[tuple[int,int,int]],
 def compile_c_to_ll(c_path: str, ll_path: str, log_fn=None) -> list[str]:
     """
     Compila un archivo .c/.C a .ll usando clang++:
-      clang++ -O2 -S -emit-llvm archivo1.c -o archivo1.ll
+      clang -O2 -fno-ms-volatile -S -emit-llvm archivo1.c -o archivo1.ll
     """
-    cmd = f'clang++ -O2 -S -emit-llvm "{c_path}" -o "{ll_path}"'
+    cmd = f'clang -O2 -fno-ms-volatile -S -emit-llvm "{c_path}" -o "{ll_path}"'
     if log_fn:
         log_fn(f"  Generando .ll: {os.path.basename(c_path)}", 'info')
         log_fn(f"  $ {cmd}", 'info')
@@ -1179,7 +1224,7 @@ def compile_and_assemble(c_paths: list[str],
     """
     [NUEVO] Pipeline completo: .c → .ll → (llvm-link) → .s → ROM.
 
-    1. Compila cada .c a .ll con clang++ -O2 -S -emit-llvm <archivo.c> -o <archivo.ll>.
+    1. Compila cada .c a .ll con clang++ -O2 -fno-ms-volatile -S -emit-llvm <archivo.c> -o <archivo.ll>.
     2. Si son más de uno, une los .ll con llvm-link <ll1> <ll2> -S -o unido.ll.
     3. Convierte el .ll unido a .s con llc -march=isa32_lm unido.ll -o final.s.
     4. Ensambla el .s final.
@@ -1377,7 +1422,7 @@ class AssemblerGUI:
             return
 
         # Escribir ROM
-        write_rom_logisim(instructions, rom_path)
+        write_rom_logisim(instructions, rom_path, label_map=label_map)
         self._log(f"\n✓  {len(instructions)} palabra(s) ensamblada(s).\n", 'ok')
         self._log(f"  ROM Logisim : {rom_path}", 'ok')
 
@@ -1488,7 +1533,7 @@ def main():
                 print(f"  {e}")
             sys.exit(1)
 
-        write_rom_logisim(instructions, rom_path)
+        write_rom_logisim(instructions, rom_path, label_map=label_map)
         print(f"[OK] {len(instructions)} palabra(s) ensamblada(s).")
         print(f"[OK] ROM Logisim : {rom_path}")
 
