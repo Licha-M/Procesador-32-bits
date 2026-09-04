@@ -41,7 +41,7 @@
       <a name="facing" val="north"/>
     </tool>
     <tool name="Demultiplexer">
-      <a name="facing" val="south"/>
+      <a name="facing" val="west"/>
     </tool>
     <tool name="Decoder">
       <a name="facing" val="south"/>
@@ -54,10 +54,10 @@
     </tool>
   </lib>
   <lib desc="#Base" name="5"/>
-  <lib desc="file#Memory\Main_Memories.circ" name="6"/>
-  <lib desc="file#Core\Pipeline.circ" name="7"/>
-  <lib desc="file#Memory\BIOS_Mapper.circ" name="8"/>
-  <lib desc="file#PCI\Root_Complex.circ" name="9"/>
+  <lib desc="file#Core\Pipeline.circ" name="6"/>
+  <lib desc="file#PCI\Root_Complex.circ" name="7"/>
+  <lib desc="file#Memory\Main_Memories.circ" name="8"/>
+  <lib desc="file#Memory\BIOS_Mapper.circ" name="9"/>
   <lib desc="file#Memory\Memory_System.circ" name="10"/>
   <main name="Die"/>
   <options>
@@ -121,30 +121,30 @@
       <rect fill="none" height="50" stroke="#000000" width="40" x="90" y="80"/>
       <text dominant-baseline="central" font-family="SansSerif" font-size="28" text-anchor="middle" x="195" y="135">CPU</text>
       <circ-anchor facing="east" x="300" y="70"/>
-      <circ-port dir="in" pin="1320,450" x="300" y="80"/>
-      <circ-port dir="in" pin="1320,470" x="300" y="100"/>
-      <circ-port dir="in" pin="1320,510" x="300" y="240"/>
-      <circ-port dir="in" pin="1320,590" x="300" y="170"/>
-      <circ-port dir="in" pin="1320,610" x="300" y="190"/>
-      <circ-port dir="in" pin="1320,650" x="300" y="260"/>
-      <circ-port dir="in" pin="1320,730" x="90" y="170"/>
-      <circ-port dir="in" pin="1320,750" x="90" y="190"/>
-      <circ-port dir="in" pin="1320,790" x="210" y="260"/>
+      <circ-port dir="in" pin="1320,450" x="300" y="120"/>
+      <circ-port dir="in" pin="1320,470" x="300" y="130"/>
+      <circ-port dir="in" pin="1320,510" x="300" y="140"/>
+      <circ-port dir="in" pin="1320,590" x="300" y="210"/>
+      <circ-port dir="in" pin="1320,610" x="300" y="220"/>
+      <circ-port dir="in" pin="1320,650" x="300" y="230"/>
+      <circ-port dir="in" pin="1320,730" x="90" y="210"/>
+      <circ-port dir="in" pin="1320,750" x="90" y="220"/>
+      <circ-port dir="in" pin="1320,790" x="90" y="230"/>
       <circ-port dir="in" pin="1320,850" x="210" y="240"/>
       <circ-port dir="in" pin="260,230" x="180" y="30"/>
       <circ-port dir="in" pin="440,900" x="90" y="90"/>
       <circ-port dir="in" pin="440,920" x="90" y="120"/>
       <circ-port dir="in" pin="680,220" x="230" y="30"/>
       <circ-port dir="out" pin="100,230" x="210" y="30"/>
-      <circ-port dir="out" pin="1320,410" x="300" y="90"/>
+      <circ-port dir="out" pin="1320,410" x="300" y="80"/>
       <circ-port dir="out" pin="1320,430" x="300" y="70"/>
-      <circ-port dir="out" pin="1320,490" x="300" y="150"/>
-      <circ-port dir="out" pin="1320,550" x="300" y="180"/>
+      <circ-port dir="out" pin="1320,490" x="300" y="90"/>
+      <circ-port dir="out" pin="1320,550" x="300" y="170"/>
       <circ-port dir="out" pin="1320,570" x="300" y="160"/>
-      <circ-port dir="out" pin="1320,630" x="300" y="250"/>
-      <circ-port dir="out" pin="1320,690" x="90" y="180"/>
+      <circ-port dir="out" pin="1320,630" x="300" y="180"/>
+      <circ-port dir="out" pin="1320,690" x="90" y="170"/>
       <circ-port dir="out" pin="1320,710" x="90" y="160"/>
-      <circ-port dir="out" pin="1320,770" x="210" y="250"/>
+      <circ-port dir="out" pin="1320,770" x="90" y="180"/>
       <circ-port dir="out" pin="1320,830" x="180" y="240"/>
       <circ-port dir="out" pin="170,230" x="200" y="30"/>
       <circ-port dir="out" pin="350,230" x="150" y="30"/>
@@ -379,9 +379,9 @@
       <a name="labelfont" val="SansSerif bold 8"/>
     </comp>
     <comp lib="10" loc="(730,360)" name="Memory_Controller"/>
-    <comp lib="7" loc="(740,900)" name="Core"/>
-    <comp lib="8" loc="(950,720)" name="Mapper"/>
-    <comp lib="9" loc="(970,410)" name="Root_Complex"/>
+    <comp lib="6" loc="(740,900)" name="Core"/>
+    <comp lib="7" loc="(970,410)" name="Root_Complex"/>
+    <comp lib="9" loc="(950,720)" name="Mapper"/>
     <comp loc="(690,620)" name="Router"/>
     <wire from="(100,230)" to="(100,470)"/>
     <wire from="(100,470)" to="(490,470)"/>

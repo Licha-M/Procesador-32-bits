@@ -912,13 +912,13 @@ def write_rom_logisim(instructions: list[tuple[int,int,int]],
 
     hi16, lo16 = compute_hi_lo(main_word_addr)
 
-    # H LDI R0, hi16   → tipo=0b100, op=LDI(0b01100), ra=0, imm=hi16
+    # H LDI R15, hi16  → tipo=0b100, op=LDI(0b01100), ra=15, imm=hi16
     # Formato: [31:29]=tipo [28:24]=op [23:20]=ra [19:16]=0 [15:0]=imm
-    word_ldi  = build_word(0b100, OPCODES['LDI'], (0 << 20) | hi16)
-    # SLT ADI R0, lo16 → tipo=0b100, op=ADI(0b01101), ra=0, imm=lo16
-    word_adi  = build_word(0b100, OPCODES['ADI'], (0 << 20) | lo16)
-    # JMP R0           → tipo=0b000, op=JMP(0b01110), rb=0
-    word_jmp  = build_word(0b000, OPCODES['JMP'], 0 << 16)
+    word_ldi  = build_word(0b100, OPCODES['LDI'], (15 << 20) | hi16)
+    # SLT ADI R15, lo16 → tipo=0b100, op=ADI(0b01101), ra=15, imm=lo16
+    word_adi  = build_word(0b100, OPCODES['ADI'], (15 << 20) | lo16)
+    # JMP R15          → tipo=0b000, op=JMP(0b01110), rb=15
+    word_jmp  = build_word(0b000, OPCODES['JMP'], 15 << 16)
     # NOP
     word_nop  = build_word(0b000, OPCODES['NOP'], 0)
 
@@ -987,14 +987,15 @@ def write_annotated_hex(instructions: list[tuple[int,int,int]],
 #  [NUEVO] PIPELINE MULTI-ARCHIVO: .c → .s → ROM
 # =============================================================================
 
-def compile_c_to_ll(c_path: str, ll_path: str, log_fn=None) -> list[str]:
+def compile_c_to_ll(c_path: str, ll_path: str, opt_level: str = "-O0", log_fn=None) -> list[str]:
     """
-    Compila un archivo .c/.C a .ll usando clang++:
-      clang -O2 -fno-ms-volatile -S -emit-llvm archivo1.c -o archivo1.ll
+    Compila un archivo .c/.C a .ll usando clang:
+      clang <opt_level> -fno-ms-volatile -S -emit-llvm archivo1.c -o archivo1.ll
     """
-    cmd = f'clang -O2 -fno-ms-volatile -S -emit-llvm "{c_path}" -o "{ll_path}"'
+    opt = opt_level.upper() if opt_level.startswith('-') else f"-{opt_level.upper()}"
+    cmd = f'clang {opt} -fno-ms-volatile -S -emit-llvm "{c_path}" -o "{ll_path}"'
     if log_fn:
-        log_fn(f"  Generando .ll: {os.path.basename(c_path)}", 'info')
+        log_fn(f"  Generando .ll: {os.path.basename(c_path)} ({opt})", 'info')
         log_fn(f"  $ {cmd}", 'info')
 
     try:
@@ -1070,15 +1071,15 @@ def compile_ll_to_s(ll_path: str, s_path: str, log_fn=None) -> list[str]:
     return errors
 
 
-def compile_c_to_s(c_path: str, s_path: str, log_fn=None) -> list[str]:
+def compile_c_to_s(c_path: str, s_path: str, opt_level: str = "-O0", log_fn=None) -> list[str]:
     """
-    Compila un único archivo .c/.C a .s usando clang++ y llc.
+    Compila un único archivo .c/.C a .s usando clang y llc.
     """
     tmp_dir = tempfile.mkdtemp(prefix="isa32_asm_")
     try:
         base = os.path.splitext(os.path.basename(c_path))[0]
         ll_path = os.path.join(tmp_dir, base + ".ll")
-        errs = compile_c_to_ll(c_path, ll_path, log_fn=log_fn)
+        errs = compile_c_to_ll(c_path, ll_path, opt_level=opt_level, log_fn=log_fn)
         if errs:
             return errs
         return compile_ll_to_s(ll_path, s_path, log_fn=log_fn)
@@ -1218,13 +1219,14 @@ def merge_asm_files(s_paths: list[str],
 
 def compile_and_assemble(c_paths: list[str],
                           rom_path: str,
+                          opt_level: str = "-O0",
                           generate_listing: bool = True,
                           log_fn=None
                           ) -> tuple[list[tuple[int,int,int]], list[str], dict[str,int]]:
     """
     [NUEVO] Pipeline completo: .c → .ll → (llvm-link) → .s → ROM.
 
-    1. Compila cada .c a .ll con clang++ -O2 -fno-ms-volatile -S -emit-llvm <archivo.c> -o <archivo.ll>.
+    1. Compila cada .c a .ll con clang <opt_level> -fno-ms-volatile -S -emit-llvm <archivo.c> -o <archivo.ll>.
     2. Si son más de uno, une los .ll con llvm-link <ll1> <ll2> -S -o unido.ll.
     3. Convierte el .ll unido a .s con llc -march=isa32_lm unido.ll -o final.s.
     4. Ensambla el .s final.
@@ -1240,7 +1242,7 @@ def compile_and_assemble(c_paths: list[str],
         for c_path in c_paths:
             base = os.path.splitext(os.path.basename(c_path))[0]
             ll_path = os.path.join(tmp_dir, base + ".ll")
-            errs = compile_c_to_ll(c_path, ll_path, log_fn=log_fn)
+            errs = compile_c_to_ll(c_path, ll_path, opt_level=opt_level, log_fn=log_fn)
             if errs:
                 errors.extend(errs)
             else:
@@ -1316,6 +1318,11 @@ class AssemblerGUI:
         tk.Checkbutton(opt_frame, text="Generar listado anotado (.hex)",
                        variable=self.listing_var).pack(side='left')
 
+        tk.Label(opt_frame, text="   Optimización:").pack(side='left', padx=(15, 2))
+        self.opt_var = tk.StringVar(value="-O0")
+        self.opt_menu = tk.OptionMenu(opt_frame, self.opt_var, "-O0", "-O1", "-O2", "-O3")
+        self.opt_menu.pack(side='left')
+
         # ── Área de log ───────────────────────────────────────────────────────
         lf = tk.Frame(self.root, padx=12, pady=4)
         lf.pack(fill='both', expand=True)
@@ -1375,6 +1382,7 @@ class AssemblerGUI:
         self._clear()
         rom_path = self.rom_var.get().strip()
         generate_listing = self.listing_var.get()
+        opt_level = self.opt_var.get()
 
         # Determinar archivos a procesar
         files = self._selected_files
@@ -1398,10 +1406,11 @@ class AssemblerGUI:
 
         if c_files and len(c_files) == len(files):
             # Modo compilación C
-            self._log(f"  Compilando {len(c_files)} archivo(s) C → ROM", 'head')
+            self._log(f"  Compilando {len(c_files)} archivo(s) C → ROM ({opt_level})", 'head')
             self._log("══════════════════════════════════════════", 'head')
             instructions, errors, label_map = compile_and_assemble(
                 c_files, rom_path,
+                opt_level=opt_level,
                 generate_listing=generate_listing,
                 log_fn=self._log
             )
@@ -1476,6 +1485,12 @@ def main():
             generate_listing = False
             args = [a for a in args if a != '--no-list']
 
+        opt_level = "-O0"
+        for a in list(args):
+            if a.lower() in ('-o0', '-o1', '-o2', '-o3'):
+                opt_level = a.upper()
+                args.remove(a)
+
         if not args:
             print("[ERROR] No se especificaron archivos de entrada.")
             sys.exit(1)
@@ -1509,6 +1524,7 @@ def main():
 
             instructions, errors, label_map = compile_and_assemble(
                 c_files, rom_path,
+                opt_level=opt_level,
                 generate_listing=generate_listing,
                 log_fn=cli_log
             )

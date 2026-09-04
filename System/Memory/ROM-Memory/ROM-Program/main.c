@@ -2,6 +2,7 @@
 
 int main() {
   int map_size = PCIe_Bus_Enumeration();
+  __asm__ volatile("HLT");
 
   // Puntero al mapa de dispositivos PCIe
   volatile PCIe_Map *mapa = (volatile PCIe_Map *)(TABLE_Addr);
