@@ -38,7 +38,7 @@
   </lib>
   <lib desc="#Plexers" name="2">
     <tool name="Multiplexer">
-      <a name="facing" val="north"/>
+      <a name="facing" val="west"/>
     </tool>
     <tool name="Demultiplexer">
       <a name="facing" val="west"/>
@@ -54,11 +54,11 @@
     </tool>
   </lib>
   <lib desc="#Base" name="5"/>
-  <lib desc="file#Core\Pipeline.circ" name="6"/>
-  <lib desc="file#PCI\Root_Complex.circ" name="7"/>
-  <lib desc="file#Memory\Main_Memories.circ" name="8"/>
+  <lib desc="file#PCI\Root_Complex.circ" name="6"/>
+  <lib desc="file#Core\Pipeline.circ" name="7"/>
+  <lib desc="file#Memory\Memory_System.circ" name="8"/>
   <lib desc="file#Memory\BIOS_Mapper.circ" name="9"/>
-  <lib desc="file#Memory\Memory_System.circ" name="10"/>
+  <lib desc="file#Memory\Main_Memories.circ" name="10"/>
   <main name="Die"/>
   <options>
     <a name="gateUndefined" val="ignore"/>
@@ -160,6 +160,18 @@
       <a name="label" val="RST_Out"/>
       <a name="output" val="true"/>
     </comp>
+    <comp lib="0" loc="(1000,400)" name="Pull Resistor">
+      <a name="pull" val="1"/>
+    </comp>
+    <comp lib="0" loc="(1020,400)" name="Pull Resistor">
+      <a name="pull" val="1"/>
+    </comp>
+    <comp lib="0" loc="(1040,400)" name="Pull Resistor"/>
+    <comp lib="0" loc="(1060,400)" name="Pull Resistor"/>
+    <comp lib="0" loc="(1080,400)" name="Pull Resistor"/>
+    <comp lib="0" loc="(1100,400)" name="Pull Resistor"/>
+    <comp lib="0" loc="(1120,400)" name="Pull Resistor"/>
+    <comp lib="0" loc="(1140,400)" name="Pull Resistor"/>
     <comp lib="0" loc="(1320,410)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
@@ -378,23 +390,41 @@
       <a name="label" val="DMA_ACK"/>
       <a name="labelfont" val="SansSerif bold 8"/>
     </comp>
-    <comp lib="10" loc="(730,360)" name="Memory_Controller"/>
-    <comp lib="6" loc="(740,900)" name="Core"/>
-    <comp lib="7" loc="(970,410)" name="Root_Complex"/>
+    <comp lib="0" loc="(980,400)" name="Pull Resistor">
+      <a name="pull" val="1"/>
+    </comp>
+    <comp lib="6" loc="(970,410)" name="Root_Complex"/>
+    <comp lib="7" loc="(740,900)" name="Core"/>
+    <comp lib="8" loc="(730,360)" name="Memory_Controller"/>
     <comp lib="9" loc="(950,720)" name="Mapper"/>
     <comp loc="(690,620)" name="Router"/>
     <wire from="(100,230)" to="(100,470)"/>
     <wire from="(100,470)" to="(490,470)"/>
+    <wire from="(1000,400)" to="(1000,540)"/>
+    <wire from="(1000,540)" to="(1210,540)"/>
+    <wire from="(1020,400)" to="(1020,640)"/>
+    <wire from="(1020,640)" to="(1130,640)"/>
+    <wire from="(1040,400)" to="(1040,480)"/>
+    <wire from="(1040,480)" to="(1260,480)"/>
     <wire from="(1040,740)" to="(1040,850)"/>
     <wire from="(1040,850)" to="(1320,850)"/>
     <wire from="(1050,720)" to="(1050,830)"/>
     <wire from="(1050,830)" to="(1320,830)"/>
+    <wire from="(1060,400)" to="(1060,580)"/>
+    <wire from="(1060,580)" to="(1180,580)"/>
+    <wire from="(1080,400)" to="(1080,680)"/>
+    <wire from="(1080,680)" to="(1100,680)"/>
+    <wire from="(1100,400)" to="(1100,430)"/>
+    <wire from="(1100,430)" to="(1300,430)"/>
     <wire from="(1100,680)" to="(1100,790)"/>
     <wire from="(1100,790)" to="(1320,790)"/>
     <wire from="(1110,670)" to="(1110,770)"/>
     <wire from="(1110,770)" to="(1320,770)"/>
+    <wire from="(1120,400)" to="(1120,530)"/>
+    <wire from="(1120,530)" to="(1220,530)"/>
     <wire from="(1130,640)" to="(1130,750)"/>
     <wire from="(1130,750)" to="(1320,750)"/>
+    <wire from="(1140,400)" to="(1140,630)"/>
     <wire from="(1140,630)" to="(1140,730)"/>
     <wire from="(1140,730)" to="(1320,730)"/>
     <wire from="(1150,620)" to="(1150,710)"/>
@@ -519,22 +549,24 @@
     <wire from="(950,740)" to="(1040,740)"/>
     <wire from="(970,410)" to="(1320,410)"/>
     <wire from="(970,420)" to="(1310,420)"/>
-    <wire from="(970,430)" to="(1300,430)"/>
-    <wire from="(970,440)" to="(1290,440)"/>
+    <wire from="(970,430)" to="(1100,430)"/>
+    <wire from="(970,440)" to="(980,440)"/>
     <wire from="(970,470)" to="(1270,470)"/>
-    <wire from="(970,480)" to="(1260,480)"/>
+    <wire from="(970,480)" to="(1040,480)"/>
     <wire from="(970,510)" to="(1240,510)"/>
     <wire from="(970,520)" to="(1230,520)"/>
-    <wire from="(970,530)" to="(1220,530)"/>
-    <wire from="(970,540)" to="(1210,540)"/>
+    <wire from="(970,530)" to="(1120,530)"/>
+    <wire from="(970,540)" to="(1000,540)"/>
     <wire from="(970,570)" to="(1190,570)"/>
-    <wire from="(970,580)" to="(1180,580)"/>
+    <wire from="(970,580)" to="(1060,580)"/>
     <wire from="(970,610)" to="(1160,610)"/>
     <wire from="(970,620)" to="(1150,620)"/>
     <wire from="(970,630)" to="(1140,630)"/>
-    <wire from="(970,640)" to="(1130,640)"/>
+    <wire from="(970,640)" to="(1020,640)"/>
     <wire from="(970,670)" to="(1110,670)"/>
-    <wire from="(970,680)" to="(1100,680)"/>
+    <wire from="(970,680)" to="(1080,680)"/>
+    <wire from="(980,400)" to="(980,440)"/>
+    <wire from="(980,440)" to="(1290,440)"/>
   </circuit>
   <circuit name="Router">
     <a name="appearance" val="custom"/>
