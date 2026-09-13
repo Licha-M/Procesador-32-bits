@@ -1,13 +1,12 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
-#include <cstdint>
 #include <stdint.h>
 
 #define ECAM_BASE 0xE0000000  // Base del espacio ECAM
 #define TABLE_Addr 0x08000000 // Espacio para guardar la tabla de dispositivos
 
 // Tabla para el Kernel
-typedef struct __attribute__((packed)) {
+typedef struct {
   volatile uint32_t start_address;
   volatile uint32_t end_address;
   volatile uint32_t size;
@@ -15,7 +14,6 @@ typedef struct __attribute__((packed)) {
   volatile uint8_t bus;
   volatile uint8_t dev;
   volatile uint8_t func;
-  // volatile uint8_t Raw;
 } PCIe_Map;
 
 // Registros bajos de ECAM (sin packed: todos los campos son uint32_t
