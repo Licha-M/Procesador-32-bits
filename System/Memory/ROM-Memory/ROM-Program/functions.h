@@ -4,6 +4,7 @@
 
 #define ECAM_BASE 0xE0000000  // Base del espacio ECAM
 #define TABLE_Addr 0x08000000 // Espacio para guardar la tabla de dispositivos
+#define MAX_PCIE_DEVICES 64   // Cantidad maxima de dispositivos
 
 // Tabla para el Kernel
 typedef struct {
@@ -15,6 +16,13 @@ typedef struct {
   volatile uint8_t dev;
   volatile uint8_t func;
 } PCIe_Map;
+
+// Dirección ECAM de un dispositivo (bus, device, función)
+typedef struct {
+  uint8_t bus;
+  uint8_t dev;
+  uint8_t func;
+} ECAM_Addr;
 
 // Registros bajos de ECAM (sin packed: todos los campos son uint32_t
 // alineados).
@@ -52,5 +60,7 @@ typedef struct {
 } PCIe_ECAM_Slot;
 
 int PCIe_Bus_Enumeration(void);
+
+int search(uint32_t tipo, int map_size, ECAM_Addr *resultados, int max_resultados);
 
 #endif

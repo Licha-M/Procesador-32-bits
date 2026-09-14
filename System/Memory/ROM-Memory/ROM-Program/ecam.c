@@ -1,7 +1,7 @@
 #include "functions.h"
+#include <stdint.h>
 
 #define MIN_BAR_POS 0xC0000000 // Base para la asignación de memoria BAR
-#define MAX_PCIE_DEVICES 64    // Cantidad maxima de dispositivos
 
 // ---------------------------------------------------------------------------
 // Macros de acceso ECAM: siempre de 32 bits (INT LOD / INT STR).
@@ -101,12 +101,15 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa, int *map_size,
         mapa[current_idx].end_address = MIN_BAR_POS + *offset_BAR_Pos;
         (*map_size)++;
 
-        // Activar MMIO
-        ECAM_W(base, OFF_COMMAND_STATUS, 1);
+        return;
 
         // ================================================================
       } else if (tipo_cabecera == 0x01) {
         // ---- Puente PCIe ---------------------------------------------
+
+        // Alinear la base del puente a 64 KB (granularidad de 16 bits: 0x10000)
+        *offset_BAR_Pos = (*offset_BAR_Pos + 0xFFFF) & 0xFFFF0000;
+        mapa[current_idx].start_address = MIN_BAR_POS + *offset_BAR_Pos;
 
         (*map_size)++;
 
@@ -130,6 +133,12 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa, int *map_size,
         bus_Enumeration(secondary_bus, mapa, map_size, next_bus_number,
                         offset_BAR_Pos);
 
+        // Si hay dispositivos detrás del puente, alinear el límite a 64 KB
+        // (mínimo 64 KB)
+        if (*offset_BAR_Pos > (mapa[current_idx].start_address - MIN_BAR_POS)) {
+          *offset_BAR_Pos = (*offset_BAR_Pos + 0xFFFF) & 0xFFFF0000;
+        }
+
         // Actualizar Secondary y Subordinate final en el PSS
         pss = ECAM_R(base, OFF_PSS);
         pss &= ~0x00FFFF00;                   // Limpiar Secondary y Subordinate
@@ -143,18 +152,18 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa, int *map_size,
         mapa[current_idx].end_address = end_address;
         mapa[current_idx].size = end_address - mapa[current_idx].start_address;
 
-        // Anotar MLimit y MBase (bits [15:4] de cada dirección de 32 bits)
-        uint32_t mbase = (mapa[current_idx].start_address >> 16) & 0xFFF0;
-        uint32_t mlimit = (end_address > mapa[current_idx].start_address)
-                              ? ((end_address - 1) >> 16) & 0xFFF0
-                              : mbase;
+        // Anotar MLimit y MBase (bits [31:16] de las direcciones)
+        uint32_t mbase = 0;
+        uint32_t mlimit = 0;
+
+        if (end_address > mapa[current_idx].start_address) {
+          mbase = (mapa[current_idx].start_address >> 16) & 0xFFFF;
+          mlimit = ((end_address - 1) >> 16) & 0xFFFF;
+          ECAM_W(base, OFF_COMMAND_STATUS, 1); // Activar MMIO en el puente
+        }
+
         ECAM_W(base, OFF_MLIMITBASE,
                (mbase & 0xFFFF) | ((mlimit & 0xFFFF) << 16));
-
-        // Activar MMIO solo si hay memoria asignada detrás del puente
-        if (end_address > mapa[current_idx].start_address) {
-          ECAM_W(base, OFF_COMMAND_STATUS, 1);
-        }
 
         // ================================================================
       } else {
@@ -185,4 +194,27 @@ int PCIe_Bus_Enumeration(void) {
   bus_Enumeration(bus, mapa, &map_size, &next_bus_number, &offset_BAR_Pos);
 
   return map_size;
+}
+
+// ---------------------------------------------------------------------------
+// Busqueda en mapa de un dispositivo
+// ---------------------------------------------------------------------------
+int search(uint32_t tipo, int map_size, ECAM_Addr *resultados, int max_resultados) {
+
+  // Puntero al mapa de dispositivos PCIe
+  volatile PCIe_Map *mapa = (volatile PCIe_Map *)(TABLE_Addr);
+  int count = 0;
+
+  for (int i = 0; i < map_size; i++) {
+
+    if ((mapa[i].ClassCode & 0x00FFFFFF) == tipo) {
+      if (resultados && count < max_resultados) {
+        resultados[count].bus  = mapa[i].bus;
+        resultados[count].dev  = mapa[i].dev;
+        resultados[count].func = mapa[i].func;
+      }
+      count++;
+    }
+  }
+  return count;
 }

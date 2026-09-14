@@ -4,7 +4,10 @@
 
   <lib desc="#Wiring" name="0">
     <tool name="Splitter">
-      <a name="appear" val="right"/>
+      <a name="appear" val="center"/>
+      <a name="facing" val="west"/>
+      <a name="fanout" val="3"/>
+      <a name="incoming" val="3"/>
     </tool>
     <tool name="Pin">
       <a name="appearance" val="classic"/>
@@ -14,7 +17,8 @@
       <a name="facing" val="south"/>
     </tool>
     <tool name="Tunnel">
-      <a name="labelfont" val="SansSerif bold 9"/>
+      <a name="facing" val="east"/>
+      <a name="labelfont" val="SansSerif bold 8"/>
     </tool>
     <tool name="Pull Resistor">
       <a name="facing" val="east"/>
@@ -55,10 +59,10 @@
   </lib>
   <lib desc="#Base" name="5"/>
   <lib desc="file#PCI\Root_Complex.circ" name="6"/>
-  <lib desc="file#Core\Pipeline.circ" name="7"/>
+  <lib desc="file#Memory\Main_Memories.circ" name="7"/>
   <lib desc="file#Memory\Memory_System.circ" name="8"/>
   <lib desc="file#Memory\BIOS_Mapper.circ" name="9"/>
-  <lib desc="file#Memory\Main_Memories.circ" name="10"/>
+  <lib desc="file#Core\Pipeline.circ" name="10"/>
   <main name="Die"/>
   <options>
     <a name="gateUndefined" val="ignore"/>
@@ -207,7 +211,7 @@
       <a name="facing" val="west"/>
       <a name="label" val="Ctrl_Down_1"/>
       <a name="output" val="true"/>
-      <a name="width" val="5"/>
+      <a name="width" val="7"/>
     </comp>
     <comp lib="0" loc="(1320,510)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -250,7 +254,7 @@
       <a name="facing" val="west"/>
       <a name="label" val="Ctrl_Down_2"/>
       <a name="output" val="true"/>
-      <a name="width" val="5"/>
+      <a name="width" val="7"/>
     </comp>
     <comp lib="0" loc="(1320,650)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -293,7 +297,7 @@
       <a name="facing" val="west"/>
       <a name="label" val="Ctrl_Down_3"/>
       <a name="output" val="true"/>
-      <a name="width" val="5"/>
+      <a name="width" val="7"/>
     </comp>
     <comp lib="0" loc="(1320,790)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -393,8 +397,8 @@
     <comp lib="0" loc="(980,400)" name="Pull Resistor">
       <a name="pull" val="1"/>
     </comp>
+    <comp lib="10" loc="(740,900)" name="Core"/>
     <comp lib="6" loc="(970,410)" name="Root_Complex"/>
-    <comp lib="7" loc="(740,900)" name="Core"/>
     <comp lib="8" loc="(730,360)" name="Memory_Controller"/>
     <comp lib="9" loc="(950,720)" name="Mapper"/>
     <comp loc="(690,620)" name="Router"/>
