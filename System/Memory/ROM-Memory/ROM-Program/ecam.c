@@ -1,17 +1,6 @@
 #include "functions.h"
-#include <stdint.h>
 
 #define MIN_BAR_POS 0xC0000000 // Base para la asignación de memoria BAR
-
-// ---------------------------------------------------------------------------
-// Macros de acceso ECAM: siempre de 32 bits (INT LOD / INT STR).
-// El cast a (volatile uint32_t*) obliga al compilador a emitir INT.
-// ---------------------------------------------------------------------------
-#define ECAM_R(base, off)                                                      \
-  (*(volatile uint32_t *)((uintptr_t)(base) + (uint32_t)(off)))
-#define ECAM_W(base, off, val)                                                 \
-  (*(volatile uint32_t *)((uintptr_t)(base) + (uint32_t)(off)) =               \
-       (uint32_t)(val))
 
 // ---------------------------------------------------------------------------
 // Offsets del encabezado comun (PCIe_ECAMs, 16 bytes)
@@ -38,7 +27,7 @@
 // ---------------------------------------------------------------------------
 // Enumeración de bus PCIe
 // ---------------------------------------------------------------------------
-void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa, int *map_size,
+void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa,
                      int *next_bus_number, int *offset_BAR_Pos) {
   if (bus >= 256)
     return;
@@ -56,10 +45,10 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa, int *map_size,
         break;
       }
 
-      if (*map_size >= MAX_PCIE_DEVICES)
+      if (map_size >= MAX_PCIE_DEVICES)
         return;
 
-      int current_idx = *map_size;
+      int current_idx = map_size;
       mapa[current_idx].start_address = MIN_BAR_POS + *offset_BAR_Pos;
       mapa[current_idx].bus = (uint8_t)bus;
       mapa[current_idx].dev = (uint8_t)dev;
@@ -99,7 +88,7 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa, int *map_size,
         mapa[current_idx].size =
             (MIN_BAR_POS + *offset_BAR_Pos) - mapa[current_idx].start_address;
         mapa[current_idx].end_address = MIN_BAR_POS + *offset_BAR_Pos;
-        (*map_size)++;
+        (map_size)++;
 
         return;
 
@@ -111,7 +100,7 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa, int *map_size,
         *offset_BAR_Pos = (*offset_BAR_Pos + 0xFFFF) & 0xFFFF0000;
         mapa[current_idx].start_address = MIN_BAR_POS + *offset_BAR_Pos;
 
-        (*map_size)++;
+        (map_size)++;
 
         uint32_t secondary_bus = (uint32_t)*next_bus_number;
 
@@ -130,8 +119,7 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa, int *map_size,
         (*next_bus_number)++;
 
         // Enumerar el bus secundario
-        bus_Enumeration(secondary_bus, mapa, map_size, next_bus_number,
-                        offset_BAR_Pos);
+        bus_Enumeration(secondary_bus, mapa, next_bus_number, offset_BAR_Pos);
 
         // Si hay dispositivos detrás del puente, alinear el límite a 64 KB
         // (mínimo 64 KB)
@@ -182,39 +170,29 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa, int *map_size,
 // ---------------------------------------------------------------------------
 // Punto de entrada de la enumeración PCIe
 // ---------------------------------------------------------------------------
-int PCIe_Bus_Enumeration(void) {
+void PCIe_Bus_Enumeration(void) {
   volatile PCIe_Map *mapa =
       (volatile PCIe_Map *)(TABLE_Addr); // Tabla de dispositivos
 
   uint32_t bus = 0;        // Empezar desde el bus raíz
   int next_bus_number = 1; // Primer bus asignado a un puente
-  int map_size = 0;        // Número de entradas registradas
   int offset_BAR_Pos = 0;  // Offset actual del espacio BAR
 
-  bus_Enumeration(bus, mapa, &map_size, &next_bus_number, &offset_BAR_Pos);
+  map_size = 0;
 
-  return map_size;
+  bus_Enumeration(bus, mapa, &next_bus_number, &offset_BAR_Pos);
 }
 
 // ---------------------------------------------------------------------------
-// Busqueda en mapa de un dispositivo
+// Busqueda en mapa de dispositivos
 // ---------------------------------------------------------------------------
-int search(uint32_t tipo, int map_size, ECAM_Addr *resultados, int max_resultados) {
 
-  // Puntero al mapa de dispositivos PCIe
+int search(uint32_t tipo) {
   volatile PCIe_Map *mapa = (volatile PCIe_Map *)(TABLE_Addr);
-  int count = 0;
-
-  for (int i = 0; i < map_size; i++) {
-
+  for (int i = 0; i <= map_size; i++) {
     if ((mapa[i].ClassCode & 0x00FFFFFF) == tipo) {
-      if (resultados && count < max_resultados) {
-        resultados[count].bus  = mapa[i].bus;
-        resultados[count].dev  = mapa[i].dev;
-        resultados[count].func = mapa[i].func;
-      }
-      count++;
+      return i;
     }
   }
-  return count;
+  return 0;
 }

@@ -1,10 +1,28 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+
+// ============================================================
+// ECAM Bus Enumeration
+// ============================================================
 
 #define ECAM_BASE 0xE0000000  // Base del espacio ECAM
 #define TABLE_Addr 0x08000000 // Espacio para guardar la tabla de dispositivos
 #define MAX_PCIE_DEVICES 64   // Cantidad maxima de dispositivos
+
+// ---------------------------------------------------------------------------
+// Macros de acceso ECAM: siempre de 32 bits (INT LOD / INT STR).
+// El cast a (volatile uint32_t*) obliga al compilador a emitir INT.
+// ---------------------------------------------------------------------------
+#define ECAM_R(base, off)                                                      \
+  (*(volatile uint32_t *)((uintptr_t)(base) + (uint32_t)(off)))
+#define ECAM_W(base, off, val)                                                 \
+  (*(volatile uint32_t *)((uintptr_t)(base) + (uint32_t)(off)) =               \
+       (uint32_t)(val))
+
+extern volatile int map_size; // Número de entradas registradas
 
 // Tabla para el Kernel
 typedef struct {
@@ -16,13 +34,6 @@ typedef struct {
   volatile uint8_t dev;
   volatile uint8_t func;
 } PCIe_Map;
-
-// Dirección ECAM de un dispositivo (bus, device, función)
-typedef struct {
-  uint8_t bus;
-  uint8_t dev;
-  uint8_t func;
-} ECAM_Addr;
 
 // Registros bajos de ECAM (sin packed: todos los campos son uint32_t
 // alineados).
@@ -59,8 +70,32 @@ typedef struct {
   } Type;
 } PCIe_ECAM_Slot;
 
-int PCIe_Bus_Enumeration(void);
+void PCIe_Bus_Enumeration(void);
 
-int search(uint32_t tipo, int map_size, ECAM_Addr *resultados, int max_resultados);
+// Buscador de dispositivos
+int search(uint32_t tipo);
+
+// ============================================================
+// Display System
+// ============================================================
+
+// Estructura registros TTY
+typedef struct {
+  volatile uint32_t comand;
+  volatile uint32_t word_Addr;
+  volatile uint32_t length;
+  volatile uint32_t cant;
+} TtyRegisters;
+
+// Estructura registros GPU (No implementado)
+typedef struct {
+
+} GpuRegisters;
+
+// Función inicial
+void displaySearch();
+
+// Función principal
+void biosWrite();
 
 #endif
