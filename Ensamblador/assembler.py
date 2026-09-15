@@ -313,6 +313,9 @@ _SHORT_RE = re.compile(
 _BYTE_RE = re.compile(
     r'^\s*\.byte\s+(.+)$', re.IGNORECASE
 )
+# [NUEVO] Directivas de string: .asciz (con NUL al final) y .ascii (sin NUL)
+_ASCIZ_RE = re.compile(r'^\s*\.asciz\s+(".*")\s*$', re.IGNORECASE)
+_ASCII_RE  = re.compile(r'^\s*\.ascii\s+(".*")\s*$',  re.IGNORECASE)
 _ZERO_RE = re.compile(
     r'^\s*\.(?:zero|space|skip)\s+(\d+|0x[0-9a-fA-F]+)\s*(?:;.*)?$', re.IGNORECASE
 )
@@ -329,6 +332,46 @@ _PSEUDO_RE = re.compile(
 _LABEL_EXPR_RE = re.compile(
     r'^("?[^"+-]+"?)\s*([+-])\s*(\d+|0x[0-9a-fA-F]+)$'
 )
+
+
+# [NUEVO] Decodificador de strings con escapes estilo C para .asciz/.ascii.
+# LLVM/clang emite los escapes como texto (ej. \n literal en el .s), por lo
+# que hay que convertirlos a bytes reales antes de emitir cada byte a la ROM.
+def _decode_c_string(quoted: str) -> bytes:
+    """Decodifica el contenido entre comillas de .asciz/.ascii.
+
+    Soporta escapes estilo C: \\n \\t \\r \\\\ \\" \\a \\b \\f \\v
+    y escapes octales de 1 a 3 dígitos (\\NNN, dígitos 0-7).
+    """
+    s = quoted[1:-1]   # Quitar comillas delimitadoras
+    out = bytearray()
+    i = 0
+    escapes = {
+        'n': 0x0A, 't': 0x09, 'r': 0x0D, '\\': 0x5C,
+        '"': 0x22, 'a': 0x07, 'b': 0x08, 'f':  0x0C, 'v': 0x0B,
+    }
+    while i < len(s):
+        ch = s[i]
+        if ch == '\\' and i + 1 < len(s):
+            nxt = s[i + 1]
+            if nxt in escapes:
+                out.append(escapes[nxt])
+                i += 2
+            elif nxt in '01234567':
+                j = i + 1
+                oct_digits = ''
+                while j < len(s) and s[j] in '01234567' and len(oct_digits) < 3:
+                    oct_digits += s[j]
+                    j += 1
+                out.append(int(oct_digits, 8) & 0xFF)
+                i = j
+            else:
+                out.append(ord(nxt))
+                i += 2
+        else:
+            out.append(ord(ch))
+            i += 1
+    return bytes(out)
 
 
 def tokenize_line(raw_line: str) -> list[str]:
@@ -679,12 +722,16 @@ class PendingInstruction:
                  pending_tokens: list[str] | None = None,
                  src_line: int = 0,
                  is_raw_word: bool = False,
-                 raw_value: int = 0):
+                 raw_value: int = 0,
+                 raw_label_expr: str | None = None):
         self.words          = words           # Palabra(s) ya codificadas
         self.pending_tokens = pending_tokens  # Tokens a resolver en 2ª pasada
         self.src_line       = src_line
         self.is_raw_word    = is_raw_word     # [NUEVO] Dato crudo (.long)
-        self.raw_value      = raw_value       # Valor del .long
+        self.raw_value      = raw_value       # Valor del .long (0 si es etiqueta diferida)
+        # [NUEVO] Expresión de etiqueta a resolver en 2ª pasada para .long/.word
+        # Si no es None, raw_value es solo un placeholder y se sobreescribe.
+        self.raw_label_expr = raw_label_expr
         self.size           = 1
 
 
@@ -710,7 +757,7 @@ def _tokens_need_second_pass(tokens: list[str]) -> bool:
     return False
 
 
-def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int], list[PendingInstruction], list[str], int | None]:
+def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int], list[PendingInstruction], list[str], int | None, list[str]]:
     """
     PRIMER PASE: detecta etiquetas, directivas y construye la lista de
     instrucciones pendientes y mapa de etiquetas.
@@ -723,8 +770,10 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
       .zero, .space, .skip, .comm.
     - Rastrea explícitamente la dirección de la primera instrucción/palabra
       emitida en la sección .text (text_start_word).
+    - [NUEVO] Construye start_listing: lista de líneas comentadas con el listado
+      legible de la rutina .start inyectada (vacía si no aplica).
 
-    Devuelve: (label_map, pending_list, errors, text_start_word)
+    Devuelve: (label_map, pending_list, errors, text_start_word, start_listing)
     """
     mode = data_mode.lower()
     label_map: dict[str, int] = {}
@@ -759,6 +808,21 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                 return int(val_str)
         except ValueError:
             errors.append(f"[Línea {line_num}] Valor numérico inválido: '{val_str}'.")
+            return None
+
+    # [NUEVO] Versión silenciosa de _parse_int_val: devuelve None sin loguear
+    # si el string no es un literal numérico válido.  Usada por el bloque
+    # .long/.word para distinguir entre literales y expresiones de etiqueta.
+    def _try_parse_int_val(val_str: str) -> int | None:
+        val_str = val_str.strip()
+        try:
+            if val_str.lower().startswith('0x'):
+                return int(val_str, 16)
+            elif val_str.lower().startswith('0b'):
+                return int(val_str, 2)
+            else:
+                return int(val_str)
+        except ValueError:
             return None
 
     for line_num, raw_line in enumerate(lines, start=1):
@@ -853,26 +917,53 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
             val_expr_str = mlong.group(1).strip()
             vals_raw = [v.strip() for v in val_expr_str.split(',') if v.strip()]
             for v_str in vals_raw:
-                val = _parse_int_val(v_str, line_num)
-                if val is None:
+                # [NUEVO] Primero intentar parsear como literal numérico (sin loguear).
+                # Si falla, verificar si es una expresión de etiqueta válida para
+                # resolución diferida en segunda pasada (dirección de 32 bits completa,
+                # SIN split %hi/%lo — a diferencia de las instrucciones normales).
+                label_expr: str | None = None
+                num_val = _try_parse_int_val(v_str)
+                if num_val is not None:
+                    # Literal numérico: comportamiento idéntico al original
+                    val = num_val & 0xFFFFFFFF
+                elif normalize_label(v_str) is not None or _LABEL_EXPR_RE.match(v_str):
+                    # Expresión de etiqueta válida: diferir resolución
+                    label_expr = v_str
+                    val = 0   # Placeholder temporal
+                else:
+                    # Ni número ni etiqueta reconocible → error igual que antes
+                    errors.append(f"[Línea {line_num}] Valor numérico inválido: '{v_str}'.")
                     val = 0
-                val = val & 0xFFFFFFFF
+
                 if current_section in ('text', 'rodata') or (current_section in ('data', 'bss') and mode == 'ram'):
                     _mark_text_start()
-                    pending.append(PendingInstruction(is_raw_word=True, raw_value=val, src_line=line_num))
+                    pending.append(PendingInstruction(
+                        is_raw_word=True, raw_value=val, src_line=line_num,
+                        raw_label_expr=label_expr,
+                    ))
                     rom_address += 1
                 elif mode == 'rom':
                     if current_section == 'data':
-                        pad = (4 - (ram_data_offset % 4)) % 4
-                        if pad > 0:
-                            ram_data_offset += pad
-                            rom_data_bytes.extend([0] * pad)
-                        b0 = (val >> 24) & 0xFF
-                        b1 = (val >> 16) & 0xFF
-                        b2 = (val >> 8) & 0xFF
-                        b3 = val & 0xFF
-                        rom_data_bytes.extend([b0, b1, b2, b3])
-                        ram_data_offset += 4
+                        if label_expr is not None:
+                            # .long <etiqueta> en sección .data con modo ROM no está
+                            # soportado: los datos se escriben en first_pass antes de
+                            # conocer todas las direcciones (no hay segunda pasada aquí).
+                            errors.append(
+                                f"[Línea {line_num}] '.long {v_str}': referencias a etiquetas "
+                                f"en sección .data con --data-mode=rom no están soportadas "
+                                f"(las direcciones finales no se conocen en primera pasada)."
+                            )
+                        else:
+                            pad = (4 - (ram_data_offset % 4)) % 4
+                            if pad > 0:
+                                ram_data_offset += pad
+                                rom_data_bytes.extend([0] * pad)
+                            b0 = (val >> 24) & 0xFF
+                            b1 = (val >> 16) & 0xFF
+                            b2 = (val >> 8) & 0xFF
+                            b3 = val & 0xFF
+                            rom_data_bytes.extend([b0, b1, b2, b3])
+                            ram_data_offset += 4
                     elif current_section == 'bss':
                         pad = (4 - ((ram_data_offset + ram_bss_offset) % 4)) % 4
                         ram_bss_offset += pad + 4
@@ -916,6 +1007,30 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                 if val is None:
                     val = 0
                 val = val & 0xFF
+                if mode == 'rom' and current_section == 'data':
+                    rom_data_bytes.append(val)
+                    ram_data_offset += 1
+                elif mode == 'rom' and current_section == 'bss':
+                    ram_bss_offset += 1
+                else:
+                    _mark_text_start()
+                    pending.append(PendingInstruction(is_raw_word=True, raw_value=val, src_line=line_num))
+                    rom_address += 1
+            continue
+
+        # ── Directiva .asciz / .ascii ──────────────────────────────────────────
+        # [NUEVO] Strings literales emitidas por clang/LLVM en secciones de datos.
+        # Misma convención de almacenamiento que .byte: un PendingInstruction por
+        # byte en .text/.rodata (o .data/.bss en modo ram), o empaque directo en
+        # rom_data_bytes en .data con --data-mode=rom.
+        # .asciz agrega un byte NUL (0x00) al final; .ascii NO.
+        mascii = _ASCIZ_RE.match(code_line) or _ASCII_RE.match(code_line)
+        if mascii:
+            is_z = code_line.lstrip().lower().startswith('.asciz')
+            str_bytes = _decode_c_string(mascii.group(1))
+            if is_z:
+                str_bytes += b'\x00'
+            for val in str_bytes:
                 if mode == 'rom' and current_section == 'data':
                     rom_data_bytes.append(val)
                     ram_data_offset += 1
@@ -981,7 +1096,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
         first_tok = tokens[0].lower()
         if first_tok in _IGNORED_DIRECTIVES:
             continue
-        if first_tok.startswith('.') and first_tok not in ('.long', '.word', '.short', '.byte', '.p2align', '.align', '.zero', '.space', '.skip', '.comm'):
+        if first_tok.startswith('.') and first_tok not in ('.long', '.word', '.short', '.byte', '.asciz', '.ascii', '.p2align', '.align', '.zero', '.space', '.skip', '.comm'):
             continue
 
         # ── Instrucción normal (.text) ───────────────────────────────────────
@@ -1008,6 +1123,10 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
         rom_address += 1
 
     # ── [NUEVO MODO ROM] Inyección de datos crudos de .data y rutina .start ──
+    # [NUEVO] start_listing: listado legible de las instrucciones de .start,
+    # escrito como bloque de comentarios al final del .s para inspección.
+    start_listing: list[str] = []
+
     if mode == 'rom' and (len(rom_data_bytes) > 0 or ram_bss_offset > 0):
         num_data_words = 0
         if len(rom_data_bytes) > 0:
@@ -1032,14 +1151,19 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
         start_word_addr = rom_address
         label_map['.start'] = start_word_addr
 
+        start_listing.append(f'; Inicio en palabra ROM {start_word_addr} (byte 0x{start_word_addr*4:06X})')
+        start_listing.append('; .start:')
+
         # ── Parte 1: Copiar .data de ROM a RAM (si hay variables en .data) ──
         if num_data_words > 0:
-            # R0: Dirección ROM origen de .data (base: rom_data_start_word)
+            # R15: Dirección ROM origen de .data (base: rom_data_start_word)
+            # NOTA: R0 está hardwired a 0 en la ISA32_LM; se usa R15 como
+            # registro scratch de dirección, igual que hace el vector de reset.
             hi_rom, lo_rom = compute_hi_lo(rom_data_start_word)
-            # H LDI R0, hi_rom
-            pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['LDI'], (0 << 20) | hi_rom)], src_line=0))
-            # SLT ADI R0, lo_rom
-            pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (0 << 20) | lo_rom)], src_line=0))
+            # H LDI R15, hi_rom
+            pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['LDI'], (15 << 20) | hi_rom)], src_line=0))
+            # SLT ADI R15, lo_rom
+            pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (15 << 20) | lo_rom)], src_line=0))
 
             # R1: Dirección RAM destino (0x04000000)
             # H LDI R1, 0x0400
@@ -1047,15 +1171,23 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
             # SLT ADI R1, 0x0000
             pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (1 << 20) | 0x0000)], src_line=0))
 
+            start_listing.append(f'; ── Fase 1: Copiar {num_data_words} palabra(s) de .data  ROM → RAM ──────────────')
+            start_listing.append(f';\tH LDI R15, 0x{hi_rom:04X}\t\t; Dir. ROM origen .data (palabra {rom_data_start_word}, byte 0x{rom_data_start_word*4:06X})')
+            start_listing.append(f';\tSLT ADI R15, 0x{lo_rom:04X}')
+            start_listing.append(f';\tH LDI R1, 0x0400\t\t; Dir. RAM destino = 0x04000000')
+            start_listing.append(f';\tSLT ADI R1, 0x0000')
+
             # Copiar cada palabra con LOD (leer ROM a R2) + STR (escribir R2 a RAM)
             for i in range(num_data_words):
                 offset = i * 4
-                # INT LOD R0, R2, offset  -> ra=0, rb=2, tipo=0b010 (INT)
-                w_lod = build_word(0b010, OPCODES['LOD'], (0 << 20) | (2 << 16) | (offset & 0xFFFF))
-                # INT STR R1, R2, offset  -> ra=1, rb=2, tipo=0b010 (INT)
+                # INT LOD R15, R2, offset  -> ra=15 (base ROM), rb=2 (destino), tipo=0b010 (INT)
+                w_lod = build_word(0b010, OPCODES['LOD'], (15 << 20) | (2 << 16) | (offset & 0xFFFF))
+                # INT STR R1, R2, offset   -> ra=1  (base RAM), rb=2 (origen),  tipo=0b010 (INT)
                 w_str = build_word(0b010, OPCODES['STR'], (1 << 20) | (2 << 16) | (offset & 0xFFFF))
                 pending.append(PendingInstruction(words=[w_lod], src_line=0))
                 pending.append(PendingInstruction(words=[w_str], src_line=0))
+                start_listing.append(f';\tINT LOD R15, R2, {offset}\t\t; Leer palabra {i} de ROM (.data blob)')
+                start_listing.append(f';\tINT STR R1, R2, {offset}\t\t; Escribir en RAM[0x{(0x04000000 + offset):08X}]')
 
         # ── Parte 2: Zero-inicializar .bss en RAM (si hay variables en .bss) ──
         num_bss_words = (ram_bss_offset + 3) // 4
@@ -1073,6 +1205,10 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
             # SLT ADI R1, lo_bss
             pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (1 << 20) | lo_bss)], src_line=0))
 
+            start_listing.append(f'; ── Fase 2: Zero-inicializar {num_bss_words} palabra(s) de .bss en RAM ─────────────')
+            start_listing.append(f';\tH LDI R1, 0x{hi_bss:04X}\t\t; Base .bss en RAM = 0x{ram_bss_base:08X}')
+            start_listing.append(f';\tSLT ADI R1, 0x{lo_bss:04X}')
+
             # Escribir 0x00000000 en cada palabra de .bss usando R0 como fuente.
             # En la ISA32_LM el registro R0 está fijado a 0 por hardware,
             # por lo que INT STR R1, R0, offset escribe 0 directo a RAM[R1 + offset].
@@ -1081,6 +1217,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                 # INT STR R1, R0, offset  -> ra=1, rb=0, tipo=0b010 (INT)
                 w_zero = build_word(0b010, OPCODES['STR'], (1 << 20) | (0 << 16) | (offset & 0xFFFF))
                 pending.append(PendingInstruction(words=[w_zero], src_line=0))
+                start_listing.append(f';\tINT STR R1, R0, {offset}\t\t; RAM[0x{(ram_bss_base + offset):08X}] = 0  (.bss[{i}])')
 
         # ── Parte 3: Saltar a main o a la primera instrucción de .text ─────
         main_entry = None
@@ -1089,24 +1226,34 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                 main_entry = candidate
                 break
 
+        start_listing.append('; ── Fase 3: Saltar a main ──────────────────────────────────────────────────')
+        # NOTA: R0 está hardwired a 0 → se usa R15 para cargar la dirección
+        # de main y saltar, igual que el vector de reset en write_rom_logisim.
         if main_entry:
-            pending.append(PendingInstruction(pending_tokens=['H', 'LDI', 'R0', f'%hi({main_entry})'], src_line=0))
-            pending.append(PendingInstruction(pending_tokens=['SLT', 'ADI', 'R0', f'%lo({main_entry})'], src_line=0))
+            pending.append(PendingInstruction(pending_tokens=['H', 'LDI', 'R15', f'%hi({main_entry})'], src_line=0))
+            pending.append(PendingInstruction(pending_tokens=['SLT', 'ADI', 'R15', f'%lo({main_entry})'], src_line=0))
+            start_listing.append(f';\tH LDI R15, %hi({main_entry})\t\t; Parte alta de la dirección de {main_entry}')
+            start_listing.append(f';\tSLT ADI R15, %lo({main_entry})\t; Parte baja')
         else:
-            # Si no existe 'main', el programa arranca en la primera instrucción de .text por diseño (no hay una función de entrada dedicada).
+            # Si no existe 'main', el programa arranca en la primera instrucción de .text por diseño.
             if text_start_word is not None:
                 hi_text, lo_text = compute_hi_lo(text_start_word)
-                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['LDI'], (0 << 20) | hi_text)], src_line=0))
-                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (0 << 20) | lo_text)], src_line=0))
+                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['LDI'], (15 << 20) | hi_text)], src_line=0))
+                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (15 << 20) | lo_text)], src_line=0))
+                start_listing.append(f';\tH LDI R15, 0x{hi_text:04X}\t\t; Inicio de .text (sin función main)')
+                start_listing.append(f';\tSLT ADI R15, 0x{lo_text:04X}')
             else:
                 errors.append("[ERROR] No se pudo generar la rutina .start: no existe función 'main' ni contenido en la sección .text al que saltar.")
                 hi_zero, lo_zero = compute_hi_lo(0)
-                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['LDI'], (0 << 20) | hi_zero)], src_line=0))
-                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (0 << 20) | lo_zero)], src_line=0))
+                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['LDI'], (15 << 20) | hi_zero)], src_line=0))
+                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (15 << 20) | lo_zero)], src_line=0))
+                start_listing.append(';\tH LDI R15, 0x0000\t\t; [ERROR] Sin main ni .text: saltando a dirección 0')
+                start_listing.append(';\tSLT ADI R15, 0x0000')
 
-        pending.append(PendingInstruction(words=[build_word(0b000, OPCODES['JMP'], 0 << 16)], src_line=0))
+        pending.append(PendingInstruction(words=[build_word(0b000, OPCODES['JMP'], 15 << 16)], src_line=0))
+        start_listing.append(';\tJMP R15')
 
-    return label_map, pending, errors, text_start_word
+    return label_map, pending, errors, text_start_word, start_listing
 
 
 def second_pass(label_map: dict[str, int],
@@ -1130,8 +1277,20 @@ def second_pass(label_map: dict[str, int],
 
     for instr in pending:
         if instr.is_raw_word:
-            # [NUEVO] Dato crudo (.long): escribir tal cual
-            result.append((instr.src_line, address, instr.raw_value))
+            # [NUEVO] Dato crudo (.long): resolver etiqueta diferida si la hay,
+            # o escribir el valor literal tal cual.
+            if instr.raw_label_expr is not None:
+                # Expresión de etiqueta: resolver con label_map completo y
+                # usar la dirección de 32 bits entera (sin split %hi/%lo).
+                try:
+                    val = eval_label_expr(instr.raw_label_expr, label_map) & 0xFFFFFFFF
+                except AssemblerError as e:
+                    e.line_number = instr.src_line
+                    errors.append(str(e))
+                    val = 0
+            else:
+                val = instr.raw_value
+            result.append((instr.src_line, address, val))
             address += 1
         elif instr.pending_tokens is not None:
             # Instrucción con %hi/%lo: codificar ahora con label_map completo
@@ -1153,12 +1312,64 @@ def second_pass(label_map: dict[str, int],
     return result, errors
 
 
+# =============================================================================
+#  [NUEVO] LISTADO LEGIBLE DE LA RUTINA .start
+# =============================================================================
+
+# Línea centinela que marca el inicio del bloque de listado .start en el .s.
+# Todo el bloque son comentarios puros (prefijo ';') — seguros ante
+# re-ensamblado aunque el stripping no se ejecute.
+_START_LISTING_SENTINEL = '; ════════════════════ .start auto-generado ════════════════════'
+
+
+def _strip_start_listing_from_lines(lines: list[str]) -> list[str]:
+    """Elimina el bloque de listado .start de un ensamblado anterior.
+
+    Busca la línea centinela y descarta todo lo que la sigue.  Si no
+    existe el centinela, devuelve las líneas sin cambios.
+    """
+    sentinel = _START_LISTING_SENTINEL.strip()
+    for i, line in enumerate(lines):
+        if line.strip() == sentinel:
+            return lines[:i]
+    return lines
+
+
+def _write_start_listing_to_s(s_path: str, start_listing: list[str]) -> None:
+    """Añade (o reemplaza) el listado legible de .start al final del .s.
+
+    Localiza el centinela anterior en el archivo en disco y lo reemplaza.
+    Si no existía, agrega el bloque al final.  Todas las líneas del listado
+    están prefijadas con ';', por lo que son comentarios seguros incluso si
+    se re-ensambla el archivo directamente.
+    """
+    try:
+        with open(s_path, 'r', encoding='utf-8', errors='replace') as f:
+            content = f.read()
+        # Quitar bloque anterior si existe
+        idx = content.find(_START_LISTING_SENTINEL)
+        if idx != -1:
+            content = content[:idx].rstrip('\n') + '\n'
+        # Agregar nuevo bloque
+        content += '\n' + _START_LISTING_SENTINEL + '\n'
+        content += '\n'.join(start_listing) + '\n'
+        with open(s_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+    except OSError:
+        pass   # No es fatal si no se puede escribir el listado
+
+
 def assemble_source(source_path: str,
                     data_mode: str = 'rom'
                     ) -> tuple[list[tuple[int,int,int]], list[str], dict[str,int], int | None]:
     """
     Pipeline completo de ensamblado de un único archivo .s/.asm/.txt.
     Devuelve: (instructions, errors, label_map, text_start_word)
+
+    [NUEVO] Si el modo ROM generó una rutina .start, escribe un listado
+    legible de sus instrucciones al final del .s como bloque de comentarios
+    (centinela _START_LISTING_SENTINEL).  El bloque se reemplaza en cada
+    ensamblado — nunca se acumula.  Los callers externos no necesitan cambios.
     """
     try:
         with open(source_path, 'r', encoding='utf-8', errors='replace') as f:
@@ -1166,24 +1377,37 @@ def assemble_source(source_path: str,
     except OSError as e:
         return [], [f"No se pudo abrir el archivo: {e}"], {}, None
 
-    return assemble_lines(lines, data_mode=data_mode)
+    # [NUEVO] Eliminar listado .start de un ensamblado anterior antes de
+    # ensamblar (evita re-ensamblar accidentalmente las líneas comentadas).
+    lines = _strip_start_listing_from_lines(lines)
+
+    instructions, errors, label_map, text_start_word, start_listing = \
+        assemble_lines(lines, data_mode=data_mode)
+
+    # [NUEVO] Escribir el listado al final del .s si se generó .start
+    if start_listing:
+        _write_start_listing_to_s(source_path, start_listing)
+
+    return instructions, errors, label_map, text_start_word
 
 
 def assemble_lines(lines: list[str],
                    data_mode: str = 'rom'
-                   ) -> tuple[list[tuple[int,int,int]], list[str], dict[str,int], int | None]:
+                   ) -> tuple[list[tuple[int,int,int]], list[str], dict[str,int], int | None, list[str]]:
     """
     Pipeline completo de ensamblado a partir de una lista de líneas.
-    Devuelve: (instructions, errors, label_map, text_start_word)
+    Devuelve: (instructions, errors, label_map, text_start_word, start_listing)
 
     [MODIFICADO] Siempre se ejecutan ambas pasadas para que los errores de
     primera pasada (etiquetas duplicadas, sintaxis) y los de segunda pasada
     (%hi/%lo no resueltos) se acumulen y reporten correctamente.
     Los errores de primera pasada se notifican al final sin detener la 2ª.
+    [NUEVO] start_listing: líneas comentadas del listado legible de .start
+    (lista vacía si no se generó rutina .start, ej. modo ram o sin .data/.bss).
     """
-    label_map, pending, errors1, text_start_word = first_pass(lines, data_mode=data_mode)
+    label_map, pending, errors1, text_start_word, start_listing = first_pass(lines, data_mode=data_mode)
     instructions, errors2 = second_pass(label_map, pending, data_mode=data_mode)
-    return instructions, errors1 + errors2, label_map, text_start_word
+    return instructions, errors1 + errors2, label_map, text_start_word, start_listing
 
 
 # =============================================================================

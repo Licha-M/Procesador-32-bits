@@ -24,6 +24,8 @@
 #define OFF_ROM 0x20                          // Expansion ROM Base
 #define OFF_CAP_PTR_DEV 0x24                  // Capabilities Pointer
 
+volatile int map_size; // Número de entradas registradas
+
 // ---------------------------------------------------------------------------
 // Enumeración de bus PCIe
 // ---------------------------------------------------------------------------

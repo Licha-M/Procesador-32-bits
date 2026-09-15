@@ -1088,12 +1088,13 @@ xxxx0 1 # OFF
       <circ-port dir="in" pin="200,520" x="50" y="150"/>
       <circ-port dir="in" pin="260,410" x="50" y="70"/>
       <circ-port dir="in" pin="260,440" x="50" y="130"/>
+      <circ-port dir="in" pin="290,100" x="130" y="90"/>
       <circ-port dir="in" pin="290,120" x="50" y="110"/>
       <circ-port dir="in" pin="290,140" x="50" y="100"/>
       <circ-port dir="in" pin="290,160" x="50" y="80"/>
       <circ-port dir="in" pin="290,220" x="50" y="90"/>
       <circ-port dir="in" pin="290,250" x="50" y="50"/>
-      <circ-port dir="in" pin="290,90" x="50" y="40"/>
+      <circ-port dir="in" pin="290,80" x="50" y="40"/>
       <circ-port dir="out" pin="870,270" x="130" y="40"/>
       <circ-port dir="out" pin="870,310" x="130" y="70"/>
       <circ-port dir="out" pin="870,330" x="130" y="80"/>
@@ -1153,6 +1154,10 @@ xxxx0 1 # OFF
       <a name="fanout" val="1"/>
       <a name="incoming" val="16"/>
     </comp>
+    <comp lib="0" loc="(290,100)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="Clean_Reg"/>
+    </comp>
     <comp lib="0" loc="(290,120)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="label" val="RST"/>
@@ -1180,19 +1185,19 @@ xxxx0 1 # OFF
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="0" loc="(290,90)" name="Pin">
+    <comp lib="0" loc="(290,80)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="label" val="Addr"/>
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="0" loc="(340,70)" name="Tunnel">
+    <comp lib="0" loc="(340,60)" name="Tunnel">
       <a name="facing" val="south"/>
       <a name="label" val="Addr"/>
       <a name="labelfont" val="SansSerif bold 9"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="0" loc="(350,90)" name="Splitter">
+    <comp lib="0" loc="(350,80)" name="Splitter">
       <a name="appear" val="right"/>
       <a name="bit0" val="none"/>
       <a name="bit1" val="none"/>
@@ -1274,6 +1279,9 @@ xxxx0 1 # OFF
       <a name="radix" val="16"/>
       <a name="width" val="32"/>
     </comp>
+    <comp lib="1" loc="(330,110)" name="OR Gate">
+      <a name="size" val="30"/>
+    </comp>
     <comp lib="1" loc="(330,420)" name="AND Gate">
       <a name="size" val="30"/>
     </comp>
@@ -1349,14 +1357,15 @@ xxxx0 1 # OFF
     <wire from="(260,540)" to="(270,540)"/>
     <wire from="(270,530)" to="(270,540)"/>
     <wire from="(270,530)" to="(280,530)"/>
-    <wire from="(290,120)" to="(620,120)"/>
+    <wire from="(290,100)" to="(300,100)"/>
+    <wire from="(290,120)" to="(300,120)"/>
     <wire from="(290,140)" to="(630,140)"/>
     <wire from="(290,160)" to="(310,160)"/>
     <wire from="(290,190)" to="(300,190)"/>
     <wire from="(290,220)" to="(310,220)"/>
     <wire from="(290,250)" to="(540,250)"/>
     <wire from="(290,430)" to="(300,430)"/>
-    <wire from="(290,90)" to="(340,90)"/>
+    <wire from="(290,80)" to="(340,80)"/>
     <wire from="(300,180)" to="(300,190)"/>
     <wire from="(300,180)" to="(310,180)"/>
     <wire from="(300,190)" to="(300,200)"/>
@@ -1365,6 +1374,7 @@ xxxx0 1 # OFF
     <wire from="(320,470)" to="(330,470)"/>
     <wire from="(320,510)" to="(340,510)"/>
     <wire from="(320,520)" to="(330,520)"/>
+    <wire from="(330,110)" to="(620,110)"/>
     <wire from="(330,420)" to="(420,420)"/>
     <wire from="(330,470)" to="(330,480)"/>
     <wire from="(330,480)" to="(340,480)"/>
@@ -1372,16 +1382,16 @@ xxxx0 1 # OFF
     <wire from="(330,530)" to="(340,530)"/>
     <wire from="(340,170)" to="(850,170)"/>
     <wire from="(340,210)" to="(370,210)"/>
-    <wire from="(340,70)" to="(340,90)"/>
-    <wire from="(340,90)" to="(350,90)"/>
-    <wire from="(370,100)" to="(380,100)"/>
+    <wire from="(340,60)" to="(340,80)"/>
+    <wire from="(340,80)" to="(350,80)"/>
     <wire from="(370,210)" to="(370,270)"/>
     <wire from="(370,470)" to="(390,470)"/>
     <wire from="(370,520)" to="(380,520)"/>
-    <wire from="(380,100)" to="(380,270)"/>
-    <wire from="(380,100)" to="(840,100)"/>
+    <wire from="(370,90)" to="(380,90)"/>
     <wire from="(380,490)" to="(380,520)"/>
     <wire from="(380,490)" to="(390,490)"/>
+    <wire from="(380,90)" to="(380,270)"/>
+    <wire from="(380,90)" to="(840,90)"/>
     <wire from="(400,270)" to="(640,270)"/>
     <wire from="(400,280)" to="(530,280)"/>
     <wire from="(400,290)" to="(520,290)"/>
@@ -1403,7 +1413,7 @@ xxxx0 1 # OFF
     <wire from="(540,490)" to="(540,610)"/>
     <wire from="(540,490)" to="(640,490)"/>
     <wire from="(540,610)" to="(640,610)"/>
-    <wire from="(620,120)" to="(620,320)"/>
+    <wire from="(620,110)" to="(620,320)"/>
     <wire from="(620,320)" to="(620,440)"/>
     <wire from="(620,320)" to="(670,320)"/>
     <wire from="(620,440)" to="(620,560)"/>
@@ -1445,7 +1455,7 @@ xxxx0 1 # OFF
     <wire from="(810,250)" to="(810,310)"/>
     <wire from="(810,250)" to="(820,250)"/>
     <wire from="(810,310)" to="(870,310)"/>
-    <wire from="(840,100)" to="(840,250)"/>
+    <wire from="(840,90)" to="(840,250)"/>
     <wire from="(850,170)" to="(850,250)"/>
     <wire from="(860,270)" to="(870,270)"/>
   </circuit>

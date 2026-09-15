@@ -59,9 +59,9 @@
   </lib>
   <lib desc="#I/O" name="5"/>
   <lib desc="#Base" name="6"/>
-  <lib desc="file#IO\TTY\TTY_Controller.circ" name="7"/>
-  <lib desc="file#Memory\Main_Memories.circ" name="8"/>
-  <lib desc="file#CPU.circ" name="9"/>
+  <lib desc="file#Memory\Main_Memories.circ" name="7"/>
+  <lib desc="file#CPU.circ" name="8"/>
+  <lib desc="file#IO\TTY\TTY_Controller.circ" name="9"/>
   <main name="main"/>
   <options>
     <a name="gateUndefined" val="ignore"/>
@@ -150,10 +150,10 @@
       <a name="bg" val="#000000"/>
       <a name="color" val="#ffffff"/>
     </comp>
-    <comp lib="7" loc="(670,270)" name="TTY_Main"/>
-    <comp lib="8" loc="(470,490)" name="ROM_BIOS"/>
-    <comp lib="8" loc="(600,120)" name="Memory"/>
-    <comp lib="9" loc="(550,250)" name="Die"/>
+    <comp lib="7" loc="(470,490)" name="ROM_BIOS"/>
+    <comp lib="7" loc="(600,120)" name="Memory"/>
+    <comp lib="8" loc="(550,250)" name="Die"/>
+    <comp lib="9" loc="(670,270)" name="TTY_Main"/>
     <comp loc="(320,270)" name="On_Off_Sys"/>
     <wire from="(250,270)" to="(270,270)"/>
     <wire from="(250,300)" to="(270,300)"/>
