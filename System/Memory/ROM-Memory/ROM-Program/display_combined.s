@@ -21,7 +21,7 @@ initTty:                                ; @initTty
 	.type	ttyWrite,@function
 ttyWrite:                               ; @ttyWrite
 ; %bb.0:                                ; %entry
-	ADI R14, 8
+	ADI R14, 4
 	LDI R4, 0
 	H LDI R4, current_display+4
 	SLT ADI R4, current_display+4
@@ -34,16 +34,18 @@ ttyWrite:                               ; @ttyWrite
 	LDI R6, 0
 	H LDI R6, 1
 	SLT ADI R6, -1
-	AND R5, R6, R6
-	LDI R5, 0
 	SUB R6, R5, R0
 	H LDI R15, %hi(.LBB1_8)
 	SLT ADI R15, %lo(.LBB1_8)
-	BRH NE, R15
+	BRH C, R15
 ; %bb.1:                                ; %if.then
+	LDI R5, 0
 	INT STR R4, R5, 12
 	INT STR R4, R5, 8
 	INT STR R4, R5, 4
+	;APP
+	HLT
+	;NO_APP
 	SLT ADD R2, R0, R5
 	ADI R5, -1
 	LDI R6, 3
@@ -76,8 +78,6 @@ ttyWrite:                               ; @ttyWrite
 	JMP R15
 .LBB1_5:                                ; %sw.bb9
 	INT STR R4, R3, 8
-	ADD R14, R0, R1
-	SLT ADI R1, -4
 	INT STR R4, R1, 4
 	LDI R2, 4
 	H LDI R15, %hi(.LBB1_7)
@@ -85,10 +85,10 @@ ttyWrite:                               ; @ttyWrite
 	JMP R15
 .LBB1_6:                                ; %sw.default
 	LDI R2, 0
-.LBB1_7:                                ; %if.end.sink.split
+.LBB1_7:                                ; %cleanup.sink.split
 	INT STR R4, R2, 0
-.LBB1_8:                                ; %if.end
-	ADI R14, -8
+.LBB1_8:                                ; %cleanup
+	ADI R14, -4
 	RET
 .Lfunc_end1:
 	.size	ttyWrite, .Lfunc_end1-ttyWrite
@@ -131,7 +131,7 @@ displaySearch:                          ; @displaySearch
 ; %bb.0:                                ; %entry
 	ADI R14, 4
 	LDI R1, 0
-	H LDI R1, 112
+	H LDI R1, 7
 	SLT ADI R1, 0
 	H LDI R15, %hi(search)
 	SLT ADI R15, %lo(search)
@@ -381,7 +381,6 @@ bus_Enumeration:                        ; @bus_Enumeration
 ; %bb.5:                                ; %if.end15
                                         ;   in Loop: Header=BB7_3 Depth=2
 	INT STR R14, R7, -32
-	INT LOD R6, R1, 0
 	INT LOD R4, R2, 0
 	ADD R2, R5, R2
 	LDI R7, 0
@@ -528,7 +527,7 @@ bus_Enumeration:                        ; @bus_Enumeration
 	SLT ADI R2, 4
 	ADD R6, R2, R2
 	INT LOD R12, R5, 0
-	LDI R7, 1
+	LDI R7, 3
 	INT STR R2, R7, 0
 	LDI R2, 0
 	H LDI R2, 49152
@@ -837,53 +836,47 @@ PCIe_Bus_Enumeration:                   ; @PCIe_Bus_Enumeration
 	.type	search,@function
 search:                                 ; @search
 ; %bb.0:                                ; %entry
-	ADI R14, 8
-	INT STR R14, R8, -4
+	ADI R14, 4
 	SLT ADD R1, R0, R2
-	LDI R3, 0
-	H LDI R3, map_size
-	SLT ADI R3, map_size
-	INT LOD R3, R4, 0
 	LDI R1, 0
-	SUB R4, R1, R0
-	H LDI R15, %hi(.LBB9_5)
-	SLT ADI R15, %lo(.LBB9_5)
+	H LDI R1, map_size
+	SLT ADI R1, map_size
+	INT LOD R1, R3, 0
+	LDI R1, 1
+	SUB R3, R1, R0
+	H LDI R15, %hi(.LBB9_4)
+	SLT ADI R15, %lo(.LBB9_4)
 	BRH N, R15
 ; %bb.1:                                ; %for.body.preheader
+	LDI R1, 0
 	LDI R4, 0
 	H LDI R4, 2048
 	SLT ADI R4, 12
 	LDI R5, 0
 	H LDI R5, 256
 	SLT ADI R5, -1
-	SLT ADD R1, R0, R7
 .LBB9_2:                                ; %for.body
                                         ; =>This Inner Loop Header: Depth=1
-	SLT ADD R7, R0, R6
-	INT LOD R4, R7, 0
-	AND R7, R5, R7
-	SUB R7, R2, R0
-	H LDI R15, %hi(.LBB9_3)
-	SLT ADI R15, %lo(.LBB9_3)
-	BRH EQ, R15
-; %bb.4:                                ; %for.inc
-                                        ;   in Loop: Header=BB9_2 Depth=1
-	ADI R4, 20
-	SLT ADD R6, R0, R7
-	ADI R7, 1
-	INT LOD R3, R8, 0
-	SUB R6, R8, R0
-	H LDI R15, %hi(.LBB9_2)
-	SLT ADI R15, %lo(.LBB9_2)
-	BRH N, R15
+	INT LOD R4, R6, 0
+	AND R6, R5, R6
+	SUB R6, R2, R0
 	H LDI R15, %hi(.LBB9_5)
 	SLT ADI R15, %lo(.LBB9_5)
-	JMP R15
-.LBB9_3:
-	SLT ADD R6, R0, R1
+	BRH EQ, R15
+; %bb.3:                                ; %for.inc
+                                        ;   in Loop: Header=BB9_2 Depth=1
+	ADI R4, 20
+	ADI R1, 1
+	SUB R3, R1, R0
+	H LDI R15, %hi(.LBB9_2)
+	SLT ADI R15, %lo(.LBB9_2)
+	BRH NE, R15
+.LBB9_4:
+	LDI R1, 0
+	H LDI R1, 0
+	SLT ADI R1, -1
 .LBB9_5:                                ; %cleanup
-	INT LOD R14, R8, -4
-	ADI R14, -8
+	ADI R14, -4
 	RET
 .Lfunc_end9:
 	.size	search, .Lfunc_end9-search
@@ -967,8 +960,8 @@ map_size:
 	.type	.L.str.3,@object                ; @.str.3
 	.section	.rodata.str1.1,"aMS",@progbits,1
 .L.str.3:
-	.asciz	"Hola"
-	.size	.L.str.3, 5
+	.asciz	"Hola "
+	.size	.L.str.3, 6
 
 	.type	.L.str.1,@object                ; @.str.1
 .L.str.1:
@@ -989,15 +982,40 @@ map_size:
 	.section	".note.GNU-stack","",@progbits
 
 ; ════════════════════ .start auto-generado ════════════════════
-; Inicio en palabra ROM 793 (byte 0x000C64)
+; Inicio en palabra ROM 769 (byte 0x000C04)
 ; .start:
-; ── Fase 2: Zero-inicializar 4 palabra(s) de .bss en RAM ─────────────
-;	H LDI R1, 0x0400		; Base .bss en RAM = 0x04000000
+; ── Fase 1: Copiar 10 palabra(s) de .data  ROM → RAM ──────────────
+;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 759, byte 0x000BDC)
+;	SLT ADI R15, 0x0BDC
+;	H LDI R1, 0x0400		; Dir. RAM destino = 0x04000000
 ;	SLT ADI R1, 0x0000
-;	INT STR R1, R0, 0		; RAM[0x04000000] = 0  (.bss[0])
-;	INT STR R1, R0, 4		; RAM[0x04000004] = 0  (.bss[1])
-;	INT STR R1, R0, 8		; RAM[0x04000008] = 0  (.bss[2])
-;	INT STR R1, R0, 12		; RAM[0x0400000C] = 0  (.bss[3])
+;	INT LOD R15, R2, 0		; Leer palabra 0 de ROM (.data blob)
+;	INT STR R1, R2, 0		; Escribir en RAM[0x04000000]
+;	INT LOD R15, R2, 4		; Leer palabra 1 de ROM (.data blob)
+;	INT STR R1, R2, 4		; Escribir en RAM[0x04000004]
+;	INT LOD R15, R2, 8		; Leer palabra 2 de ROM (.data blob)
+;	INT STR R1, R2, 8		; Escribir en RAM[0x04000008]
+;	INT LOD R15, R2, 12		; Leer palabra 3 de ROM (.data blob)
+;	INT STR R1, R2, 12		; Escribir en RAM[0x0400000C]
+;	INT LOD R15, R2, 16		; Leer palabra 4 de ROM (.data blob)
+;	INT STR R1, R2, 16		; Escribir en RAM[0x04000010]
+;	INT LOD R15, R2, 20		; Leer palabra 5 de ROM (.data blob)
+;	INT STR R1, R2, 20		; Escribir en RAM[0x04000014]
+;	INT LOD R15, R2, 24		; Leer palabra 6 de ROM (.data blob)
+;	INT STR R1, R2, 24		; Escribir en RAM[0x04000018]
+;	INT LOD R15, R2, 28		; Leer palabra 7 de ROM (.data blob)
+;	INT STR R1, R2, 28		; Escribir en RAM[0x0400001C]
+;	INT LOD R15, R2, 32		; Leer palabra 8 de ROM (.data blob)
+;	INT STR R1, R2, 32		; Escribir en RAM[0x04000020]
+;	INT LOD R15, R2, 36		; Leer palabra 9 de ROM (.data blob)
+;	INT STR R1, R2, 36		; Escribir en RAM[0x04000024]
+; ── Fase 2: Zero-inicializar 4 palabra(s) de .bss en RAM ─────────────
+;	H LDI R1, 0x0400		; Base .bss en RAM = 0x04000028
+;	SLT ADI R1, 0x0028
+;	INT STR R1, R0, 0		; RAM[0x04000028] = 0  (.bss[0])
+;	INT STR R1, R0, 4		; RAM[0x0400002C] = 0  (.bss[1])
+;	INT STR R1, R0, 8		; RAM[0x04000030] = 0  (.bss[2])
+;	INT STR R1, R0, 12		; RAM[0x04000034] = 0  (.bss[3])
 ; ── Fase 3: Saltar a main ──────────────────────────────────────────────────
 ;	H LDI R15, %hi(main)		; Parte alta de la dirección de main
 ;	SLT ADI R15, %lo(main)	; Parte baja

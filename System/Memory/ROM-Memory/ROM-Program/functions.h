@@ -1,7 +1,9 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
+
 
 // ============================================================
 // ECAM Bus Enumeration

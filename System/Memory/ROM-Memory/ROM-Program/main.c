@@ -5,7 +5,7 @@ int main() {
   displaySearch();
 
   // Ya se puede usar biosWrite()
-  biosWrite("Hola", 0);
+  biosWrite("Hola ", 0);
   biosWrite("Mundo!!! \n\n", 0);
   biosWrite("A", 5);
   biosWrite("", 5);

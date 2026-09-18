@@ -38,26 +38,27 @@ void ttyWrite(char word[], int option, int length) {
       tty->cant = length;
       tty->word_Addr = word[0];
       tty->comand = option;
-      break;
+      return;
     case 2:
       // Borrar
       tty->cant = length;
       tty->comand = option;
-      break;
+      return;
     case 3:
       // Limpiar TTY
       tty->comand = option;
-      break;
+      return;
     case 4:
       tty->length = length;
-      tty->word_Addr = (uintptr_t)&word;
+      tty->word_Addr = (uintptr_t)word;
       tty->comand = option;
-      break;
+      return;
     default:
       tty->comand = 0;
-      break;
+      return;
     }
   }
+  return;
 }
 
 // ================================================================================
@@ -85,12 +86,12 @@ void displaySearch() {
 
   } else {
     // Es TTY
-    int offset = search(0x00700000);
+    int offset = search(0x00070000); // Buscamos TTY por su Class Code
     if (offset < 0)
       return; // No reconocido
 
     volatile PCIe_Map *mapa = (volatile PCIe_Map *)(TABLE_Addr);
-    uint32_t base = ECAM_BASE + ((uint32_t)mapa[offset].bus << 20) |
+    uint32_t base = ECAM_BASE | ((uint32_t)mapa[offset].bus << 20) |
                     ((uint32_t)mapa[offset].dev << 15) |
                     ((uint32_t)mapa[offset].func << 12);
 
@@ -118,6 +119,7 @@ void biosWrite(char string[], int cant) {
     current_display.write("", 2, cant);
 
   } else if (string[0] == '\0' && cant == 0) {
+    // Limpiar
     current_display.write("", 3, 0);
   } else if (string[1] == '\0') {
     // Escribir una letra
@@ -127,4 +129,5 @@ void biosWrite(char string[], int cant) {
     cant = strlen(string);
     current_display.write(string, 4, cant);
   }
+  return;
 }

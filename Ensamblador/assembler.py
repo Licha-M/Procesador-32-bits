@@ -825,6 +825,23 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
         except ValueError:
             return None
 
+    pending_bytes: list[int] = []
+
+    def flush_pending_bytes():
+        nonlocal rom_address
+        if not pending_bytes:
+            return
+        # Pad to 4 bytes
+        while len(pending_bytes) % 4 != 0:
+            pending_bytes.append(0)
+        
+        for i in range(0, len(pending_bytes), 4):
+            val = pending_bytes[i] | (pending_bytes[i+1] << 8) | (pending_bytes[i+2] << 16) | (pending_bytes[i+3] << 24)
+            _mark_text_start()
+            pending.append(PendingInstruction(is_raw_word=True, raw_value=val, src_line=0))
+            rom_address += 1
+        pending_bytes.clear()
+
     for line_num, raw_line in enumerate(lines, start=1):
         code_line = raw_line.split(';')[0].strip()
         if not code_line:
@@ -835,7 +852,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
             current_section = 'text'
             continue
         if _RODATA_SECTION_RE.match(code_line):
-            current_section = 'rodata'
+            current_section = 'data'  # Mapped to data so it gets copied to RAM
             continue
         if _DATA_SECTION_RE.match(code_line):
             current_section = 'data'
@@ -862,11 +879,9 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                 if mode == 'rom':
                     # Aplicar alineación en RAM para bss
                     align_bytes = align_val if align_val > 0 else 1
-                    ram_bss_start = (ram_data_offset + 3) & ~3
-                    curr_ram_addr = RAM_BASE + ram_bss_start + ram_bss_offset
-                    pad = (align_bytes - (curr_ram_addr % align_bytes)) % align_bytes
+                    pad = (align_bytes - (ram_bss_offset % align_bytes)) % align_bytes
                     ram_bss_offset += pad
-                    label_map[sym_name] = RAM_BASE + ram_bss_start + ram_bss_offset
+                    label_map[sym_name] = 0x0B550000 + ram_bss_offset
                     ram_bss_offset += size_val
                 else: # mode == 'ram'
                     align_words = max(1, align_val // 4)
@@ -890,6 +905,8 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
             n = int(mp2.group(1))
             align_bytes = 1 << n  # 2^N bytes
             if current_section in ('text', 'rodata') or (current_section in ('data', 'bss') and mode == 'ram'):
+                # Force byte flushing before alignment
+                flush_pending_bytes()
                 align_words = max(1, align_bytes // 4)
                 if align_words > 1:
                     remainder = rom_address % align_words
@@ -905,9 +922,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                     ram_data_offset += pad
                     rom_data_bytes.extend([0] * pad)
                 elif current_section == 'bss':
-                    ram_bss_start = (ram_data_offset + 3) & ~3
-                    curr_ram_addr = RAM_BASE + ram_bss_start + ram_bss_offset
-                    pad = (align_bytes - (curr_ram_addr % align_bytes)) % align_bytes
+                    pad = (align_bytes - (ram_bss_offset % align_bytes)) % align_bytes
                     ram_bss_offset += pad
             continue
 
@@ -936,6 +951,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                     val = 0
 
                 if current_section in ('text', 'rodata') or (current_section in ('data', 'bss') and mode == 'ram'):
+                    flush_pending_bytes()
                     _mark_text_start()
                     pending.append(PendingInstruction(
                         is_raw_word=True, raw_value=val, src_line=line_num,
@@ -945,27 +961,31 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                 elif mode == 'rom':
                     if current_section == 'data':
                         if label_expr is not None:
-                            # .long <etiqueta> en sección .data con modo ROM no está
-                            # soportado: los datos se escriben en first_pass antes de
-                            # conocer todas las direcciones (no hay segunda pasada aquí).
-                            errors.append(
-                                f"[Línea {line_num}] '.long {v_str}': referencias a etiquetas "
-                                f"en sección .data con --data-mode=rom no están soportadas "
-                                f"(las direcciones finales no se conocen en primera pasada)."
-                            )
+                            pad = (4 - (ram_data_offset % 4)) % 4
+                            if pad > 0:
+                                ram_data_offset += pad
+                                rom_data_bytes.extend([0] * pad)
+                            
+                            # Add placeholder for the relocation
+                            if not hasattr(first_pass, 'rom_data_relocs'):
+                                first_pass.rom_data_relocs = {}
+                            first_pass.rom_data_relocs[ram_data_offset] = label_expr
+                            
+                            rom_data_bytes.extend([0, 0, 0, 0])
+                            ram_data_offset += 4
                         else:
                             pad = (4 - (ram_data_offset % 4)) % 4
                             if pad > 0:
                                 ram_data_offset += pad
                                 rom_data_bytes.extend([0] * pad)
-                            b0 = (val >> 24) & 0xFF
-                            b1 = (val >> 16) & 0xFF
-                            b2 = (val >> 8) & 0xFF
-                            b3 = val & 0xFF
+                            b0 = val & 0xFF
+                            b1 = (val >> 8) & 0xFF
+                            b2 = (val >> 16) & 0xFF
+                            b3 = (val >> 24) & 0xFF
                             rom_data_bytes.extend([b0, b1, b2, b3])
                             ram_data_offset += 4
                     elif current_section == 'bss':
-                        pad = (4 - ((ram_data_offset + ram_bss_offset) % 4)) % 4
+                        pad = (4 - (ram_bss_offset % 4)) % 4
                         ram_bss_offset += pad + 4
             continue
 
@@ -984,17 +1004,15 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                     if pad > 0:
                         ram_data_offset += pad
                         rom_data_bytes.extend([0] * pad)
-                    b0 = (val >> 8) & 0xFF
-                    b1 = val & 0xFF
+                    b0 = val & 0xFF
+                    b1 = (val >> 8) & 0xFF
                     rom_data_bytes.extend([b0, b1])
                     ram_data_offset += 2
                 elif mode == 'rom' and current_section == 'bss':
-                    pad = (2 - ((ram_data_offset + ram_bss_offset) % 2)) % 2
+                    pad = (2 - (ram_bss_offset % 2)) % 2
                     ram_bss_offset += pad + 2
                 else:
-                    _mark_text_start()
-                    pending.append(PendingInstruction(is_raw_word=True, raw_value=val, src_line=line_num))
-                    rom_address += 1
+                    pending_bytes.extend([val & 0xFF, (val >> 8) & 0xFF])
             continue
 
         # ── Directiva .byte ──────────────────────────────────────────────────
@@ -1013,9 +1031,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                 elif mode == 'rom' and current_section == 'bss':
                     ram_bss_offset += 1
                 else:
-                    _mark_text_start()
-                    pending.append(PendingInstruction(is_raw_word=True, raw_value=val, src_line=line_num))
-                    rom_address += 1
+                    pending_bytes.append(val)
             continue
 
         # ── Directiva .asciz / .ascii ──────────────────────────────────────────
@@ -1037,9 +1053,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                 elif mode == 'rom' and current_section == 'bss':
                     ram_bss_offset += 1
                 else:
-                    _mark_text_start()
-                    pending.append(PendingInstruction(is_raw_word=True, raw_value=val, src_line=line_num))
-                    rom_address += 1
+                    pending_bytes.append(val)
             continue
 
         # ── Directiva .zero / .space / .skip ─────────────────────────────────
@@ -1053,11 +1067,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                 elif mode == 'rom' and current_section == 'bss':
                     ram_bss_offset += n_bytes
                 else:
-                    n_words = (n_bytes + 3) // 4
-                    _mark_text_start()
-                    for _ in range(n_words):
-                        pending.append(PendingInstruction(is_raw_word=True, raw_value=0, src_line=line_num))
-                    rom_address += n_words
+                    pending_bytes.extend([0] * n_bytes)
             continue
 
         tokens = tokenize_line(code_line)
@@ -1067,6 +1077,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
         # ── Detectar definición de etiqueta ─────────────────────────────────
         label_token = tokens[0]
         if label_token.endswith(':'):
+            flush_pending_bytes()
             raw_name = label_token[:-1]
             name = normalize_label(raw_name)
             if name is None:
@@ -1081,8 +1092,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                 if current_section == 'data':
                     label_map[name] = RAM_BASE + ram_data_offset
                 elif current_section == 'bss':
-                    ram_bss_start = (ram_data_offset + 3) & ~3
-                    label_map[name] = RAM_BASE + ram_bss_start + ram_bss_offset
+                    label_map[name] = 0x0B550000 + ram_bss_offset
                 else:
                     label_map[name] = rom_address
             else: # mode == 'ram'
@@ -1100,6 +1110,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
             continue
 
         # ── Instrucción normal (.text) ───────────────────────────────────────
+        flush_pending_bytes()
         _mark_text_start()
         if _tokens_need_second_pass(tokens):
             pending.append(PendingInstruction(
@@ -1122,6 +1133,15 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
 
         rom_address += 1
 
+    flush_pending_bytes()
+
+    # FIXUP BSS ADDRESSES
+    if mode == 'rom':
+        ram_bss_start = (ram_data_offset + 3) & ~3
+        for name, addr in label_map.items():
+            if 0x0B550000 <= addr < 0x0B600000:
+                label_map[name] = RAM_BASE + ram_bss_start + (addr - 0x0B550000)
+
     # ── [NUEVO MODO ROM] Inyección de datos crudos de .data y rutina .start ──
     # [NUEVO] start_listing: listado legible de las instrucciones de .start,
     # escrito como bloque de comentarios al final del .s para inspección.
@@ -1139,13 +1159,22 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
 
             # 1. Escribir las palabras crudas de .data en la imagen ROM
             for i in range(num_data_words):
-                b0 = rom_data_bytes[i*4 + 0]
-                b1 = rom_data_bytes[i*4 + 1]
-                b2 = rom_data_bytes[i*4 + 2]
-                b3 = rom_data_bytes[i*4 + 3]
-                word_val = (b0 << 24) | (b1 << 16) | (b2 << 8) | b3
-                pending.append(PendingInstruction(is_raw_word=True, raw_value=word_val, src_line=0))
+                byte_offset = i * 4
+                if hasattr(first_pass, 'rom_data_relocs') and byte_offset in first_pass.rom_data_relocs:
+                    label_expr = first_pass.rom_data_relocs[byte_offset]
+                    pending.append(PendingInstruction(is_raw_word=True, raw_value=0, src_line=0, raw_label_expr=label_expr))
+                else:
+                    b0 = rom_data_bytes[byte_offset + 0]
+                    b1 = rom_data_bytes[byte_offset + 1]
+                    b2 = rom_data_bytes[byte_offset + 2]
+                    b3 = rom_data_bytes[byte_offset + 3]
+                    word_val = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)
+                    pending.append(PendingInstruction(is_raw_word=True, raw_value=word_val, src_line=0))
                 rom_address += 1
+
+        # Limpiar relocations para futuras ejecuciones de first_pass
+        if hasattr(first_pass, 'rom_data_relocs'):
+            first_pass.rom_data_relocs.clear()
 
         # 2. Generar etiqueta y rutina .start
         start_word_addr = rom_address
@@ -1283,7 +1312,15 @@ def second_pass(label_map: dict[str, int],
                 # Expresión de etiqueta: resolver con label_map completo y
                 # usar la dirección de 32 bits entera (sin split %hi/%lo).
                 try:
-                    val = eval_label_expr(instr.raw_label_expr, label_map) & 0xFFFFFFFF
+                    target_addr = eval_label_expr(instr.raw_label_expr, label_map)
+                    # Los labels de código ROM se guardan como ÍNDICE DE PALABRA
+                    # (rom_address, avanza de a 1 por instrucción).  Hay que
+                    # convertirlos a dirección física igual que hace compute_hi_lo.
+                    # Los labels de RAM ya son direcciones físicas (≥ 0x01000000)
+                    # y no se tocan.
+                    if target_addr < 0x01000000:
+                        target_addr = (target_addr * 4) | 0xFFF00000
+                    val = target_addr & 0xFFFFFFFF
                 except AssemblerError as e:
                     e.line_number = instr.src_line
                     errors.append(str(e))

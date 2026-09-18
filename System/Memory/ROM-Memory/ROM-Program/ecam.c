@@ -24,7 +24,7 @@
 #define OFF_ROM 0x20                          // Expansion ROM Base
 #define OFF_CAP_PTR_DEV 0x24                  // Capabilities Pointer
 
-volatile int map_size; // Número de entradas registradas
+int map_size; // Número de entradas registradas
 
 // ---------------------------------------------------------------------------
 // Enumeración de bus PCIe
@@ -38,7 +38,7 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa,
     for (uint32_t func = 0; func < 8; func++) {
 
       // Dirección base del slot ECAM (Bits: Bus=20, Dev=15, Func=12)
-      uintptr_t base = ECAM_BASE + ((bus << 20) | (dev << 15) | (func << 12));
+      uintptr_t base = ECAM_BASE | ((bus << 20) | (dev << 15) | (func << 12));
 
       // ---- Verificar si hay dispositivo ----
       uint32_t vendor_device = ECAM_R(base, OFF_VENDOR_DEVICE);
@@ -149,7 +149,8 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa,
         if (end_address > mapa[current_idx].start_address) {
           mbase = (mapa[current_idx].start_address >> 16) & 0xFFFF;
           mlimit = ((end_address - 1) >> 16) & 0xFFFF;
-          ECAM_W(base, OFF_COMMAND_STATUS, 1); // Activar MMIO en el puente
+          ECAM_W(base, OFF_COMMAND_STATUS,
+                 3); // Activar MMIO en el puente y DMA
         }
 
         ECAM_W(base, OFF_MLIMITBASE,
@@ -191,10 +192,10 @@ void PCIe_Bus_Enumeration(void) {
 
 int search(uint32_t tipo) {
   volatile PCIe_Map *mapa = (volatile PCIe_Map *)(TABLE_Addr);
-  for (int i = 0; i <= map_size; i++) {
+  for (int i = 0; i < map_size; i++) {
     if ((mapa[i].ClassCode & 0x00FFFFFF) == tipo) {
       return i;
     }
   }
-  return 0;
+  return -1;
 }

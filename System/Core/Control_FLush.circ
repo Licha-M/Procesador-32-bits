@@ -93,6 +93,7 @@
       <circ-port dir="in" pin="150,220" x="90" y="100"/>
       <circ-port dir="in" pin="150,250" x="80" y="100"/>
       <circ-port dir="in" pin="150,280" x="110" y="90"/>
+      <circ-port dir="in" pin="150,300" x="110" y="70"/>
       <circ-port dir="out" pin="490,130" x="50" y="50"/>
       <circ-port dir="out" pin="490,170" x="110" y="50"/>
     </appear>
@@ -126,6 +127,10 @@
       <a name="appearance" val="NewPins"/>
       <a name="label" val="Flush"/>
     </comp>
+    <comp lib="0" loc="(150,300)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="label" val="HLT"/>
+    </comp>
     <comp lib="0" loc="(410,120)" name="Constant">
       <a name="value" val="0x8"/>
       <a name="width" val="32"/>
@@ -150,6 +155,10 @@
       <a name="negate1" val="true"/>
       <a name="size" val="30"/>
     </comp>
+    <comp lib="1" loc="(200,290)" name="AND Gate">
+      <a name="negate1" val="true"/>
+      <a name="size" val="30"/>
+    </comp>
     <comp lib="1" loc="(290,190)" name="OR Gate">
       <a name="inputs" val="3"/>
       <a name="size" val="30"/>
@@ -171,12 +180,14 @@
     <wire from="(150,190)" to="(160,190)"/>
     <wire from="(150,220)" to="(290,220)"/>
     <wire from="(150,250)" to="(240,250)"/>
-    <wire from="(150,280)" to="(250,280)"/>
+    <wire from="(150,280)" to="(170,280)"/>
+    <wire from="(150,300)" to="(160,300)"/>
     <wire from="(200,180)" to="(260,180)"/>
+    <wire from="(200,290)" to="(250,290)"/>
     <wire from="(240,150)" to="(240,200)"/>
     <wire from="(240,200)" to="(240,250)"/>
     <wire from="(240,200)" to="(260,200)"/>
-    <wire from="(250,190)" to="(250,280)"/>
+    <wire from="(250,190)" to="(250,290)"/>
     <wire from="(250,190)" to="(260,190)"/>
     <wire from="(260,130)" to="(290,130)"/>
     <wire from="(290,130)" to="(290,170)"/>

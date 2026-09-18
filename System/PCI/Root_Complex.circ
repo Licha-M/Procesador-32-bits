@@ -418,7 +418,7 @@
     </comp>
     <comp lib="1" loc="(260,510)" name="AND Gate">
       <a name="facing" val="west"/>
-      <a name="negate1" val="true"/>
+      <a name="negate0" val="true"/>
       <a name="size" val="30"/>
     </comp>
     <comp lib="1" loc="(300,90)" name="OR Gate">
@@ -481,9 +481,9 @@
     <wire from="(270,240)" to="(300,240)"/>
     <wire from="(290,130)" to="(290,250)"/>
     <wire from="(290,250)" to="(310,250)"/>
-    <wire from="(290,500)" to="(310,500)"/>
+    <wire from="(290,520)" to="(310,520)"/>
     <wire from="(300,240)" to="(300,300)"/>
-    <wire from="(300,520)" to="(310,520)"/>
+    <wire from="(300,500)" to="(310,500)"/>
     <wire from="(300,80)" to="(300,90)"/>
     <wire from="(310,120)" to="(310,220)"/>
     <wire from="(310,220)" to="(310,230)"/>
