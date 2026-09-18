@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-
 // ============================================================
 // ECAM Bus Enumeration
 // ============================================================
@@ -22,6 +21,8 @@
 #define ECAM_W(base, off, val)                                                 \
   (*(volatile uint32_t *)((uintptr_t)(base) + (uint32_t)(off)) =               \
        (uint32_t)(val))
+
+extern int map_size; // Número de entradas registradas
 
 // Tabla para el Kernel
 typedef struct {
@@ -96,5 +97,8 @@ void displaySearch();
 
 // Función principal
 void biosWrite(char string[], int cant);
+
+// Conversión de entero a ASCII (devuelve dirección en memoria del buffer ASCII)
+char *intToAscii(int num);
 
 #endif

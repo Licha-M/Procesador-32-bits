@@ -24,8 +24,6 @@
 #define OFF_ROM 0x20                          // Expansion ROM Base
 #define OFF_CAP_PTR_DEV 0x24                  // Capabilities Pointer
 
-int map_size; // Número de entradas registradas
-
 // ---------------------------------------------------------------------------
 // Enumeración de bus PCIe
 // ---------------------------------------------------------------------------
@@ -180,6 +178,7 @@ void PCIe_Bus_Enumeration(void) {
   uint32_t bus = 0;        // Empezar desde el bus raíz
   int next_bus_number = 1; // Primer bus asignado a un puente
   int offset_BAR_Pos = 0;  // Offset actual del espacio BAR
+  int map_size = 0;
 
   map_size = 0;
 

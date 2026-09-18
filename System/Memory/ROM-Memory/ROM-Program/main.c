@@ -5,10 +5,10 @@ int main() {
   displaySearch();
 
   // Ya se puede usar biosWrite()
-  biosWrite("Hola ", 0);
-  biosWrite("Mundo!!! \n\n", 0);
-  biosWrite("A", 5);
-  biosWrite("", 5);
+  biosWrite("Enumeración de buses finalizada.\n", 0);
+  biosWrite("Hay ", 0);
+  biosWrite(intToAscii(map_size), 0);
+  biosWrite("dispositivos conectados.\n", 0);
 
   // Fin
   __asm__ volatile("HLT");

@@ -131,3 +131,52 @@ void biosWrite(char string[], int cant) {
   }
   return;
 }
+
+// ================================================================================
+// Conversión de entero a ASCII
+// ================================================================================
+
+static char ascii_buffer[32];
+
+char *intToAscii(int num) {
+  char temp[32];
+  uint32_t uval;
+  int is_negative = 0;
+  int temp_idx = 0;
+  int buf_idx = 0;
+
+  // Manejo de signo y desbordamiento seguro para INT_MIN
+  if (num < 0) {
+    is_negative = 1;
+    uval = 0 - (uint32_t)num;
+  } else {
+    uval = (uint32_t)num;
+  }
+
+  // Caso especial para el valor 0
+  if (uval == 0) {
+    temp[temp_idx++] = '0';
+  } else {
+    // Extraer dígitos
+    while (uval > 0) {
+      temp[temp_idx++] = (char)('0' + (uval % 10));
+      uval /= 10;
+    }
+  }
+
+  // Si era negativo, añadir el signo '-'
+  if (is_negative) {
+    ascii_buffer[buf_idx++] = '-';
+  }
+
+  // Invertir los dígitos y guardar en memoria
+  while (temp_idx > 0) {
+    ascii_buffer[buf_idx++] = temp[--temp_idx];
+  }
+
+  // Carácter de fin de cadena
+  ascii_buffer[buf_idx] = '\0';
+
+  // Devolver la posición en memoria donde se guardó la cadena ASCII
+  return ascii_buffer;
+}
