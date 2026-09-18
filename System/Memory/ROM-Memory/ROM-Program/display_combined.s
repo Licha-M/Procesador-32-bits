@@ -43,9 +43,6 @@ ttyWrite:                               ; @ttyWrite
 	INT STR R4, R5, 12
 	INT STR R4, R5, 8
 	INT STR R4, R5, 4
-	;APP
-	HLT
-	;NO_APP
 	SLT ADD R2, R0, R5
 	ADI R5, -1
 	LDI R6, 3
@@ -982,11 +979,11 @@ map_size:
 	.section	".note.GNU-stack","",@progbits
 
 ; ════════════════════ .start auto-generado ════════════════════
-; Inicio en palabra ROM 769 (byte 0x000C04)
+; Inicio en palabra ROM 768 (byte 0x000C00)
 ; .start:
 ; ── Fase 1: Copiar 10 palabra(s) de .data  ROM → RAM ──────────────
-;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 759, byte 0x000BDC)
-;	SLT ADI R15, 0x0BDC
+;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 758, byte 0x000BD8)
+;	SLT ADI R15, 0x0BD8
 ;	H LDI R1, 0x0400		; Dir. RAM destino = 0x04000000
 ;	SLT ADI R1, 0x0000
 ;	INT LOD R15, R2, 0		; Leer palabra 0 de ROM (.data blob)
