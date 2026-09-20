@@ -5,7 +5,6 @@
   <lib desc="#Wiring" name="0">
     <tool name="Splitter">
       <a name="appear" val="right"/>
-      <a name="facing" val="west"/>
     </tool>
     <tool name="Pin">
       <a name="appearance" val="classic"/>
@@ -152,7 +151,7 @@
       <a name="appearance" val="NewPins"/>
       <a name="label" val="Data_In"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(250,140)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -223,7 +222,7 @@
     <comp lib="0" loc="(380,10)" name="Tunnel">
       <a name="label" val="Data_In"/>
       <a name="labelfont" val="SansSerif bold 8"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(380,30)" name="Tunnel">
       <a name="label" val="Addr_To_CPU"/>
@@ -278,7 +277,7 @@
     <comp lib="0" loc="(830,290)" name="Tunnel">
       <a name="label" val="Data_In"/>
       <a name="labelfont" val="SansSerif bold 8"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(990,310)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -294,7 +293,7 @@
       <a name="label" val="Data_To_Down_1"/>
       <a name="output" val="true"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(990,350)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -337,7 +336,7 @@
       <a name="label" val="Data_To_Down_2"/>
       <a name="output" val="true"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(990,590)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -380,7 +379,7 @@
       <a name="label" val="Data_To_Down_3"/>
       <a name="output" val="true"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(990,830)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -916,7 +915,7 @@
       <a name="appearance" val="NewPins"/>
       <a name="label" val="Data_In"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(230,720)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -1143,7 +1142,7 @@
       <a name="label" val="Data_To_Down"/>
       <a name="output" val="true"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(900,500)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -1270,7 +1269,7 @@
       <a name="enable" val="true"/>
       <a name="select" val="2"/>
       <a name="selloc" val="tr"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="5" loc="(1005,60)" name="Text">
       <a name="text" val="DMA"/>
@@ -1552,7 +1551,7 @@
       <a name="appearance" val="NewPins"/>
       <a name="label" val="Data_In"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(350,320)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -1782,6 +1781,10 @@
       <a name="value" val="0x0"/>
       <a name="width" val="32"/>
     </comp>
+    <comp lib="0" loc="(760,250)" name="Constant">
+      <a name="value" val="0x0"/>
+      <a name="width" val="64"/>
+    </comp>
     <comp lib="0" loc="(830,100)" name="Tunnel">
       <a name="facing" val="east"/>
       <a name="label" val="Internal_ECAM"/>
@@ -1811,7 +1814,7 @@
       <a name="label" val="Data_Out"/>
       <a name="output" val="true"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(900,310)" name="Constant">
       <a name="facing" val="west"/>
@@ -1895,7 +1898,7 @@
     </comp>
     <comp lib="2" loc="(850,260)" name="Multiplexer">
       <a name="selloc" val="tr"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="3" loc="(540,120)" name="Comparator">
       <a name="mode" val="unsigned"/>
@@ -2010,7 +2013,8 @@
     <wire from="(740,590)" to="(740,600)"/>
     <wire from="(740,590)" to="(750,590)"/>
     <wire from="(760,160)" to="(810,160)"/>
-    <wire from="(760,190)" to="(810,190)"/>
+    <wire from="(760,190)" to="(820,190)"/>
+    <wire from="(760,250)" to="(820,250)"/>
     <wire from="(780,450)" to="(790,450)"/>
     <wire from="(780,580)" to="(790,580)"/>
     <wire from="(790,120)" to="(790,450)"/>
@@ -2022,9 +2026,6 @@
     <wire from="(790,580)" to="(850,580)"/>
     <wire from="(810,140)" to="(810,160)"/>
     <wire from="(810,140)" to="(820,140)"/>
-    <wire from="(810,190)" to="(810,250)"/>
-    <wire from="(810,190)" to="(820,190)"/>
-    <wire from="(810,250)" to="(820,250)"/>
     <wire from="(830,100)" to="(840,100)"/>
     <wire from="(830,170)" to="(830,180)"/>
     <wire from="(830,170)" to="(860,170)"/>
@@ -2086,7 +2087,7 @@
       <a name="label" val="Data_To_Perif"/>
       <a name="output" val="true"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(360,110)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -2143,6 +2144,11 @@
       <a name="fanout" val="1"/>
       <a name="incoming" val="16"/>
     </comp>
+    <comp lib="0" loc="(500,370)" name="Constant">
+      <a name="facing" val="west"/>
+      <a name="value" val="0x0"/>
+      <a name="width" val="64"/>
+    </comp>
     <comp lib="0" loc="(590,130)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="facing" val="west"/>
@@ -2182,7 +2188,7 @@
       <a name="facing" val="west"/>
       <a name="label" val="Data_From_CPU"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="1" loc="(430,130)" name="AND Gate">
       <a name="size" val="30"/>
@@ -2195,7 +2201,7 @@
     </comp>
     <comp lib="2" loc="(440,380)" name="Multiplexer">
       <a name="facing" val="west"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="2" loc="(470,240)" name="Multiplexer">
       <a name="width" val="32"/>
@@ -2216,9 +2222,7 @@
     <wire from="(430,130)" to="(440,130)"/>
     <wire from="(430,230)" to="(430,290)"/>
     <wire from="(430,230)" to="(440,230)"/>
-    <wire from="(430,290)" to="(430,350)"/>
     <wire from="(430,290)" to="(440,290)"/>
-    <wire from="(430,350)" to="(480,350)"/>
     <wire from="(440,130)" to="(440,160)"/>
     <wire from="(440,130)" to="(590,130)"/>
     <wire from="(440,160)" to="(450,160)"/>
@@ -2232,10 +2236,9 @@
     <wire from="(460,410)" to="(490,410)"/>
     <wire from="(470,240)" to="(590,240)"/>
     <wire from="(470,300)" to="(590,300)"/>
-    <wire from="(470,370)" to="(480,370)"/>
+    <wire from="(470,370)" to="(500,370)"/>
     <wire from="(470,390)" to="(600,390)"/>
     <wire from="(480,170)" to="(490,170)"/>
-    <wire from="(480,350)" to="(480,370)"/>
     <wire from="(490,170)" to="(490,270)"/>
     <wire from="(490,170)" to="(510,170)"/>
     <wire from="(490,270)" to="(490,340)"/>
@@ -2329,17 +2332,21 @@
       <a name="appearance" val="NewPins"/>
       <a name="label" val="RST"/>
     </comp>
+    <comp lib="0" loc="(510,440)" name="Constant">
+      <a name="value" val="0x0"/>
+      <a name="width" val="64"/>
+    </comp>
     <comp lib="0" loc="(510,460)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="label" val="Data_From_CPU"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(510,480)" name="Pin">
       <a name="appearance" val="NewPins"/>
       <a name="label" val="Data_From_DMA"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(520,520)" name="Splitter">
       <a name="appear" val="center"/>
@@ -2428,7 +2435,7 @@
       <a name="label" val="Data_To_Downstream"/>
       <a name="output" val="true"/>
       <a name="radix" val="16"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="0" loc="(660,790)" name="Splitter">
       <a name="appear" val="center"/>
@@ -2518,7 +2525,7 @@
     </comp>
     <comp lib="2" loc="(650,470)" name="Multiplexer">
       <a name="select" val="2"/>
-      <a name="width" val="32"/>
+      <a name="width" val="64"/>
     </comp>
     <comp lib="5" loc="(515,660)" name="Text">
       <a name="text" val="Ctrl"/>
@@ -2539,6 +2546,7 @@
     <wire from="(500,910)" to="(640,910)"/>
     <wire from="(500,960)" to="(500,970)"/>
     <wire from="(500,960)" to="(620,960)"/>
+    <wire from="(510,440)" to="(520,440)"/>
     <wire from="(510,460)" to="(610,460)"/>
     <wire from="(510,480)" to="(520,480)"/>
     <wire from="(510,670)" to="(510,690)"/>
@@ -2550,6 +2558,8 @@
     <wire from="(510,840)" to="(510,950)"/>
     <wire from="(510,840)" to="(530,840)"/>
     <wire from="(510,950)" to="(640,950)"/>
+    <wire from="(520,440)" to="(520,450)"/>
+    <wire from="(520,450)" to="(610,450)"/>
     <wire from="(520,470)" to="(520,480)"/>
     <wire from="(520,470)" to="(610,470)"/>
     <wire from="(520,520)" to="(530,520)"/>
@@ -2578,9 +2588,7 @@
     <wire from="(590,390)" to="(610,390)"/>
     <wire from="(600,310)" to="(600,370)"/>
     <wire from="(600,310)" to="(620,310)"/>
-    <wire from="(600,370)" to="(600,450)"/>
-    <wire from="(600,450)" to="(600,540)"/>
-    <wire from="(600,450)" to="(610,450)"/>
+    <wire from="(600,370)" to="(600,540)"/>
     <wire from="(600,540)" to="(610,540)"/>
     <wire from="(610,660)" to="(610,670)"/>
     <wire from="(610,670)" to="(640,670)"/>
