@@ -10,14 +10,14 @@ void irqOff() {
   uint32_t eflags;
   __asm__ __volatile__("CYE SR8, %0" : "=r"(eflags));
   uint32_t eflags_off = eflags & ~EFLAGS_EN_INTS_MASK;
-  __asm__ __volatile__("CYR SR8, %0" : : "r"(eflags_off));
+  __asm__ __volatile__("CYR %0, SR8" : : "r"(eflags_off));
 }
 
 void irqOn() {
   uint32_t eflags;
   __asm__ __volatile__("CYE SR8, %0" : "=r"(eflags));
   uint32_t eflags_on = eflags | EFLAGS_EN_INTS_MASK;
-  __asm__ __volatile__("CYR SR8, %0" : : "r"(eflags_on));
+  __asm__ __volatile__("CYR %0, SR8" : : "r"(eflags_on));
 }
 
 // ============================================================
@@ -77,3 +77,5 @@ uint32_t doubleFault(uint32_t eflags, uint32_t epc) {
 // ============================================================
 // IRQs
 // ============================================================
+
+uint32_t syscallsHandler(uint32_t eflags, uint32_t epc) { return epc + 4; }

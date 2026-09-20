@@ -67,7 +67,7 @@ void mainHandler() {
   uint32_t eflags_off = eflags & ~EFLAGS_EN_INTS_MASK;
   if (eflags & EFLAGS_PREV_INTS_MASK) {
     uint32_t eflags_on = eflags_off | EFLAGS_EN_INTS_MASK;
-    __asm__ __volatile__("CYR SR8, %0" : : "r"(eflags_on));
+    __asm__ __volatile__("CYR %0, SR8" : : "r"(eflags_on));
   }
 
   // ------------------------------------------------------------------
@@ -86,11 +86,11 @@ void mainHandler() {
   // ------------------------------------------------------------------
   // Restauración del estado especial
   // ------------------------------------------------------------------
-  __asm__ __volatile__("CYR SR8, %0" : : "r"(eflags_off));
+  __asm__ __volatile__("CYR %0, SR8" : : "r"(eflags_off));
 
-  __asm__ __volatile__("CYR SR1, %0" : : "r"(epc));
-  __asm__ __volatile__("CYR SR9, %0" : : "r"(flags));
-  __asm__ __volatile__("CYR SR10, %0" : : "r"(carry));
+  __asm__ __volatile__("CYR %0, SR1" : : "r"(epc));
+  __asm__ __volatile__("CYR %0, SR9" : : "r"(flags));
+  __asm__ __volatile__("CYR %0, SR10" : : "r"(carry));
 
   Registros->EOI = 1; // Marcamos la IRQ como finalizada
 }
@@ -100,37 +100,37 @@ __attribute__((naked)) void entryHandler(void) {
   __asm__ volatile(
       // Reservamos 13 words (R1..R13) en la pila
       "SLT ADI R14, 52 \n"
-      "STR R14, R1, -52 \n"
-      "STR R14, R2, -48 \n"
-      "STR R14, R3, -44 \n"
-      "STR R14, R4, -40 \n"
-      "STR R14, R5, -36 \n"
-      "STR R14, R6, -32 \n"
-      "STR R14, R7, -28 \n"
-      "STR R14, R8, -24 \n"
-      "STR R14, R9, -20 \n"
-      "STR R14, R10, -16 \n"
-      "STR R14, R11, -12 \n"
-      "STR R14, R12, -8 \n"
-      "STR R14, R13, -4 \n"
+      "INT STR R14, R1, -52 \n"
+      "INT STR R14, R2, -48 \n"
+      "INT STR R14, R3, -44 \n"
+      "INT STR R14, R4, -40 \n"
+      "INT STR R14, R5, -36 \n"
+      "INT STR R14, R6, -32 \n"
+      "INT STR R14, R7, -28 \n"
+      "INT STR R14, R8, -24 \n"
+      "INT STR R14, R9, -20 \n"
+      "INT STR R14, R10, -16 \n"
+      "INT STR R14, R11, -12 \n"
+      "INT STR R14, R12, -8 \n"
+      "INT STR R14, R13, -4 \n"
       // Saltamos a mainHandler
       "H LDI R15, %hi(mainHandler) \n"
       "SLT ADI R15, %lo(mainHandler) \n"
       "CAL R15 \n"
       // Restauramos R1..R13
-      "LOD R14, R1, -52 \n"
-      "LOD R14, R2, -48 \n"
-      "LOD R14, R3, -44 \n"
-      "LOD R14, R4, -40 \n"
-      "LOD R14, R5, -36 \n"
-      "LOD R14, R6, -32 \n"
-      "LOD R14, R7, -28 \n"
-      "LOD R14, R8, -24 \n"
-      "LOD R14, R9, -20 \n"
-      "LOD R14, R10, -16 \n"
-      "LOD R14, R11, -12 \n"
-      "LOD R14, R12, -8 \n"
-      "LOD R14, R13, -4 \n"
+      "INT LOD R14, R1, -52 \n"
+      "INT LOD R14, R2, -48 \n"
+      "INT LOD R14, R3, -44 \n"
+      "INT LOD R14, R4, -40 \n"
+      "INT LOD R14, R5, -36 \n"
+      "INT LOD R14, R6, -32 \n"
+      "INT LOD R14, R7, -28 \n"
+      "INT LOD R14, R8, -24 \n"
+      "INT LOD R14, R9, -20 \n"
+      "INT LOD R14, R10, -16 \n"
+      "INT LOD R14, R11, -12 \n"
+      "INT LOD R14, R12, -8 \n"
+      "INT LOD R14, R13, -4 \n"
       "SLT ADI R14, -52 \n"
       "SRT \n");
 }

@@ -150,7 +150,7 @@ void ttyWrite(char word[], int option, int length) {
   // IRQs a ciegas con irqOn(): si ya estaban apagadas antes de entrar
   // acá (llamada anidada desde una sección crítica más externa), deben
   // seguir apagadas al salir.
-  __asm__ __volatile__("CYR SR8, %0" : : "r"(flags_guardadas));
+  __asm__ __volatile__("CYR %0, SR8" : : "r"(flags_guardadas));
   // --- FIN SECCIÓN CRÍTICA ---
 }
 
