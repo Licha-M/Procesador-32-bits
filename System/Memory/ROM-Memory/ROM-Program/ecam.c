@@ -27,8 +27,7 @@
 // ---------------------------------------------------------------------------
 // Enumeración de bus PCIe
 // ---------------------------------------------------------------------------
-void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa,
-                     int *next_bus_number, int *offset_BAR_Pos) {
+void bus_Enumeration(uint32_t bus, int *next_bus_number, int *offset_BAR_Pos) {
   if (bus >= 256)
     return;
 
@@ -119,7 +118,7 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa,
         (*next_bus_number)++;
 
         // Enumerar el bus secundario
-        bus_Enumeration(secondary_bus, mapa, next_bus_number, offset_BAR_Pos);
+        bus_Enumeration(secondary_bus, next_bus_number, offset_BAR_Pos);
 
         // Si hay dispositivos detrás del puente, alinear el límite a 64 KB
         // (mínimo 64 KB)
@@ -172,17 +171,12 @@ void bus_Enumeration(uint32_t bus, volatile PCIe_Map *mapa,
 // Punto de entrada de la enumeración PCIe
 // ---------------------------------------------------------------------------
 void PCIe_Bus_Enumeration(void) {
-  volatile PCIe_Map *mapa =
-      (volatile PCIe_Map *)(TABLE_Addr); // Tabla de dispositivos
 
   uint32_t bus = 0;        // Empezar desde el bus raíz
   int next_bus_number = 1; // Primer bus asignado a un puente
   int offset_BAR_Pos = 0;  // Offset actual del espacio BAR
-  int map_size = 0;
 
-  map_size = 0;
-
-  bus_Enumeration(bus, mapa, &next_bus_number, &offset_BAR_Pos);
+  bus_Enumeration(bus, &next_bus_number, &offset_BAR_Pos);
 }
 
 // ---------------------------------------------------------------------------
@@ -190,7 +184,6 @@ void PCIe_Bus_Enumeration(void) {
 // ---------------------------------------------------------------------------
 
 int search(uint32_t tipo) {
-  volatile PCIe_Map *mapa = (volatile PCIe_Map *)(TABLE_Addr);
   for (int i = 0; i < map_size; i++) {
     if ((mapa[i].ClassCode & 0x00FFFFFF) == tipo) {
       return i;

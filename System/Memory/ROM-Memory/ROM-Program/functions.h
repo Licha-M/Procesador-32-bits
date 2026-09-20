@@ -1,5 +1,6 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
+#include "inter_IRQs.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -34,6 +35,8 @@ typedef struct {
   volatile uint8_t dev;
   volatile uint8_t func;
 } PCIe_Map;
+
+extern volatile PCIe_Map *mapa;
 
 // Registros bajos de ECAM (sin packed: todos los campos son uint32_t
 // alineados).
@@ -79,19 +82,6 @@ int search(uint32_t tipo);
 // Display System
 // ============================================================
 
-// Estructura registros TTY
-typedef struct {
-  volatile uint32_t comand;
-  volatile uint32_t word_Addr;
-  volatile uint32_t length;
-  volatile uint32_t cant;
-} TtyRegisters;
-
-// Estructura registros GPU (No implementado)
-// typedef struct {
-
-// } GpuRegisters;
-
 // Función inicial
 void displaySearch();
 
@@ -100,5 +90,35 @@ void biosWrite(char string[], int cant);
 
 // Conversión de entero a ASCII (devuelve dirección en memoria del buffer ASCII)
 char *intToAscii(int num);
+
+// Conteo de letras en un char []
+size_t strlen(const char *str);
+
+// ============================================================
+// IRQs System
+// ============================================================
+
+#define LAPIC_BASE_ADDR 0xFEE00000 // Base del LAPIC
+
+// Tipo puntero a función para manejadores de IRQ.
+// Reciben las EFlags (para saber si el error vino de user o kernel) y el
+// EPC de retorno; devuelven el EPC ya corregido (el handler decide si hay
+// que sumarle 4 o dejarlo igual).
+typedef uint32_t (*IRQHandler)(uint32_t eflags, uint32_t epc);
+
+// Inicialización de LAPIC
+void initLAPIC();
+
+// Inicio de IRQs en default
+void initIRQs();
+
+// Registro de IRQs nuevas
+void registerIRQHandler(uint32_t cause, IRQHandler handler);
+
+// ============================================================
+// Syscalls System
+// ============================================================
+
+uint32_t syscallsHandler(uint32_t eflags, uint32_t epc);
 
 #endif
