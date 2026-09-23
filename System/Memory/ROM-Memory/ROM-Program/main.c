@@ -13,7 +13,7 @@ int main() {
   initLAPIC();
 
   // Enumeramos los buses PCIe
-  PCIe_Bus_Enumeration();
+  // PCIe_Bus_Enumeration();
 
   // Buscamos una pantalla
   displaySearch();
@@ -25,6 +25,8 @@ int main() {
   biosWrite("dispositivos conectados.\n\n", 0);
   biosWrite("LAPIC e IRQs inicializadas.\n\n", 0);
 
-  // Fin
-  __asm__ volatile("HLT");
+  while (true) {
+    // Fin dentro de un bucle para que termine por mas que alla IRQs
+    __asm__ volatile("HLT");
+  }
 }

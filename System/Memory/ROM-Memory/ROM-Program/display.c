@@ -219,13 +219,26 @@ void displaySearch() {
 
   } else {
     // Es TTY
-    int offset = search(0x00070000); // Buscamos TTY por su Class Code
-    if (offset < 0)
-      return; // No reconocido
+    // int offset = search(0x00070000); // Buscamos TTY por su Class Code
+    // if (offset < 0)
+    //   return; // No reconocido
 
-    uint32_t base = ECAM_BASE | ((uint32_t)mapa[offset].bus << 20) |
-                    ((uint32_t)mapa[offset].dev << 15) |
-                    ((uint32_t)mapa[offset].func << 12);
+    // uint32_t base = ECAM_BASE | ((uint32_t)mapa[offset].bus << 20) |
+    //                 ((uint32_t)mapa[offset].dev << 15) |
+    //                 ((uint32_t)mapa[offset].func << 12);
+
+    // Configuración de prueba
+    uintptr_t base = ECAM_BASE + ((0 << 20) | (1 << 15) | (0 << 12));
+    ECAM_W(base, 0x18, 0xC000C000); // Escribimos Limit y Base
+    ECAM_W(base, 0x10, 0x00010100); // Escribimos PSS
+    ECAM_W(base, 0x04, 3);          // Escribimos el Comand
+
+    // Configuración del dispositivo
+    base = ECAM_BASE + ((1 << 20) | (0 << 15) | (0 << 12));
+    ECAM_W(base, 0x10, 0xC0000000); // Inicializamos BAR[0]
+    ECAM_W(base, 0x04, 3);          // Activamos TTY
+    volatile TtyRegisters *tty = (volatile TtyRegisters *)0xC0000000;
+    // Fin de prueba
 
     initTty(base);
     current_display.ecam_base = base;

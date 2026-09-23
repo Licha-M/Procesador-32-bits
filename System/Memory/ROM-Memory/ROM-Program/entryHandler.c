@@ -1,7 +1,7 @@
 #include "functions.h"
 #include "inter_IRQs.h"
 
-#define MAX_IRQS 127
+#define MAX_IRQS 128 // Se usa 128 para darle un tamaño de 127 y poder usar 127
 
 // ============================================================
 // Structs definitions

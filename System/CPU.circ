@@ -4,10 +4,7 @@
 
   <lib desc="#Wiring" name="0">
     <tool name="Splitter">
-      <a name="appear" val="center"/>
-      <a name="facing" val="west"/>
-      <a name="fanout" val="3"/>
-      <a name="incoming" val="3"/>
+      <a name="appear" val="right"/>
     </tool>
     <tool name="Pin">
       <a name="appearance" val="classic"/>
@@ -17,7 +14,7 @@
       <a name="facing" val="west"/>
     </tool>
     <tool name="Tunnel">
-      <a name="labelfont" val="SansSerif bold 8"/>
+      <a name="labelfont" val="SansSerif bold 9"/>
     </tool>
     <tool name="Pull Resistor">
       <a name="facing" val="east"/>
@@ -26,8 +23,7 @@
       <a name="facing" val="south"/>
     </tool>
     <tool name="Constant">
-      <a name="value" val="0x500"/>
-      <a name="width" val="16"/>
+      <a name="facing" val="west"/>
     </tool>
   </lib>
   <lib desc="#Gates" name="1">
@@ -41,10 +37,10 @@
   </lib>
   <lib desc="#Plexers" name="2">
     <tool name="Multiplexer">
-      <a name="facing" val="south"/>
+      <a name="facing" val="west"/>
     </tool>
     <tool name="Demultiplexer">
-      <a name="facing" val="west"/>
+      <a name="facing" val="south"/>
     </tool>
     <tool name="Decoder">
       <a name="facing" val="south"/>
@@ -57,9 +53,9 @@
     </tool>
   </lib>
   <lib desc="#Base" name="5"/>
-  <lib desc="file#PCI\Root_Complex.circ" name="6"/>
-  <lib desc="file#Memory\Main_Memories.circ" name="7"/>
-  <lib desc="file#Memory\Memory_System.circ" name="8"/>
+  <lib desc="file#Memory\Main_Memories.circ" name="6"/>
+  <lib desc="file#Memory\Memory_System.circ" name="7"/>
+  <lib desc="file#PCI\Root_Complex.circ" name="8"/>
   <lib desc="file#Memory\BIOS_Mapper.circ" name="9"/>
   <lib desc="file#Core\Pipeline.circ" name="10"/>
   <main name="Die"/>
@@ -397,8 +393,8 @@
       <a name="pull" val="1"/>
     </comp>
     <comp lib="10" loc="(740,900)" name="Core"/>
-    <comp lib="6" loc="(970,410)" name="Root_Complex"/>
-    <comp lib="8" loc="(730,360)" name="Memory_Controller"/>
+    <comp lib="7" loc="(730,360)" name="Memory_Controller"/>
+    <comp lib="8" loc="(970,410)" name="Root_Complex"/>
     <comp lib="9" loc="(950,720)" name="Mapper"/>
     <comp loc="(690,620)" name="Router"/>
     <wire from="(100,230)" to="(100,470)"/>
@@ -859,7 +855,7 @@
 00100xx 110000 # RRoot
 00010xx 100000 # WRoot
 xxxx110 100101 # R-&gt;P
-xxxx101 100110 # P-&gt;R
+xxxx101 110110 # P-&gt;R
 </a>
     </comp>
     <comp lib="1" loc="(340,470)" name="PLA">
@@ -919,7 +915,7 @@ xxxx101 100110 # P-&gt;R
     <wire from="(300,140)" to="(310,140)"/>
     <wire from="(300,160)" to="(660,160)"/>
     <wire from="(300,260)" to="(720,260)"/>
-    <wire from="(300,280)" to="(730,280)"/>
+    <wire from="(300,280)" to="(710,280)"/>
     <wire from="(300,340)" to="(670,340)"/>
     <wire from="(310,110)" to="(310,120)"/>
     <wire from="(310,120)" to="(650,120)"/>
@@ -954,10 +950,11 @@ xxxx101 100110 # P-&gt;R
     <wire from="(670,340)" to="(730,340)"/>
     <wire from="(670,420)" to="(680,420)"/>
     <wire from="(710,160)" to="(720,160)"/>
+    <wire from="(710,200)" to="(710,280)"/>
+    <wire from="(710,200)" to="(760,200)"/>
+    <wire from="(710,280)" to="(730,280)"/>
     <wire from="(720,140)" to="(720,160)"/>
     <wire from="(720,140)" to="(730,140)"/>
-    <wire from="(720,200)" to="(720,220)"/>
-    <wire from="(720,200)" to="(760,200)"/>
     <wire from="(720,220)" to="(720,240)"/>
     <wire from="(720,220)" to="(760,220)"/>
     <wire from="(720,240)" to="(720,260)"/>
