@@ -45,7 +45,7 @@ static uint32_t defaultIRQHandler(uint32_t eflags, uint32_t epc) {
 }
 
 // Routeo principal de IRQs / excepciones / syscalls.
-void mainHandler() {
+void mainHandler(uint32_t *regs) {
 
   uint32_t epc;    // SR1  - EPC: dirección de retorno
   uint32_t eflags; // SR8  - EFlags: modo kernel/usuario + estado de INTs
@@ -80,7 +80,8 @@ void mainHandler() {
     }
   } else {
     // Llamada al sistema (SCL)
-    epc = syscallsHandler(eflags, epc);
+    // Pasamos los registros para que la syscall pueda leer sus argumentos
+    epc = syscallsHandler(regs, eflags, epc);
   }
 
   // ------------------------------------------------------------------
@@ -113,10 +114,17 @@ __attribute__((naked)) void entryHandler(void) {
       "INT STR R14, R11, -12 \n"
       "INT STR R14, R12, -8 \n"
       "INT STR R14, R13, -4 \n"
+
+      // PASAR EL PUNTERO A mainHandler
+      // R1 es el primer argumento en C. Le pasamos (R14 - 52), que es donde empieza R1
+      "SLT ADD R1, R0, R14 \n" // R1 = R14
+      "SLT ADI R1, -52 \n"     // R1 = R14 - 52
+
       // Saltamos a mainHandler
       "H LDI R15, %hi(mainHandler) \n"
       "SLT ADI R15, %lo(mainHandler) \n"
       "CAL R15 \n"
+
       // Restauramos R1..R13
       "INT LOD R14, R1, -52 \n"
       "INT LOD R14, R2, -48 \n"

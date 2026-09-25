@@ -116,6 +116,6 @@ void registerIRQHandler(uint32_t cause, IRQHandler handler);
 // Syscalls System
 // ============================================================
 
-uint32_t syscallsHandler(uint32_t eflags, uint32_t epc);
+uint32_t syscallsHandler(uint32_t *regs, uint32_t eflags, uint32_t epc);
 
 #endif

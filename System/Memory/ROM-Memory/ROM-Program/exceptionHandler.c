@@ -78,4 +78,8 @@ uint32_t doubleFault(uint32_t eflags, uint32_t epc) {
 // IRQs
 // ============================================================
 
-uint32_t syscallsHandler(uint32_t eflags, uint32_t epc) { return epc + 4; }
+uint32_t syscallsHandler(uint32_t *regs, uint32_t eflags, uint32_t epc) {
+  (void)regs;
+  (void)eflags;
+  return epc + 4;
+}
