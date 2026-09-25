@@ -1461,13 +1461,13 @@ mainHandler:                            ; @mainHandler
 	INT STR R14, R9, -8
 	INT STR R14, R10, -12
 	;APP
-	CYE SR1, R2
+	CYE SR1, R3
 	;NO_APP
 	;APP
 	CYE SR8, R8
 	;NO_APP
-	LDI R1, 8
-	AND R8, R1, R4
+	LDI R2, 8
+	AND R8, R2, R5
 	;APP
 	CYE SR9, R10
 	;NO_APP
@@ -1475,56 +1475,57 @@ mainHandler:                            ; @mainHandler
 	CYE SR10, R9
 	;NO_APP
 	;APP
-	CYE SR7, R3
+	CYE SR7, R4
 	;NO_APP
-	LDI R1, 0
-	SUB R4, R1, R0
+	LDI R2, 0
+	SUB R5, R2, R0
 	H LDI R15, %hi(.LBB12_2)
 	SLT ADI R15, %lo(.LBB12_2)
 	BRH EQ, R15
 ; %bb.1:                                ; %if.then
-	LDI R4, 4
-	NOR R8, R4, R4
-	NOR R4, R4, R4
+	LDI R5, 4
+	NOR R8, R5, R5
+	NOR R5, R5, R5
 	;APP
-	CYR R4, SR8
+	CYR R5, SR8
 	;NO_APP
 .LBB12_2:                               ; %if.end
-	SUB R3, R1, R0
+	SUB R4, R2, R0
 	H LDI R15, %hi(.LBB12_6)
 	SLT ADI R15, %lo(.LBB12_6)
 	BRH EQ, R15
 ; %bb.3:                                ; %if.then2
-	LDI R4, 127
-	SUB R4, R3, R0
+	LDI R1, 127
+	SUB R1, R4, R0
 	H LDI R15, %hi(.LBB12_8)
 	SLT ADI R15, %lo(.LBB12_8)
 	BRH C, R15
 ; %bb.4:                                ; %land.lhs.true
-	LDI R4, 2
-	LSH R3, R4, R3
+	LDI R1, 2
+	LSH R4, R1, R1
 	LDI R4, 0
 	H LDI R4, irq_table
 	SLT ADI R4, irq_table
-	ADD R3, R4, R3
-	INT LOD R3, R3, 0
-	SUB R3, R1, R0
+	ADD R1, R4, R1
+	INT LOD R1, R4, 0
+	SUB R4, R2, R0
 	H LDI R15, %hi(.LBB12_8)
 	SLT ADI R15, %lo(.LBB12_8)
 	BRH EQ, R15
 ; %bb.5:                                ; %if.then5
 	SLT ADD R8, R0, R1
-	CAL R3
+	SLT ADD R3, R0, R2
+	CAL R4
 	H LDI R15, %hi(.LBB12_7)
 	SLT ADI R15, %lo(.LBB12_7)
 	JMP R15
 .LBB12_6:                               ; %if.else
-	SLT ADD R8, R0, R1
+	SLT ADD R8, R0, R2
 	H LDI R15, %hi(syscallsHandler)
 	SLT ADI R15, %lo(syscallsHandler)
 	CAL R15
 .LBB12_7:                               ; %if.end9
-	SLT ADD R1, R0, R2
+	SLT ADD R1, R0, R3
 .LBB12_8:                               ; %if.end9
 	LDI R1, 0
 	H LDI R1, 0
@@ -1534,7 +1535,7 @@ mainHandler:                            ; @mainHandler
 	CYR R1, SR8
 	;NO_APP
 	;APP
-	CYR R2, SR1
+	CYR R3, SR1
 	;NO_APP
 	;APP
 	CYR R10, SR9
@@ -1575,6 +1576,8 @@ INT STR R14, R10, -16
 INT STR R14, R11, -12 
 INT STR R14, R12, -8 
 INT STR R14, R13, -4 
+SLT ADD R1, R0, R14 
+SLT ADI R1, -52 
 H LDI R15, %hi(mainHandler) 
 SLT ADI R15, %lo(mainHandler) 
 CAL R15 
@@ -1988,7 +1991,7 @@ doubleFault:                            ; @doubleFault
 syscallsHandler:                        ; @syscallsHandler
 ; %bb.0:                                ; %entry
 	SLT ADI R14, 4
-	SLT ADD R2, R0, R1
+	SLT ADD R3, R0, R1
 	ADI R1, 4
 	SLT ADI R14, -4
 	RET
@@ -2188,11 +2191,11 @@ map_size:
 	.section	".note.GNU-stack","",@progbits
 
 ; ════════════════════ .start auto-generado ════════════════════
-; Inicio en palabra ROM 1706 (byte 0x001AA8)
+; Inicio en palabra ROM 1709 (byte 0x001AB4)
 ; .start:
 ; ── Fase 1: Copiar 88 palabra(s) de .data  ROM → RAM ──────────────
-;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 1618, byte 0x001948)
-;	SLT ADI R15, 0x1948
+;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 1621, byte 0x001954)
+;	SLT ADI R15, 0x1954
 ;	H LDI R1, 0x0400		; Dir. RAM destino = 0x04000000
 ;	SLT ADI R1, 0x0000
 ;	INT LOD R15, R2, 0		; Leer palabra 0 de ROM (.data blob)
