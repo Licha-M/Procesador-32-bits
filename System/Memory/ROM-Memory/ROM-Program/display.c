@@ -146,10 +146,7 @@ void ttyWrite(char word[], int option, int length) {
     tty_execute_request(&display_queue.items[display_queue.head]);
   }
 
-  // 3. Restauramos el valor exacto que guardamos en vez de encender las
-  // IRQs a ciegas con irqOn(): si ya estaban apagadas antes de entrar
-  // acá (llamada anidada desde una sección crítica más externa), deben
-  // seguir apagadas al salir.
+  // 3. Restauramos el valor exacto que guardamos
   __asm__ __volatile__("CYR %0, SR8" : : "r"(flags_guardadas));
   // --- FIN SECCIÓN CRÍTICA ---
 }
@@ -219,26 +216,12 @@ void displaySearch() {
 
   } else {
     // Es TTY
-    // int offset = search(0x00070000); // Buscamos TTY por su Class Code
-    // if (offset < 0)
-    //   return; // No reconocido
-
-    // uint32_t base = ECAM_BASE | ((uint32_t)mapa[offset].bus << 20) |
-    //                 ((uint32_t)mapa[offset].dev << 15) |
-    //                 ((uint32_t)mapa[offset].func << 12);
-
-    // Configuración de prueba
-    uintptr_t base = ECAM_BASE + ((0 << 20) | (1 << 15) | (0 << 12));
-    ECAM_W(base, 0x18, 0xC000C000); // Escribimos Limit y Base
-    ECAM_W(base, 0x10, 0x00010100); // Escribimos PSS
-    ECAM_W(base, 0x04, 3);          // Escribimos el Comand
-
-    // Configuración del dispositivo
-    base = ECAM_BASE + ((1 << 20) | (0 << 15) | (0 << 12));
-    ECAM_W(base, 0x10, 0xC0000000); // Inicializamos BAR[0]
-    ECAM_W(base, 0x04, 3);          // Activamos TTY
-    volatile TtyRegisters *tty = (volatile TtyRegisters *)0xC0000000;
-    // Fin de prueba
+    int offset = search(0x00070000); // Buscamos TTY por su Class Code
+    if (offset < 0)
+      return; // No reconocido
+    uint32_t base = ECAM_BASE | ((uint32_t)mapa[offset].bus << 20) |
+                    ((uint32_t)mapa[offset].dev << 15) |
+                    ((uint32_t)mapa[offset].func << 12);
 
     initTty(base);
     current_display.ecam_base = base;
@@ -247,14 +230,11 @@ void displaySearch() {
 }
 
 size_t strlen(const char *str) {
-  size_t longitud = 0;
-
-  // Recorremos hasta encontrar '\0'
-  while (str[longitud] != '\0') {
-    longitud++;
+  const char *end = str;
+  while (*end != '\0') {
+    end++;
   }
-
-  return longitud;
+  return (size_t)(end - str);
 }
 
 // Función principal
@@ -270,7 +250,11 @@ void biosWrite(char string[], int cant) {
       current_display.write("", 3, 0);
     } else if (string[1] == '\0') {
       // Escribir una letra
+      if (cant == 0) {
+        cant++; // Se le suma 1 para indicar que se debe escribir 1 vez
+      }
       current_display.write(string, 1, cant);
+
     } else {
       // Escribir un texto en RAM
       cant = strlen(string);
@@ -285,52 +269,52 @@ void biosWrite(char string[], int cant) {
 
 // Creamos un "Pool" de buffers. Debe ser mayor o igual al QUEUE_SIZE.
 #define ASCII_POOL_SIZE 8
-static char ascii_pool[ASCII_POOL_SIZE][32];
+#define ASCII_BUF_SIZE 32
+
+static char ascii_pool[ASCII_POOL_SIZE][ASCII_BUF_SIZE];
 static int current_pool_index = 0;
 
 char *intToAscii(int num) {
-  // 1. Obtenemos el siguiente buffer disponible rotando el índice
+  // --- INICIO SECCIÓN CRÍTICA ---
+  // Guardamos el estado de las IRQs y las apagamos para que la rotación sea
+  // 100% atómica
+  uint32_t flags_guardadas;
+  __asm__ __volatile__("CYE SR8, %0" : "=r"(flags_guardadas));
+  irqOff();
+
   char *ascii_buffer = ascii_pool[current_pool_index];
   current_pool_index = (current_pool_index + 1) % ASCII_POOL_SIZE;
 
-  char temp[32];
+  // Restauramos el estado original de las IRQs (por si ya estaban apagadas)
+  __asm__ __volatile__("CYR %0, SR8" : : "r"(flags_guardadas));
+  // --- FIN SECCIÓN CRÍTICA ---
+
+  char *p = ascii_buffer + ASCII_BUF_SIZE - 1;
+  *p = '\0'; // Fin de cadena
+
   uint32_t uval;
   int is_negative = 0;
-  int temp_idx = 0;
-  int buf_idx = 0;
 
-  // Manejo de signo y desbordamiento seguro para INT_MIN
   if (num < 0) {
     is_negative = 1;
-    uval = 0 - (uint32_t)num;
+    uval = -(uint32_t)num;
   } else {
     uval = (uint32_t)num;
   }
 
-  // Caso especial para el valor 0
+  // Extracción de dígitos de atrás hacia adelante
   if (uval == 0) {
-    temp[temp_idx++] = '0';
+    *--p = '0';
   } else {
-    // Extraer dígitos
     while (uval > 0) {
-      temp[temp_idx++] = (char)('0' + (uval % 10));
+      *--p = '0' + (uval % 10);
       uval /= 10;
     }
   }
 
-  // Si era negativo, añadir el signo '-'
   if (is_negative) {
-    ascii_buffer[buf_idx++] = '-';
+    *--p = '-';
   }
 
-  // Invertir los dígitos y guardar en memoria
-  while (temp_idx > 0) {
-    ascii_buffer[buf_idx++] = temp[--temp_idx];
-  }
-
-  // Carácter de fin de cadena
-  ascii_buffer[buf_idx] = '\0';
-
-  // Devolver el puntero al buffer específico que acabamos de usar
-  return ascii_buffer;
+  return p; // Devuelve el puntero exacto dentro del búfer
 }

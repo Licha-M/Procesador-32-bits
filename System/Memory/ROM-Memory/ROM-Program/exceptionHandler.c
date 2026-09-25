@@ -29,7 +29,7 @@ uint32_t pageFault(uint32_t eflags, uint32_t epc) {
   (void)eflags;
   irqOff();
   system_panic = true; // Habilitamos la via de impresion sin IRQs
-  biosWrite("Fatal Error: Page Fault without MMU", 0);
+  biosWrite("\nFatal Error: Page Fault without MMU", 0);
   __asm__ volatile("HLT");
   return epc;
 }
@@ -39,7 +39,7 @@ uint32_t alignamentFault(uint32_t eflags, uint32_t epc) {
   (void)eflags;
   irqOff();
   system_panic = true; // Habilitamos la via de impresion sin IRQs
-  biosWrite("Fatal Error: Alignament Fault", 0);
+  biosWrite("\nFatal Error: Alignament Fault", 0);
   __asm__ volatile("HLT");
   return epc;
 }
@@ -49,7 +49,7 @@ uint32_t generalProtectionFault(uint32_t eflags, uint32_t epc) {
   (void)eflags;
   irqOff();
   system_panic = true; // Habilitamos la via de impresion sin IRQs
-  biosWrite("Fatal Error: General Protection Fault", 0);
+  biosWrite("\nFatal Error: General Protection Fault", 0);
   __asm__ volatile("HLT");
   return epc;
 }
@@ -59,7 +59,7 @@ uint32_t invalidOpCode(uint32_t eflags, uint32_t epc) {
   (void)eflags;
   irqOff();
   system_panic = true; // Habilitamos la via de impresion sin IRQs
-  biosWrite("Fatal Error: Invalid OpCode", 0);
+  biosWrite("\nFatal Error: Invalid OpCode", 0);
   __asm__ volatile("HLT");
   return epc;
 }
@@ -69,7 +69,7 @@ uint32_t doubleFault(uint32_t eflags, uint32_t epc) {
   (void)eflags;
   irqOff();
   system_panic = true; // Habilitamos la via de impresion sin IRQs
-  biosWrite("Fatal Error: Double Fault", 0);
+  biosWrite("\nFatal Error: Double Fault", 0);
   __asm__ volatile("HLT");
   return epc;
 }

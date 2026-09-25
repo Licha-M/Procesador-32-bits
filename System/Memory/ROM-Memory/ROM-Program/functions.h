@@ -101,9 +101,6 @@ size_t strlen(const char *str);
 #define LAPIC_BASE_ADDR 0xFEE00000 // Base del LAPIC
 
 // Tipo puntero a función para manejadores de IRQ.
-// Reciben las EFlags (para saber si el error vino de user o kernel) y el
-// EPC de retorno; devuelven el EPC ya corregido (el handler decide si hay
-// que sumarle 4 o dejarlo igual).
 typedef uint32_t (*IRQHandler)(uint32_t eflags, uint32_t epc);
 
 // Inicialización de LAPIC

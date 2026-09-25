@@ -40,7 +40,11 @@ void bus_Enumeration(uint32_t bus, int *next_bus_number, int *offset_BAR_Pos) {
       // ---- Verificar si hay dispositivo ----
       uint32_t vendor_device = ECAM_R(base, OFF_VENDOR_DEVICE);
       if ((vendor_device & 0xFFFF) == 0xFFFF) {
-        // No hay dispositivo en este slot
+
+        // En buses secundarios, si el dispositivo 0 esta vacio no hay nada más
+        if (bus != 0 && dev == 0) {
+          return;
+        }
         break;
       }
 
@@ -103,8 +107,7 @@ void bus_Enumeration(uint32_t bus, int *next_bus_number, int *offset_BAR_Pos) {
 
         uint32_t secondary_bus = (uint32_t)*next_bus_number;
 
-        // Escribir PSS: Primary, Secondary (para que el puente rutee el bus) y
-        // Subordinate temporal
+        // Escribir PSS: Primary, Secondary y Subordinate temporal
         uint32_t pss = ECAM_R(base, OFF_PSS);
         pss &= ~0x00FFFFFF;  // Limpiar Primary, Secondary, Subordinate
         pss |= (bus & 0xFF); // Primary (bits 0-7)

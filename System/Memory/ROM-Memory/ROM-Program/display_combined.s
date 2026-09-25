@@ -474,97 +474,107 @@ displaySearch:                          ; @displaySearch
 	SLT ADI R14, 8
 	INT STR R14, R8, -4
 	LDI R1, 0
-	H LDI R1, 49153
-	SLT ADI R1, -16384
-	LDI R2, 0
-	H LDI R2, 57345
-	SLT ADI R2, -32744
-	INT STR R2, R1, 0
-	LDI R1, 0
-	H LDI R1, 1
-	SLT ADI R1, 256
-	LDI R2, 0
-	H LDI R2, 57345
-	SLT ADI R2, -32752
-	INT STR R2, R1, 0
-	LDI R2, 3
-	LDI R1, 0
-	H LDI R1, 57345
-	SLT ADI R1, -32764
-	INT STR R1, R2, 0
-	LDI R1, 0
-	H LDI R1, 49152
+	H LDI R1, 7
 	SLT ADI R1, 0
-	LDI R3, 0
-	H LDI R3, 57360
-	SLT ADI R3, 16
-	INT STR R3, R1, 0
-	LDI R1, 0
-	H LDI R1, 57360
-	SLT ADI R1, 4
-	INT STR R1, R2, 0
+	H LDI R15, %hi(search)
+	SLT ADI R15, %lo(search)
+	CAL R15
+	LDI R2, 0
+	SUB R1, R2, R0
+	H LDI R15, %hi(.LBB5_4)
+	SLT ADI R15, %lo(.LBB5_4)
+	BRH N, R15
+; %bb.1:                                ; %if.end
+	LDI R3, 20
+	MUL R1, R3, R1
 	LDI R4, 0
-	LDI R5, 0
-	H LDI R5, display_queue+48
-	SLT ADI R5, display_queue+48
-	CHAR STR R5, R4, 0
-	LDI R5, 0
-	H LDI R5, display_queue+49
-	SLT ADI R5, display_queue+49
-	CHAR STR R5, R4, 0
-	LDI R5, 0
-	H LDI R5, display_queue+50
-	SLT ADI R5, display_queue+50
-	CHAR STR R5, R4, 0
-	LDI R5, 0
-	H LDI R5, hardware_busy
-	SLT ADI R5, hardware_busy
-	CHAR STR R5, R4, 0
-	INT STR R1, R2, 0
-	INT LOD R3, R2, 0
+	H LDI R4, mapa
+	SLT ADI R4, mapa
+	INT LOD R4, R4, 0
+	ADD R4, R1, R1
+	CHAR LOD R1, R4, 16
+	CHAR LOD R1, R5, 17
+	CHAR LOD R1, R1, 18
+	LDI R6, 0
+	H LDI R6, display_queue+48
+	SLT ADI R6, display_queue+48
+	CHAR STR R6, R2, 0
+	LDI R6, 0
+	H LDI R6, display_queue+49
+	SLT ADI R6, display_queue+49
+	CHAR STR R6, R2, 0
+	LDI R6, 0
+	H LDI R6, display_queue+50
+	SLT ADI R6, display_queue+50
+	CHAR STR R6, R2, 0
+	LDI R6, 0
+	H LDI R6, hardware_busy
+	SLT ADI R6, hardware_busy
+	CHAR STR R6, R2, 0
+	LSH R4, R3, R2
+	LDI R3, 15
+	LSH R5, R3, R3
+	NOR R3, R2, R2
+	LDI R3, 12
+	LSH R1, R3, R1
+	NOR R2, R2, R2
+	NOR R2, R1, R1
+	NOR R1, R1, R1
+	LDI R2, 0
+	H LDI R2, 57344
+	SLT ADI R2, 4
+	NOR R1, R2, R2
+	NOR R2, R2, R2
+	LDI R3, 3
+	INT STR R2, R3, 0
+	LDI R2, 0
+	H LDI R2, 57344
+	SLT ADI R2, 16
+	NOR R1, R2, R2
+	NOR R2, R2, R2
+	INT LOD R2, R2, 0
 	LDI R3, 0
 	H LDI R3, current_display+4
 	SLT ADI R3, current_display+4
 	INT STR R3, R2, 0
 	LDI R2, 0
-	H LDI R2, 57360
+	H LDI R2, 57344
 	SLT ADI R2, 36
+	NOR R1, R2, R2
+	LDI R3, 0
+	H LDI R3, 57344
+	SLT ADI R3, 0
+	NOR R1, R3, R1
+	NOR R1, R1, R8
+	NOR R2, R2, R1
+	INT LOD R1, R1, 0
+	ADD R1, R8, R2
+	LDI R1, 255
 	INT LOD R2, R3, 0
-	LDI R8, 0
-	H LDI R8, 57360
-	SLT ADI R8, 0
-	ADD R3, R8, R2
-	INT LOD R2, R4, 0
-	LDI R5, 255
-	AND R4, R5, R4
-	LDI R5, 5
-	SUB R4, R5, R0
-	H LDI R15, %hi(.LBB5_2)
-	SLT ADI R15, %lo(.LBB5_2)
+	AND R3, R1, R1
+	LDI R3, 5
+	SUB R1, R3, R0
+	H LDI R15, %hi(.LBB5_3)
+	SLT ADI R15, %lo(.LBB5_3)
 	BRH NE, R15
-; %bb.1:                                ; %if.then.i
-	INT LOD R2, R4, 0
-	LDI R5, 8
-	LSH R4, R5, R4
-	LDI R5, 0
-	H LDI R5, 1792
-	SLT ADI R5, 0
-	AND R4, R5, R4
-	INT LOD R2, R5, 0
-	NOR R4, R5, R4
-	NOR R4, R4, R4
-	INT STR R2, R4, 0
-	ADD R3, R1, R1
-	LDI R4, 0
-	H LDI R4, 65248
-	SLT ADI R4, 44
-	INT STR R1, R4, 0
+; %bb.2:                                ; %if.then.i
+	INT LOD R2, R1, 0
+	LDI R3, 8
+	LSH R1, R3, R1
+	LDI R3, 0
+	H LDI R3, 1792
+	SLT ADI R3, 0
+	AND R1, R3, R1
+	INT LOD R2, R3, 0
+	NOR R1, R3, R1
+	NOR R1, R1, R1
+	INT STR R2, R1, 0
 	LDI R1, 0
-	H LDI R1, 57360
-	SLT ADI R1, 8
-	ADD R3, R1, R3
+	H LDI R1, 65248
+	SLT ADI R1, 44
+	INT STR R2, R1, 4
 	LDI R1, 127
-	INT STR R3, R1, 0
+	INT STR R2, R1, 8
 	LDI R3, 0
 	H LDI R3, 8
 	SLT ADI R3, 0
@@ -578,7 +588,7 @@ displaySearch:                          ; @displaySearch
 	H LDI R15, %hi(registerIRQHandler)
 	SLT ADI R15, %lo(registerIRQHandler)
 	CAL R15
-.LBB5_2:                                ; %initTty.exit
+.LBB5_3:                                ; %initTty.exit
 	LDI R1, 0
 	H LDI R1, ttyWrite
 	SLT ADI R1, ttyWrite
@@ -590,6 +600,7 @@ displaySearch:                          ; @displaySearch
 	H LDI R1, current_display+8
 	SLT ADI R1, current_display+8
 	INT STR R1, R8, 0
+.LBB5_4:                                ; %cleanup
 	INT LOD R14, R8, -4
 	SLT ADI R14, -8
 	RET
@@ -602,19 +613,18 @@ strlen:                                 ; @strlen
 ; %bb.0:                                ; %entry
 	SLT ADI R14, 4
 	SLT ADD R1, R0, R2
+	ADI R2, -1
 	LDI R3, 0
-	SLT ADD R3, R0, R1
 .LBB6_1:                                ; %while.cond
                                         ; =>This Inner Loop Header: Depth=1
-	ADD R2, R1, R4
-	ADI R1, 1
-	CHAR LOD R4, R4, 0
+	CHAR LOD R2, R4, 1
+	ADI R2, 1
 	SUB R4, R3, R0
 	H LDI R15, %hi(.LBB6_1)
 	SLT ADI R15, %lo(.LBB6_1)
 	BRH NE, R15
 ; %bb.2:                                ; %while.end
-	ADI R1, -1
+	SUB R2, R1, R1
 	SLT ADI R14, -4
 	RET
 .Lfunc_end6:
@@ -632,22 +642,22 @@ biosWrite:                              ; @biosWrite
 	H LDI R2, current_display
 	SLT ADI R2, current_display
 	INT LOD R2, R9, 0
-	LDI R2, 0
-	SUB R9, R2, R0
-	H LDI R15, %hi(.LBB7_12)
-	SLT ADI R15, %lo(.LBB7_12)
+	LDI R4, 0
+	SUB R9, R4, R0
+	H LDI R15, %hi(.LBB7_13)
+	SLT ADI R15, %lo(.LBB7_13)
 	BRH EQ, R15
 ; %bb.1:                                ; %if.then
-	CHAR LOD R1, R4, 0
-	LDI R6, 1
-	LDI R5, 255
-	SUB R3, R6, R0
+	CHAR LOD R1, R5, 0
+	LDI R2, 1
+	LDI R6, 255
+	SUB R3, R2, R0
 	H LDI R15, %hi(.LBB7_5)
 	SLT ADI R15, %lo(.LBB7_5)
 	BRH N, R15
 ; %bb.2:                                ; %if.then
-	AND R4, R5, R6
-	SUB R6, R2, R0
+	AND R5, R6, R7
+	SUB R7, R4, R0
 	H LDI R15, %hi(.LBB7_5)
 	SLT ADI R15, %lo(.LBB7_5)
 	BRH NE, R15
@@ -657,33 +667,33 @@ biosWrite:                              ; @biosWrite
 	SLT ADI R15, %lo(.LBB7_4)
 	JMP R15
 .LBB7_5:                                ; %if.else
-	SUB R3, R2, R0
+	SUB R3, R4, R0
 	H LDI R15, %hi(.LBB7_8)
 	SLT ADI R15, %lo(.LBB7_8)
 	BRH NE, R15
 ; %bb.6:                                ; %if.else
-	AND R4, R5, R4
-	SUB R4, R2, R0
+	AND R5, R6, R5
+	SUB R5, R4, R0
 	H LDI R15, %hi(.LBB7_8)
 	SLT ADI R15, %lo(.LBB7_8)
 	BRH NE, R15
 ; %bb.7:                                ; %if.then13
 	LDI R2, 3
 	LDI R3, 0
-.LBB7_4:                                ; %if.end23
+.LBB7_4:                                ; %if.then19
 	LDI R1, 0
 	H LDI R1, .L.str
 	SLT ADI R1, .L.str
-.LBB7_11:                               ; %if.end23
+.LBB7_12:                               ; %if.then19
 	CAL R9
-.LBB7_12:                               ; %if.end23
+.LBB7_13:                               ; %if.end27
 	INT LOD R14, R9, -8
 	INT LOD R14, R8, -4
 	SLT ADI R14, -12
 	RET
 .LBB7_8:                                ; %if.else14
-	CHAR LOD R1, R4, 1
-	SUB R4, R2, R0
+	CHAR LOD R1, R5, 1
+	SUB R5, R4, R0
 	H LDI R15, %hi(.LBB7_10)
 	SLT ADI R15, %lo(.LBB7_10)
 	BRH EQ, R15
@@ -695,13 +705,18 @@ biosWrite:                              ; @biosWrite
 	SLT ADD R1, R0, R3
 	LDI R2, 4
 	SLT ADD R8, R0, R1
-	H LDI R15, %hi(.LBB7_11)
-	SLT ADI R15, %lo(.LBB7_11)
+	H LDI R15, %hi(.LBB7_12)
+	SLT ADI R15, %lo(.LBB7_12)
 	JMP R15
 .LBB7_10:                               ; %if.then19
-	LDI R2, 1
-	H LDI R15, %hi(.LBB7_11)
-	SLT ADI R15, %lo(.LBB7_11)
+	SUB R2, R3, R0
+	H LDI R15, %hi(.LBB7_12)
+	SLT ADI R15, %lo(.LBB7_12)
+	BRH C, R15
+; %bb.11:                               ; %if.then19
+	SLT ADD R2, R0, R3
+	H LDI R15, %hi(.LBB7_12)
+	SLT ADI R15, %lo(.LBB7_12)
 	JMP R15
 .Lfunc_end7:
 	.size	biosWrite, .Lfunc_end7-biosWrite
@@ -710,137 +725,732 @@ biosWrite:                              ; @biosWrite
 	.type	intToAscii,@function
 intToAscii:                             ; @intToAscii
 ; %bb.0:                                ; %entry
-	SLT ADI R14, 64
-	INT STR R14, R8, -40
-	INT STR R14, R9, -44
-	INT STR R14, R10, -48
-	INT STR R14, R11, -52
-	INT STR R14, R12, -56
-	INT STR R14, R13, -60
-	SLT ADD R1, R0, R2
+	SLT ADI R14, 12
+	INT STR R14, R8, -4
+	INT STR R14, R9, -8
+	SLT ADD R1, R0, R8
+	;APP
+	CYE SR8, R9
+	;NO_APP
+	H LDI R15, %hi(irqOff)
+	SLT ADI R15, %lo(irqOff)
+	CAL R15
 	LDI R1, 0
 	H LDI R1, current_pool_index
 	SLT ADI R1, current_pool_index
-	INT LOD R1, R3, 0
-	SLT ADD R3, R0, R4
-	ADI R4, 1
-	LDI R5, 7
-	AND R4, R5, R4
-	INT STR R1, R4, 0
+	INT LOD R1, R2, 0
+	SLT ADD R2, R0, R3
+	ADI R3, 1
+	LDI R4, 7
+	AND R3, R4, R3
+	INT STR R1, R3, 0
+	;APP
+	CYR R9, SR8
+	;NO_APP
 	LDI R1, 5
-	LSH R3, R1, R4
-	LDI R1, 0
-	H LDI R1, ascii_pool
-	SLT ADI R1, ascii_pool
-	ADD R4, R1, R1
-	LDI R3, 0
-	SUB R2, R3, R0
-	H LDI R15, %hi(.LBB8_12)
-	SLT ADI R15, %lo(.LBB8_12)
+	LSH R2, R1, R1
+	LDI R2, 0
+	H LDI R2, ascii_pool+31
+	SLT ADI R2, ascii_pool+31
+	ADD R1, R2, R3
+	LDI R2, 0
+	CHAR STR R3, R2, 0
+	SUB R8, R2, R0
+	H LDI R15, %hi(.LBB8_9)
+	SLT ADI R15, %lo(.LBB8_9)
 	BRH EQ, R15
 ; %bb.1:                                ; %while.body.preheader
-	LDI R6, 31
-	SLT ADD R2, R0, R5
-	SUB R6, R3, R0
+	LDI R4, 31
+	SLT ADD R8, R0, R3
+	SUB R4, R2, R0
 	H LDI R15, %hi(.LBB8_3)
 	SLT ADI R15, %lo(.LBB8_3)
 	BRH EQ, R15
 ; %bb.2:                                ; %while.body.preheader
-	RSH R2, R6, R5
-	LDI R6, 1
-	LSH R5, R6, R6
-	SUB R5, R6, R5
+	RSH R8, R4, R2
+	LDI R3, 1
+	LSH R2, R3, R3
+	SUB R2, R3, R3
 .LBB8_3:                                ; %while.body.preheader
-	INT STR R14, R4, -4
-	XOR R2, R5, R6
-	SUB R6, R5, R7
-	LDI R6, 3
-	LDI R8, 10
-	LDI R9, 48
-	ADD R14, R0, R10
-	SLT ADI R10, -36
-	LDI R11, 9
-	SLT ADD R3, R0, R5
+	XOR R8, R3, R2
+	SUB R2, R3, R2
+	LDI R3, 0
+	H LDI R3, ascii_pool+30
+	SLT ADI R3, ascii_pool+30
+	ADD R1, R3, R1
+	LDI R3, 3
+	LDI R4, 10
+	LDI R5, 48
+	LDI R6, 9
 .LBB8_4:                                ; %while.body
                                         ; =>This Inner Loop Header: Depth=1
-	SLT ADD R7, R0, R12
-	GOF R7
-	RSH R7, R6, R7
-	MUL R7, R8, R13
-	SUB R12, R13, R13
-	NOR R13, R9, R13
-	ADD R10, R5, R4
-	NOR R13, R13, R13
-	CHAR STR R4, R13, 0
-	ADI R5, 1
-	SUB R11, R12, R0
+	SLT ADD R2, R0, R7
+	GOF R2
+	RSH R2, R3, R2
+	MUL R2, R4, R9
+	SUB R7, R9, R9
+	NOR R9, R5, R9
+	NOR R9, R9, R9
+	CHAR STR R1, R9, 0
+	ADI R1, -1
+	SUB R6, R7, R0
 	H LDI R15, %hi(.LBB8_4)
 	SLT ADI R15, %lo(.LBB8_4)
 	BRH C, R15
-; %bb.5:                                ; %if.end10
-	LDI R4, 0
-	H LDI R4, 0
-	SLT ADI R4, -1
-	SUB R4, R2, R0
+; %bb.5:                                ; %if.end9
+	LDI R2, 0
+	H LDI R2, 0
+	SLT ADI R2, -1
+	SUB R2, R8, R0
 	H LDI R15, %hi(.LBB8_7)
 	SLT ADI R15, %lo(.LBB8_7)
 	BRH NN, R15
 ; %bb.6:
-	LDI R6, 0
+	ADI R1, 1
 	H LDI R15, %hi(.LBB8_8)
 	SLT ADI R15, %lo(.LBB8_8)
 	JMP R15
-.LBB8_12:                               ; %if.end10.thread
-	ADD R14, R0, R2
-	SLT ADI R2, -36
-	LDI R5, 48
-	CHAR STR R2, R5, 0
-	LDI R6, 0
-	LDI R5, 1
-	H LDI R15, %hi(.LBB8_9)
-	SLT ADI R15, %lo(.LBB8_9)
+.LBB8_9:                                ; %if.end9.thread
+	LDI R2, 0
+	H LDI R2, ascii_pool
+	SLT ADI R2, ascii_pool
+	ADD R1, R2, R1
+	LDI R2, 48
+	CHAR STR R1, R2, 30
+	ADI R1, 30
+	H LDI R15, %hi(.LBB8_8)
+	SLT ADI R15, %lo(.LBB8_8)
 	JMP R15
-.LBB8_7:                                ; %if.then11
+.LBB8_7:                                ; %if.then10
 	LDI R2, 45
 	CHAR STR R1, R2, 0
-	LDI R6, 1
-.LBB8_8:                                ; %if.end14
-	INT LOD R14, R4, -4
-.LBB8_9:                                ; %if.end14
-	ADD R5, R6, R2
-	NOR R6, R4, R4
-	NOR R4, R4, R4
-	LDI R6, 0
-	H LDI R6, ascii_pool
-	SLT ADI R6, ascii_pool
-	ADD R4, R6, R4
-	ADD R14, R0, R6
-	SLT ADI R6, -36
-	ADI R6, -1
-.LBB8_10:                               ; %while.body18
-                                        ; =>This Inner Loop Header: Depth=1
-	ADD R6, R5, R7
-	CHAR LOD R7, R7, 0
-	CHAR STR R4, R7, 0
-	ADI R4, 1
-	ADI R5, -1
-	SUB R5, R3, R0
-	H LDI R15, %hi(.LBB8_10)
-	SLT ADI R15, %lo(.LBB8_10)
-	BRH NE, R15
-; %bb.11:                               ; %while.end22
-	ADD R1, R2, R2
-	CHAR STR R2, R3, 0
-	INT LOD R14, R13, -60
-	INT LOD R14, R12, -56
-	INT LOD R14, R11, -52
-	INT LOD R14, R10, -48
-	INT LOD R14, R9, -44
-	INT LOD R14, R8, -40
-	SLT ADI R14, -64
+.LBB8_8:                                ; %if.end12
+	INT LOD R14, R9, -8
+	INT LOD R14, R8, -4
+	SLT ADI R14, -12
 	RET
 .Lfunc_end8:
 	.size	intToAscii, .Lfunc_end8-intToAscii
+                                        ; -- End function
+	.globl	bus_Enumeration                 ; -- Begin function bus_Enumeration
+	.type	bus_Enumeration,@function
+bus_Enumeration:                        ; @bus_Enumeration
+; %bb.0:                                ; %entry
+	SLT ADI R14, 52
+	INT STR R14, R8, -28
+	INT STR R14, R9, -32
+	INT STR R14, R10, -36
+	INT STR R14, R11, -40
+	INT STR R14, R12, -44
+	INT STR R14, R13, -48
+	SLT ADD R3, R0, R7
+	SLT ADD R2, R0, R6
+	SLT ADD R1, R0, R5
+	LDI R1, 255
+	SUB R1, R5, R0
+	H LDI R15, %hi(.LBB9_31)
+	SLT ADI R15, %lo(.LBB9_31)
+	BRH C, R15
+; %bb.1:                                ; %for.cond.preheader
+	LDI R1, 20
+	LSH R5, R1, R1
+	INT STR R14, R1, -16
+	LDI R9, 0
+	LDI R4, 1
+	LDI R11, 0
+	H LDI R11, map_size
+	SLT ADI R11, map_size
+	LDI R8, 0
+	H LDI R8, 49152
+	SLT ADI R8, 0
+	LDI R10, 0
+	H LDI R10, mapa
+	SLT ADI R10, mapa
+	INT STR R14, R9, -12
+	INT STR R14, R7, -8
+	INT STR R14, R5, -4
+.LBB9_2:                                ; %for.cond2.preheader
+                                        ; =>This Loop Header: Depth=1
+                                        ;     Child Loop BB9_3 Depth 2
+	SLT ADD R9, R0, R13
+	SLT ADD R9, R0, R1
+.LBB9_3:                                ; %for.body5
+                                        ;   Parent Loop BB9_2 Depth=1
+                                        ; =>  This Inner Loop Header: Depth=2
+	INT STR R14, R1, -24
+	INT LOD R14, R1, -16
+	ADD R1, R13, R12
+	LDI R1, 0
+	H LDI R1, 57344
+	SLT ADI R1, 0
+	ADD R12, R1, R1
+	INT LOD R1, R1, 0
+	LDI R2, 0
+	H LDI R2, 1
+	SLT ADI R2, -1
+	AND R1, R2, R1
+	SUB R1, R2, R0
+	H LDI R15, %hi(.LBB9_4)
+	SLT ADI R15, %lo(.LBB9_4)
+	BRH EQ, R15
+; %bb.9:                                ; %if.end16
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	INT LOD R11, R1, 0
+	LDI R2, 63
+	SUB R2, R1, R0
+	H LDI R15, %hi(.LBB9_31)
+	SLT ADI R15, %lo(.LBB9_31)
+	BRH N, R15
+; %bb.10:                               ; %if.end19
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	INT LOD R7, R2, 0
+	ADD R2, R8, R2
+	LDI R3, 20
+	LDI R11, 0
+	H LDI R11, 49152
+	SLT ADI R11, 0
+	MUL R1, R3, R8
+	INT LOD R10, R1, 0
+	ADD R1, R8, R1
+	INT STR R1, R2, 0
+	CHAR STR R1, R5, 16
+	INT LOD R14, R2, -12
+	CHAR STR R1, R2, 17
+	INT LOD R14, R2, -24
+	CHAR STR R1, R2, 18
+	LDI R2, 0
+	H LDI R2, 57344
+	SLT ADI R2, 8
+	ADD R12, R2, R2
+	INT LOD R2, R10, 0
+	LDI R2, 24
+	RSH R10, R2, R2
+	LDI R3, 127
+	AND R2, R3, R2
+	INT STR R1, R10, 12
+	SUB R2, R4, R0
+	H LDI R15, %hi(.LBB9_11)
+	SLT ADI R15, %lo(.LBB9_11)
+	BRH NE, R15
+; %bb.32:                               ; %if.then79
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	INT LOD R7, R2, 0
+	LDI R3, 0
+	H LDI R3, 1
+	SLT ADI R3, -1
+	ADD R2, R3, R2
+	LDI R3, 0
+	H LDI R3, 65535
+	SLT ADI R3, 0
+	AND R2, R3, R2
+	INT STR R7, R2, 0
+	ADD R2, R11, R2
+	INT STR R1, R2, 0
+	LDI R2, 0
+	H LDI R2, map_size
+	SLT ADI R2, map_size
+	INT LOD R2, R1, 0
+	ADI R1, 1
+	INT STR R2, R1, 0
+	INT STR R14, R12, -20
+	LDI R1, 0
+	H LDI R1, 57344
+	SLT ADI R1, 16
+	ADD R12, R1, R9
+	INT LOD R6, R1, 0
+	INT LOD R9, R2, 0
+	LDI R3, 0
+	H LDI R3, 65280
+	SLT ADI R3, 0
+	AND R2, R3, R2
+	LDI R3, 255
+	AND R1, R3, R3
+	LDI R4, 16
+	LSH R3, R4, R4
+	NOR R2, R4, R2
+	NOR R2, R2, R2
+	NOR R2, R5, R2
+	LDI R4, 8
+	LSH R3, R4, R11
+	NOR R2, R2, R2
+	NOR R2, R11, R2
+	NOR R2, R2, R2
+	INT STR R9, R2, 0
+	INT LOD R6, R2, 0
+	ADI R2, 1
+	INT STR R6, R2, 0
+	SLT ADD R6, R0, R12
+	SLT ADD R6, R0, R2
+	SLT ADD R7, R0, R3
+	H LDI R15, %hi(bus_Enumeration)
+	SLT ADI R15, %lo(bus_Enumeration)
+	CAL R15
+	INT LOD R14, R7, -8
+	LDI R1, 0
+	H LDI R1, mapa
+	SLT ADI R1, mapa
+	INT LOD R1, R1, 0
+	ADD R1, R8, R1
+	INT LOD R7, R2, 0
+	INT LOD R1, R3, 0
+	LDI R4, 0
+	H LDI R4, 16384
+	SLT ADI R4, 0
+	ADD R3, R4, R3
+	SUB R3, R2, R0
+	H LDI R15, %hi(.LBB9_34)
+	SLT ADI R15, %lo(.LBB9_34)
+	BRH NC, R15
+; %bb.33:                               ; %if.then103
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	LDI R3, 0
+	H LDI R3, 1
+	SLT ADI R3, -1
+	ADD R2, R3, R2
+	LDI R3, 0
+	H LDI R3, 65535
+	SLT ADI R3, 0
+	AND R2, R3, R2
+	INT STR R7, R2, 0
+.LBB9_34:                               ; %if.end106
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	INT LOD R9, R2, 0
+	LDI R3, 0
+	H LDI R3, 65280
+	SLT ADI R3, 255
+	AND R2, R3, R2
+	SLT ADD R12, R0, R6
+	INT LOD R6, R3, 0
+	LDI R4, 16
+	LSH R3, R4, R3
+	LDI R4, 0
+	H LDI R4, 255
+	SLT ADI R4, 0
+	ADD R3, R4, R3
+	AND R3, R4, R3
+	NOR R2, R3, R2
+	NOR R2, R2, R2
+	NOR R2, R11, R2
+	NOR R2, R2, R2
+	INT STR R9, R2, 0
+	INT LOD R7, R2, 0
+	LDI R3, 0
+	H LDI R3, 49152
+	SLT ADI R3, 0
+	ADD R2, R3, R4
+	INT STR R1, R4, 4
+	INT LOD R1, R3, 0
+	SUB R4, R3, R3
+	INT STR R1, R3, 8
+	INT LOD R1, R5, 0
+	LDI R9, 0
+	SLT ADD R9, R0, R3
+	INT LOD R14, R8, -20
+	SUB R5, R4, R0
+	H LDI R15, %hi(.LBB9_36)
+	SLT ADI R15, %lo(.LBB9_36)
+	BRH NC, R15
+; %bb.35:                               ; %if.then130
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	LDI R3, 0
+	H LDI R3, 57344
+	SLT ADI R3, 4
+	ADD R8, R3, R3
+	INT LOD R1, R1, 0
+	LDI R4, 3
+	INT STR R3, R4, 0
+	LDI R3, 0
+	H LDI R3, 49152
+	SLT ADI R3, -1
+	ADD R2, R3, R2
+	LDI R3, 0
+	H LDI R3, 65535
+	SLT ADI R3, 0
+	AND R2, R3, R2
+	LDI R3, 16
+	RSH R1, R3, R1
+	NOR R1, R2, R1
+	NOR R1, R1, R3
+.LBB9_36:                               ; %if.end139
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	LDI R1, 0
+	H LDI R1, 57344
+	SLT ADI R1, 24
+	ADD R8, R1, R1
+	INT STR R1, R3, 0
+	LDI R4, 1
+	SLT ADD R4, R0, R1
+	LDI R11, 0
+	H LDI R11, map_size
+	SLT ADI R11, map_size
+	SUB R10, R9, R0
+	H LDI R15, %hi(.LBB9_38)
+	SLT ADI R15, %lo(.LBB9_38)
+	BRH N, R15
+; %bb.37:                               ; %if.end139
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	SLT ADD R9, R0, R1
+.LBB9_38:                               ; %if.end139
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	SLT ADD R4, R0, R2
+	INT LOD R14, R5, -4
+	LDI R8, 0
+	H LDI R8, 49152
+	SLT ADI R8, 0
+	SUB R13, R9, R0
+	H LDI R15, %hi(.LBB9_40)
+	SLT ADI R15, %lo(.LBB9_40)
+	BRH NE, R15
+; %bb.39:                               ; %if.end139
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	SLT ADD R9, R0, R2
+.LBB9_40:                               ; %if.end139
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	NOR R2, R1, R1
+	NOR R1, R1, R1
+	LDI R10, 0
+	H LDI R10, mapa
+	SLT ADI R10, mapa
+	SUB R1, R4, R0
+	H LDI R15, %hi(.LBB9_42)
+	SLT ADI R15, %lo(.LBB9_42)
+	BRH NE, R15
+; %bb.41:                               ; %if.end139
+                                        ;   in Loop: Header=BB9_3 Depth=2
+	ADI R13, 4096
+	INT LOD R14, R3, -24
+	SLT ADD R3, R0, R1
+	ADI R1, 1
+	LDI R2, 7
+	SUB R3, R2, R0
+	H LDI R15, %hi(.LBB9_3)
+	SLT ADI R15, %lo(.LBB9_3)
+	BRH C, R15
+	H LDI R15, %hi(.LBB9_42)
+	SLT ADI R15, %lo(.LBB9_42)
+	JMP R15
+.LBB9_11:                               ; %if.end19
+                                        ;   in Loop: Header=BB9_2 Depth=1
+	LDI R10, 0
+	H LDI R10, mapa
+	SLT ADI R10, mapa
+	LDI R8, 0
+	H LDI R8, 49152
+	SLT ADI R8, 0
+	LDI R11, 0
+	H LDI R11, map_size
+	SLT ADI R11, map_size
+	SUB R2, R9, R0
+	H LDI R15, %hi(.LBB9_12)
+	SLT ADI R15, %lo(.LBB9_12)
+	BRH EQ, R15
+	H LDI R15, %hi(.LBB9_42)
+	SLT ADI R15, %lo(.LBB9_42)
+	JMP R15
+.LBB9_4:                                ; %if.then11
+                                        ;   in Loop: Header=BB9_2 Depth=1
+	SLT ADD R4, R0, R1
+	SUB R5, R9, R0
+	H LDI R15, %hi(.LBB9_6)
+	SLT ADI R15, %lo(.LBB9_6)
+	BRH NE, R15
+; %bb.5:                                ; %if.then11
+                                        ;   in Loop: Header=BB9_2 Depth=1
+	SLT ADD R9, R0, R1
+.LBB9_6:                                ; %if.then11
+                                        ;   in Loop: Header=BB9_2 Depth=1
+	SLT ADD R4, R0, R2
+	INT LOD R14, R3, -12
+	SUB R3, R9, R0
+	H LDI R15, %hi(.LBB9_8)
+	SLT ADI R15, %lo(.LBB9_8)
+	BRH EQ, R15
+; %bb.7:                                ; %if.then11
+                                        ;   in Loop: Header=BB9_2 Depth=1
+	SLT ADD R9, R0, R2
+.LBB9_8:                                ; %if.then11
+                                        ;   in Loop: Header=BB9_2 Depth=1
+	AND R1, R2, R1
+	AND R1, R4, R1
+	SUB R1, R9, R0
+	H LDI R15, %hi(.LBB9_31)
+	SLT ADI R15, %lo(.LBB9_31)
+	BRH NE, R15
+.LBB9_42:                               ; %for.inc164
+                                        ;   in Loop: Header=BB9_2 Depth=1
+	INT LOD R14, R2, -12
+	ADI R2, 1
+	LDI R1, 32
+	INT STR R14, R2, -12
+	SUB R2, R1, R0
+	H LDI R15, %hi(.LBB9_31)
+	SLT ADI R15, %lo(.LBB9_31)
+	BRH EQ, R15
+; %bb.43:                               ; %for.cond2.preheader.backedge
+                                        ;   in Loop: Header=BB9_2 Depth=1
+	INT LOD R14, R1, -16
+	LDI R2, 0
+	H LDI R2, 1
+	SLT ADI R2, -32768
+	ADD R1, R2, R1
+	INT STR R14, R1, -16
+	H LDI R15, %hi(.LBB9_2)
+	SLT ADI R15, %lo(.LBB9_2)
+	JMP R15
+.LBB9_12:                               ; %for.cond35.preheader
+	LDI R2, 0
+	H LDI R2, 57344
+	SLT ADI R2, 16
+	SLT ADD R12, R0, R8
+	ADD R8, R2, R6
+	LDI R3, 0
+	H LDI R3, 0
+	SLT ADI R3, -1
+	INT STR R6, R3, 0
+	INT LOD R6, R4, 0
+	LDI R2, 0
+	SUB R4, R2, R0
+	H LDI R15, %hi(.LBB9_16)
+	SLT ADI R15, %lo(.LBB9_16)
+	BRH EQ, R15
+; %bb.13:                               ; %if.end50
+	LDI R5, 4096
+	INT LOD R7, R7, 0
+	LDI R8, 0
+	H LDI R8, 49152
+	SLT ADI R8, 0
+	ADD R7, R8, R7
+	INT STR R6, R7, 0
+	SUB R5, R4, R0
+	H LDI R15, %hi(.LBB9_15)
+	SLT ADI R15, %lo(.LBB9_15)
+	BRH NC, R15
+; %bb.14:
+	ADI R4, 4095
+	LDI R5, 0
+	H LDI R5, 0
+	SLT ADI R5, -4096
+	AND R4, R5, R5
+.LBB9_15:                               ; %if.end50
+	INT LOD R14, R7, -8
+	INT LOD R7, R4, 0
+	ADD R4, R5, R4
+	INT STR R7, R4, 0
+	SLT ADD R12, R0, R8
+.LBB9_16:                               ; %for.inc
+	LDI R4, 0
+	H LDI R4, 57344
+	SLT ADI R4, 20
+	ADD R8, R4, R4
+	INT STR R4, R3, 0
+	INT LOD R4, R3, 0
+	SUB R3, R2, R0
+	H LDI R15, %hi(.LBB9_20)
+	SLT ADI R15, %lo(.LBB9_20)
+	BRH EQ, R15
+; %bb.17:                               ; %if.end50.1
+	INT LOD R7, R5, 0
+	LDI R6, 0
+	H LDI R6, 49152
+	SLT ADI R6, 0
+	ADD R5, R6, R5
+	INT STR R4, R5, 0
+	LDI R4, 4096
+	SUB R4, R3, R0
+	H LDI R15, %hi(.LBB9_19)
+	SLT ADI R15, %lo(.LBB9_19)
+	BRH NC, R15
+; %bb.18:
+	ADI R3, 4095
+	LDI R4, 0
+	H LDI R4, 0
+	SLT ADI R4, -4096
+	AND R3, R4, R4
+.LBB9_19:                               ; %if.end50.1
+	INT LOD R7, R3, 0
+	ADD R3, R4, R3
+	INT STR R7, R3, 0
+.LBB9_20:                               ; %for.inc.1
+	LDI R3, 0
+	H LDI R3, 57344
+	SLT ADI R3, 24
+	ADD R8, R3, R5
+	LDI R3, 0
+	H LDI R3, 0
+	SLT ADI R3, -1
+	INT STR R5, R3, 0
+	INT LOD R5, R4, 0
+	SUB R4, R2, R0
+	H LDI R15, %hi(.LBB9_24)
+	SLT ADI R15, %lo(.LBB9_24)
+	BRH EQ, R15
+; %bb.21:                               ; %if.end50.2
+	INT LOD R7, R6, 0
+	LDI R7, 0
+	H LDI R7, 49152
+	SLT ADI R7, 0
+	ADD R6, R7, R6
+	INT STR R5, R6, 0
+	LDI R5, 4096
+	SUB R5, R4, R0
+	H LDI R15, %hi(.LBB9_23)
+	SLT ADI R15, %lo(.LBB9_23)
+	BRH NC, R15
+; %bb.22:
+	ADI R4, 4095
+	LDI R5, 0
+	H LDI R5, 0
+	SLT ADI R5, -4096
+	AND R4, R5, R5
+.LBB9_23:                               ; %if.end50.2
+	INT LOD R14, R7, -8
+	INT LOD R7, R4, 0
+	ADD R4, R5, R4
+	INT STR R7, R4, 0
+.LBB9_24:                               ; %for.inc.2
+	LDI R4, 0
+	H LDI R4, 57344
+	SLT ADI R4, 28
+	ADD R8, R4, R4
+	INT STR R4, R3, 0
+	INT LOD R4, R3, 0
+	SUB R3, R2, R0
+	H LDI R15, %hi(.LBB9_25)
+	SLT ADI R15, %lo(.LBB9_25)
+	BRH EQ, R15
+; %bb.26:                               ; %if.end50.3
+	INT LOD R7, R2, 0
+	LDI R5, 0
+	H LDI R5, 49152
+	SLT ADI R5, 0
+	ADD R2, R5, R2
+	INT STR R4, R2, 0
+	LDI R2, 4097
+	SUB R3, R2, R0
+	H LDI R15, %hi(.LBB9_27)
+	SLT ADI R15, %lo(.LBB9_27)
+	BRH NC, R15
+; %bb.28:                               ; %if.then54.3
+	INT LOD R7, R2, 0
+	ADI R2, 4096
+	H LDI R15, %hi(.LBB9_29)
+	SLT ADI R15, %lo(.LBB9_29)
+	JMP R15
+.LBB9_25:                               ; %for.inc.2.for.inc.3_crit_edge
+	INT LOD R7, R2, 0
+	H LDI R15, %hi(.LBB9_30)
+	SLT ADI R15, %lo(.LBB9_30)
+	JMP R15
+.LBB9_27:                               ; %if.else.3
+	ADI R3, 4095
+	LDI R2, 0
+	H LDI R2, 0
+	SLT ADI R2, -4096
+	AND R3, R2, R2
+	INT LOD R7, R3, 0
+	ADD R3, R2, R2
+.LBB9_29:                               ; %for.inc.3
+	INT STR R7, R2, 0
+.LBB9_30:                               ; %for.inc.3
+	INT LOD R1, R3, 0
+	SUB R2, R3, R2
+	LDI R3, 0
+	H LDI R3, 49152
+	SLT ADI R3, 0
+	ADD R2, R3, R2
+	INT STR R1, R2, 8
+	INT LOD R7, R2, 0
+	ADD R2, R3, R2
+	INT STR R1, R2, 4
+	LDI R1, 0
+	H LDI R1, map_size
+	SLT ADI R1, map_size
+	INT LOD R1, R2, 0
+	ADI R2, 1
+	INT STR R1, R2, 0
+.LBB9_31:                               ; %for.end168
+	INT LOD R14, R13, -48
+	INT LOD R14, R12, -44
+	INT LOD R14, R11, -40
+	INT LOD R14, R10, -36
+	INT LOD R14, R9, -32
+	INT LOD R14, R8, -28
+	SLT ADI R14, -52
+	RET
+.Lfunc_end9:
+	.size	bus_Enumeration, .Lfunc_end9-bus_Enumeration
+                                        ; -- End function
+	.globl	PCIe_Bus_Enumeration            ; -- Begin function PCIe_Bus_Enumeration
+	.type	PCIe_Bus_Enumeration,@function
+PCIe_Bus_Enumeration:                   ; @PCIe_Bus_Enumeration
+; %bb.0:                                ; %entry
+	SLT ADI R14, 12
+	ADD R14, R0, R3
+	SLT ADD R3, R0, R2
+	SLT ADI R2, -8
+	LDI R1, 1
+	INT STR R2, R1, 0
+	SLT ADI R3, -4
+	LDI R1, 0
+	INT STR R3, R1, 0
+	H LDI R15, %hi(bus_Enumeration)
+	SLT ADI R15, %lo(bus_Enumeration)
+	CAL R15
+	SLT ADI R14, -12
+	RET
+.Lfunc_end10:
+	.size	PCIe_Bus_Enumeration, .Lfunc_end10-PCIe_Bus_Enumeration
+                                        ; -- End function
+	.globl	search                          ; -- Begin function search
+	.type	search,@function
+search:                                 ; @search
+; %bb.0:                                ; %entry
+	SLT ADI R14, 4
+	SLT ADD R1, R0, R2
+	LDI R1, 0
+	H LDI R1, map_size
+	SLT ADI R1, map_size
+	INT LOD R1, R3, 0
+	LDI R1, 1
+	SUB R3, R1, R0
+	H LDI R15, %hi(.LBB11_4)
+	SLT ADI R15, %lo(.LBB11_4)
+	BRH N, R15
+; %bb.1:                                ; %for.body.lr.ph
+	LDI R1, 0
+	LDI R4, 0
+	H LDI R4, mapa
+	SLT ADI R4, mapa
+	INT LOD R4, R4, 0
+	ADI R4, 12
+	LDI R5, 0
+	H LDI R5, 256
+	SLT ADI R5, -1
+.LBB11_2:                               ; %for.body
+                                        ; =>This Inner Loop Header: Depth=1
+	INT LOD R4, R6, 0
+	AND R6, R5, R6
+	SUB R6, R2, R0
+	H LDI R15, %hi(.LBB11_5)
+	SLT ADI R15, %lo(.LBB11_5)
+	BRH EQ, R15
+; %bb.3:                                ; %for.inc
+                                        ;   in Loop: Header=BB11_2 Depth=1
+	ADI R4, 20
+	ADI R1, 1
+	SUB R3, R1, R0
+	H LDI R15, %hi(.LBB11_2)
+	SLT ADI R15, %lo(.LBB11_2)
+	BRH NE, R15
+.LBB11_4:
+	LDI R1, 0
+	H LDI R1, 0
+	SLT ADI R1, -1
+.LBB11_5:                               ; %cleanup
+	SLT ADI R14, -4
+	RET
+.Lfunc_end11:
+	.size	search, .Lfunc_end11-search
                                         ; -- End function
 	.globl	mainHandler                     ; -- Begin function mainHandler
 	.type	mainHandler,@function
@@ -869,8 +1479,8 @@ mainHandler:                            ; @mainHandler
 	;NO_APP
 	LDI R1, 0
 	SUB R4, R1, R0
-	H LDI R15, %hi(.LBB9_2)
-	SLT ADI R15, %lo(.LBB9_2)
+	H LDI R15, %hi(.LBB12_2)
+	SLT ADI R15, %lo(.LBB12_2)
 	BRH EQ, R15
 ; %bb.1:                                ; %if.then
 	LDI R4, 4
@@ -879,16 +1489,16 @@ mainHandler:                            ; @mainHandler
 	;APP
 	CYR R4, SR8
 	;NO_APP
-.LBB9_2:                                ; %if.end
+.LBB12_2:                               ; %if.end
 	SUB R3, R1, R0
-	H LDI R15, %hi(.LBB9_6)
-	SLT ADI R15, %lo(.LBB9_6)
+	H LDI R15, %hi(.LBB12_6)
+	SLT ADI R15, %lo(.LBB12_6)
 	BRH EQ, R15
 ; %bb.3:                                ; %if.then2
 	LDI R4, 127
 	SUB R4, R3, R0
-	H LDI R15, %hi(.LBB9_8)
-	SLT ADI R15, %lo(.LBB9_8)
+	H LDI R15, %hi(.LBB12_8)
+	SLT ADI R15, %lo(.LBB12_8)
 	BRH C, R15
 ; %bb.4:                                ; %land.lhs.true
 	LDI R4, 2
@@ -899,23 +1509,23 @@ mainHandler:                            ; @mainHandler
 	ADD R3, R4, R3
 	INT LOD R3, R3, 0
 	SUB R3, R1, R0
-	H LDI R15, %hi(.LBB9_8)
-	SLT ADI R15, %lo(.LBB9_8)
+	H LDI R15, %hi(.LBB12_8)
+	SLT ADI R15, %lo(.LBB12_8)
 	BRH EQ, R15
 ; %bb.5:                                ; %if.then5
 	SLT ADD R8, R0, R1
 	CAL R3
-	H LDI R15, %hi(.LBB9_7)
-	SLT ADI R15, %lo(.LBB9_7)
+	H LDI R15, %hi(.LBB12_7)
+	SLT ADI R15, %lo(.LBB12_7)
 	JMP R15
-.LBB9_6:                                ; %if.else
+.LBB12_6:                               ; %if.else
 	SLT ADD R8, R0, R1
 	H LDI R15, %hi(syscallsHandler)
 	SLT ADI R15, %lo(syscallsHandler)
 	CAL R15
-.LBB9_7:                                ; %if.end9
+.LBB12_7:                               ; %if.end9
 	SLT ADD R1, R0, R2
-.LBB9_8:                                ; %if.end9
+.LBB12_8:                               ; %if.end9
 	LDI R1, 0
 	H LDI R1, 0
 	SLT ADI R1, -5
@@ -943,8 +1553,8 @@ mainHandler:                            ; @mainHandler
 	INT LOD R14, R8, -4
 	SLT ADI R14, -16
 	RET
-.Lfunc_end9:
-	.size	mainHandler, .Lfunc_end9-mainHandler
+.Lfunc_end12:
+	.size	mainHandler, .Lfunc_end12-mainHandler
                                         ; -- End function
 	.globl	entryHandler                    ; -- Begin function entryHandler
 	.type	entryHandler,@function
@@ -985,8 +1595,8 @@ SLT ADI R14, -52
 SRT 
 
 	;NO_APP
-.Lfunc_end10:
-	.size	entryHandler, .Lfunc_end10-entryHandler
+.Lfunc_end13:
+	.size	entryHandler, .Lfunc_end13-entryHandler
                                         ; -- End function
 	.globl	initIRQs                        ; -- Begin function initIRQs
 	.type	initIRQs,@function
@@ -1001,20 +1611,20 @@ initIRQs:                               ; @initIRQs
 	H LDI R3, defaultIRQHandler
 	SLT ADI R3, defaultIRQHandler
 	LDI R4, 512
-.LBB11_1:                               ; %for.body
+.LBB14_1:                               ; %for.body
                                         ; =>This Inner Loop Header: Depth=1
 	ADD R1, R2, R5
 	INT STR R5, R3, 0
 	ADI R1, 4
 	SUB R1, R4, R0
-	H LDI R15, %hi(.LBB11_1)
-	SLT ADI R15, %lo(.LBB11_1)
+	H LDI R15, %hi(.LBB14_1)
+	SLT ADI R15, %lo(.LBB14_1)
 	BRH NE, R15
 ; %bb.2:                                ; %for.cond.cleanup
 	SLT ADI R14, -4
 	RET
-.Lfunc_end11:
-	.size	initIRQs, .Lfunc_end11-initIRQs
+.Lfunc_end14:
+	.size	initIRQs, .Lfunc_end14-initIRQs
                                         ; -- End function
 	.type	defaultIRQHandler,@function     ; -- Begin function defaultIRQHandler
 defaultIRQHandler:                      ; @defaultIRQHandler
@@ -1027,8 +1637,8 @@ defaultIRQHandler:                      ; @defaultIRQHandler
 	CAL R15
 	LDI R2, 0
 	LDI R1, 0
-	H LDI R1, .L.str.1
-	SLT ADI R1, .L.str.1
+	H LDI R1, .L.str.3
+	SLT ADI R1, .L.str.3
 	H LDI R15, %hi(biosWrite)
 	SLT ADI R15, %lo(biosWrite)
 	CAL R15
@@ -1039,8 +1649,8 @@ defaultIRQHandler:                      ; @defaultIRQHandler
 	INT LOD R14, R8, -4
 	SLT ADI R14, -8
 	RET
-.Lfunc_end12:
-	.size	defaultIRQHandler, .Lfunc_end12-defaultIRQHandler
+.Lfunc_end15:
+	.size	defaultIRQHandler, .Lfunc_end15-defaultIRQHandler
                                         ; -- End function
 	.globl	registerIRQHandler              ; -- Begin function registerIRQHandler
 	.type	registerIRQHandler,@function
@@ -1049,14 +1659,14 @@ registerIRQHandler:                     ; @registerIRQHandler
 	SLT ADI R14, 4
 	LDI R3, 127
 	SUB R3, R1, R0
-	H LDI R15, %hi(.LBB13_3)
-	SLT ADI R15, %lo(.LBB13_3)
+	H LDI R15, %hi(.LBB16_3)
+	SLT ADI R15, %lo(.LBB16_3)
 	BRH C, R15
 ; %bb.1:                                ; %entry
 	LDI R3, 0
 	SUB R2, R3, R0
-	H LDI R15, %hi(.LBB13_3)
-	SLT ADI R15, %lo(.LBB13_3)
+	H LDI R15, %hi(.LBB16_3)
+	SLT ADI R15, %lo(.LBB16_3)
 	BRH EQ, R15
 ; %bb.2:                                ; %if.then
 	LDI R3, 2
@@ -1066,11 +1676,11 @@ registerIRQHandler:                     ; @registerIRQHandler
 	SLT ADI R3, irq_table
 	ADD R1, R3, R1
 	INT STR R1, R2, 0
-.LBB13_3:                               ; %if.end
+.LBB16_3:                               ; %if.end
 	SLT ADI R14, -4
 	RET
-.Lfunc_end13:
-	.size	registerIRQHandler, .Lfunc_end13-registerIRQHandler
+.Lfunc_end16:
+	.size	registerIRQHandler, .Lfunc_end16-registerIRQHandler
                                         ; -- End function
 	.globl	initLAPIC                       ; -- Begin function initLAPIC
 	.type	initLAPIC,@function
@@ -1136,8 +1746,8 @@ initLAPIC:                              ; @initLAPIC
 	CAL R15
 	SLT ADI R14, -4
 	RET
-.Lfunc_end14:
-	.size	initLAPIC, .Lfunc_end14-initLAPIC
+.Lfunc_end17:
+	.size	initLAPIC, .Lfunc_end17-initLAPIC
                                         ; -- End function
 	.globl	irqOff                          ; -- Begin function irqOff
 	.type	irqOff,@function
@@ -1156,8 +1766,8 @@ irqOff:                                 ; @irqOff
 	;NO_APP
 	SLT ADI R14, -4
 	RET
-.Lfunc_end15:
-	.size	irqOff, .Lfunc_end15-irqOff
+.Lfunc_end18:
+	.size	irqOff, .Lfunc_end18-irqOff
                                         ; -- End function
 	.globl	irqOn                           ; -- Begin function irqOn
 	.type	irqOn,@function
@@ -1175,8 +1785,8 @@ irqOn:                                  ; @irqOn
 	;NO_APP
 	SLT ADI R14, -4
 	RET
-.Lfunc_end16:
-	.size	irqOn, .Lfunc_end16-irqOn
+.Lfunc_end19:
+	.size	irqOn, .Lfunc_end19-irqOn
                                         ; -- End function
 	.globl	pageFault                       ; -- Begin function pageFault
 	.type	pageFault,@function
@@ -1202,8 +1812,8 @@ pageFault:                              ; @pageFault
 	CHAR STR R2, R1, 0
 	LDI R2, 0
 	LDI R1, 0
-	H LDI R1, .L.str.10
-	SLT ADI R1, .L.str.10
+	H LDI R1, .L.str.12
+	SLT ADI R1, .L.str.12
 	H LDI R15, %hi(biosWrite)
 	SLT ADI R15, %lo(biosWrite)
 	CAL R15
@@ -1214,8 +1824,8 @@ pageFault:                              ; @pageFault
 	INT LOD R14, R8, -4
 	SLT ADI R14, -8
 	RET
-.Lfunc_end17:
-	.size	pageFault, .Lfunc_end17-pageFault
+.Lfunc_end20:
+	.size	pageFault, .Lfunc_end20-pageFault
                                         ; -- End function
 	.globl	alignamentFault                 ; -- Begin function alignamentFault
 	.type	alignamentFault,@function
@@ -1241,8 +1851,8 @@ alignamentFault:                        ; @alignamentFault
 	CHAR STR R2, R1, 0
 	LDI R2, 0
 	LDI R1, 0
-	H LDI R1, .L.str.1.13
-	SLT ADI R1, .L.str.1.13
+	H LDI R1, .L.str.1
+	SLT ADI R1, .L.str.1
 	H LDI R15, %hi(biosWrite)
 	SLT ADI R15, %lo(biosWrite)
 	CAL R15
@@ -1253,8 +1863,8 @@ alignamentFault:                        ; @alignamentFault
 	INT LOD R14, R8, -4
 	SLT ADI R14, -8
 	RET
-.Lfunc_end18:
-	.size	alignamentFault, .Lfunc_end18-alignamentFault
+.Lfunc_end21:
+	.size	alignamentFault, .Lfunc_end21-alignamentFault
                                         ; -- End function
 	.globl	generalProtectionFault          ; -- Begin function generalProtectionFault
 	.type	generalProtectionFault,@function
@@ -1292,8 +1902,8 @@ generalProtectionFault:                 ; @generalProtectionFault
 	INT LOD R14, R8, -4
 	SLT ADI R14, -8
 	RET
-.Lfunc_end19:
-	.size	generalProtectionFault, .Lfunc_end19-generalProtectionFault
+.Lfunc_end22:
+	.size	generalProtectionFault, .Lfunc_end22-generalProtectionFault
                                         ; -- End function
 	.globl	invalidOpCode                   ; -- Begin function invalidOpCode
 	.type	invalidOpCode,@function
@@ -1319,8 +1929,8 @@ invalidOpCode:                          ; @invalidOpCode
 	CHAR STR R2, R1, 0
 	LDI R2, 0
 	LDI R1, 0
-	H LDI R1, .L.str.3
-	SLT ADI R1, .L.str.3
+	H LDI R1, .L.str.3.19
+	SLT ADI R1, .L.str.3.19
 	H LDI R15, %hi(biosWrite)
 	SLT ADI R15, %lo(biosWrite)
 	CAL R15
@@ -1331,8 +1941,8 @@ invalidOpCode:                          ; @invalidOpCode
 	INT LOD R14, R8, -4
 	SLT ADI R14, -8
 	RET
-.Lfunc_end20:
-	.size	invalidOpCode, .Lfunc_end20-invalidOpCode
+.Lfunc_end23:
+	.size	invalidOpCode, .Lfunc_end23-invalidOpCode
                                         ; -- End function
 	.globl	doubleFault                     ; -- Begin function doubleFault
 	.type	doubleFault,@function
@@ -1370,8 +1980,8 @@ doubleFault:                            ; @doubleFault
 	INT LOD R14, R8, -4
 	SLT ADI R14, -8
 	RET
-.Lfunc_end21:
-	.size	doubleFault, .Lfunc_end21-doubleFault
+.Lfunc_end24:
+	.size	doubleFault, .Lfunc_end24-doubleFault
                                         ; -- End function
 	.globl	syscallsHandler                 ; -- Begin function syscallsHandler
 	.type	syscallsHandler,@function
@@ -1382,8 +1992,8 @@ syscallsHandler:                        ; @syscallsHandler
 	ADI R1, 4
 	SLT ADI R14, -4
 	RET
-.Lfunc_end22:
-	.size	syscallsHandler, .Lfunc_end22-syscallsHandler
+.Lfunc_end25:
+	.size	syscallsHandler, .Lfunc_end25-syscallsHandler
                                         ; -- End function
 	.globl	main                            ; -- Begin function main
 	.type	main,@function
@@ -1397,20 +2007,23 @@ main:                                   ; @main
 	H LDI R15, %hi(initLAPIC)
 	SLT ADI R15, %lo(initLAPIC)
 	CAL R15
+	H LDI R15, %hi(PCIe_Bus_Enumeration)
+	SLT ADI R15, %lo(PCIe_Bus_Enumeration)
+	CAL R15
 	H LDI R15, %hi(displaySearch)
 	SLT ADI R15, %lo(displaySearch)
 	CAL R15
 	LDI R8, 0
 	LDI R1, 0
-	H LDI R1, .L.str.22
-	SLT ADI R1, .L.str.22
+	H LDI R1, .L.str.28
+	SLT ADI R1, .L.str.28
 	SLT ADD R8, R0, R2
 	H LDI R15, %hi(biosWrite)
 	SLT ADI R15, %lo(biosWrite)
 	CAL R15
 	LDI R1, 0
-	H LDI R1, .L.str.1.23
-	SLT ADI R1, .L.str.1.23
+	H LDI R1, .L.str.1.29
+	SLT ADI R1, .L.str.1.29
 	SLT ADD R8, R0, R2
 	H LDI R15, %hi(biosWrite)
 	SLT ADI R15, %lo(biosWrite)
@@ -1427,29 +2040,29 @@ main:                                   ; @main
 	SLT ADI R15, %lo(biosWrite)
 	CAL R15
 	LDI R1, 0
-	H LDI R1, .L.str.2.24
-	SLT ADI R1, .L.str.2.24
+	H LDI R1, .L.str.2.30
+	SLT ADI R1, .L.str.2.30
 	SLT ADD R8, R0, R2
 	H LDI R15, %hi(biosWrite)
 	SLT ADI R15, %lo(biosWrite)
 	CAL R15
 	LDI R1, 0
-	H LDI R1, .L.str.3.25
-	SLT ADI R1, .L.str.3.25
+	H LDI R1, .L.str.3.31
+	SLT ADI R1, .L.str.3.31
 	SLT ADD R8, R0, R2
 	H LDI R15, %hi(biosWrite)
 	SLT ADI R15, %lo(biosWrite)
 	CAL R15
-.LBB23_1:                               ; %while.body
+.LBB26_1:                               ; %while.body
                                         ; =>This Inner Loop Header: Depth=1
 	;APP
 	HLT
 	;NO_APP
-	H LDI R15, %hi(.LBB23_1)
-	SLT ADI R15, %lo(.LBB23_1)
+	H LDI R15, %hi(.LBB26_1)
+	SLT ADI R15, %lo(.LBB26_1)
 	JMP R15
-.Lfunc_end23:
-	.size	main, .Lfunc_end23-main
+.Lfunc_end26:
+	.size	main, .Lfunc_end26-main
                                         ; -- End function
 	.type	hardware_busy,@object           ; @hardware_busy
 	.section	.bss,"aw",@nobits
@@ -1495,11 +2108,11 @@ Registros:
 	.type	irq_table,@object               ; @irq_table
 	.local	irq_table
 	.comm	irq_table,512,4
-	.type	.L.str.1,@object                ; @.str.1
+	.type	.L.str.3,@object                ; @.str.3
 	.section	.rodata.str1.1,"aMS",@progbits,1
-.L.str.1:
+.L.str.3:
 	.asciz	"Fatal Error: Unhandled IRQ"
-	.size	.L.str.1, 27
+	.size	.L.str.3, 27
 
 	.type	system_panic,@object            ; @system_panic
 	.section	.bss,"aw",@nobits
@@ -1508,31 +2121,31 @@ system_panic:
 	.byte	0                               ; 0x0
 	.size	system_panic, 1
 
-	.type	.L.str.10,@object               ; @.str.10
+	.type	.L.str.12,@object               ; @.str.12
 	.section	.rodata.str1.1,"aMS",@progbits,1
-.L.str.10:
-	.asciz	"Fatal Error: Page Fault without MMU"
-	.size	.L.str.10, 36
+.L.str.12:
+	.asciz	"\nFatal Error: Page Fault without MMU"
+	.size	.L.str.12, 37
 
-	.type	.L.str.1.13,@object             ; @.str.1.13
-.L.str.1.13:
-	.asciz	"Fatal Error: Alignament Fault"
-	.size	.L.str.1.13, 30
+	.type	.L.str.1,@object                ; @.str.1
+.L.str.1:
+	.asciz	"\nFatal Error: Alignament Fault"
+	.size	.L.str.1, 31
 
 	.type	.L.str.2,@object                ; @.str.2
 .L.str.2:
-	.asciz	"Fatal Error: General Protection Fault"
-	.size	.L.str.2, 38
+	.asciz	"\nFatal Error: General Protection Fault"
+	.size	.L.str.2, 39
 
-	.type	.L.str.3,@object                ; @.str.3
-.L.str.3:
-	.asciz	"Fatal Error: Invalid OpCode"
-	.size	.L.str.3, 28
+	.type	.L.str.3.19,@object             ; @.str.3.19
+.L.str.3.19:
+	.asciz	"\nFatal Error: Invalid OpCode"
+	.size	.L.str.3.19, 29
 
 	.type	.L.str.4,@object                ; @.str.4
 .L.str.4:
-	.asciz	"Fatal Error: Double Fault"
-	.size	.L.str.4, 26
+	.asciz	"\nFatal Error: Double Fault"
+	.size	.L.str.4, 27
 
 	.type	mapa,@object                    ; @mapa
 	.data
@@ -1550,36 +2163,36 @@ map_size:
 	.long	0                               ; 0x0
 	.size	map_size, 4
 
-	.type	.L.str.22,@object               ; @.str.22
+	.type	.L.str.28,@object               ; @.str.28
 	.section	.rodata.str1.1,"aMS",@progbits,1
-.L.str.22:
-	.asciz	"Enumeraci\303\263n de buses finalizada.\n"
-	.size	.L.str.22, 35
+.L.str.28:
+	.asciz	"Enumeracion de buses finalizada.\n"
+	.size	.L.str.28, 34
 
-	.type	.L.str.1.23,@object             ; @.str.1.23
-.L.str.1.23:
+	.type	.L.str.1.29,@object             ; @.str.1.29
+.L.str.1.29:
 	.asciz	"Hay "
-	.size	.L.str.1.23, 5
+	.size	.L.str.1.29, 5
 
-	.type	.L.str.2.24,@object             ; @.str.2.24
-.L.str.2.24:
-	.asciz	"dispositivos conectados.\n\n"
-	.size	.L.str.2.24, 27
+	.type	.L.str.2.30,@object             ; @.str.2.30
+.L.str.2.30:
+	.asciz	" dispositivos conectados.\n\n"
+	.size	.L.str.2.30, 28
 
-	.type	.L.str.3.25,@object             ; @.str.3.25
-.L.str.3.25:
+	.type	.L.str.3.31,@object             ; @.str.3.31
+.L.str.3.31:
 	.asciz	"LAPIC e IRQs inicializadas.\n\n"
-	.size	.L.str.3.25, 30
+	.size	.L.str.3.31, 30
 
 	.ident	"clang version 24.0.0git (https://github.com/Licha-M/llvm-project-ISA32-LM.git c98f7ba0fedefda52a42da5440b50bcb3b3ca4ee)"
 	.section	".note.GNU-stack","",@progbits
 
 ; ════════════════════ .start auto-generado ════════════════════
-; Inicio en palabra ROM 1190 (byte 0x001298)
+; Inicio en palabra ROM 1706 (byte 0x001AA8)
 ; .start:
-; ── Fase 1: Copiar 87 palabra(s) de .data  ROM → RAM ──────────────
-;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 1103, byte 0x00113C)
-;	SLT ADI R15, 0x113C
+; ── Fase 1: Copiar 88 palabra(s) de .data  ROM → RAM ──────────────
+;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 1618, byte 0x001948)
+;	SLT ADI R15, 0x1948
 ;	H LDI R1, 0x0400		; Dir. RAM destino = 0x04000000
 ;	SLT ADI R1, 0x0000
 ;	INT LOD R15, R2, 0		; Leer palabra 0 de ROM (.data blob)
@@ -1756,221 +2369,223 @@ map_size:
 ;	INT STR R1, R2, 340		; Escribir en RAM[0x04000154]
 ;	INT LOD R15, R2, 344		; Leer palabra 86 de ROM (.data blob)
 ;	INT STR R1, R2, 344		; Escribir en RAM[0x04000158]
+;	INT LOD R15, R2, 348		; Leer palabra 87 de ROM (.data blob)
+;	INT STR R1, R2, 348		; Escribir en RAM[0x0400015C]
 ; ── Fase 2: Zero-inicializar 212 palabra(s) de .bss en RAM ─────────────
-;	H LDI R1, 0x0400		; Base .bss en RAM = 0x0400015C
-;	SLT ADI R1, 0x015C
-;	INT STR R1, R0, 0		; RAM[0x0400015C] = 0  (.bss[0])
-;	INT STR R1, R0, 4		; RAM[0x04000160] = 0  (.bss[1])
-;	INT STR R1, R0, 8		; RAM[0x04000164] = 0  (.bss[2])
-;	INT STR R1, R0, 12		; RAM[0x04000168] = 0  (.bss[3])
-;	INT STR R1, R0, 16		; RAM[0x0400016C] = 0  (.bss[4])
-;	INT STR R1, R0, 20		; RAM[0x04000170] = 0  (.bss[5])
-;	INT STR R1, R0, 24		; RAM[0x04000174] = 0  (.bss[6])
-;	INT STR R1, R0, 28		; RAM[0x04000178] = 0  (.bss[7])
-;	INT STR R1, R0, 32		; RAM[0x0400017C] = 0  (.bss[8])
-;	INT STR R1, R0, 36		; RAM[0x04000180] = 0  (.bss[9])
-;	INT STR R1, R0, 40		; RAM[0x04000184] = 0  (.bss[10])
-;	INT STR R1, R0, 44		; RAM[0x04000188] = 0  (.bss[11])
-;	INT STR R1, R0, 48		; RAM[0x0400018C] = 0  (.bss[12])
-;	INT STR R1, R0, 52		; RAM[0x04000190] = 0  (.bss[13])
-;	INT STR R1, R0, 56		; RAM[0x04000194] = 0  (.bss[14])
-;	INT STR R1, R0, 60		; RAM[0x04000198] = 0  (.bss[15])
-;	INT STR R1, R0, 64		; RAM[0x0400019C] = 0  (.bss[16])
-;	INT STR R1, R0, 68		; RAM[0x040001A0] = 0  (.bss[17])
-;	INT STR R1, R0, 72		; RAM[0x040001A4] = 0  (.bss[18])
-;	INT STR R1, R0, 76		; RAM[0x040001A8] = 0  (.bss[19])
-;	INT STR R1, R0, 80		; RAM[0x040001AC] = 0  (.bss[20])
-;	INT STR R1, R0, 84		; RAM[0x040001B0] = 0  (.bss[21])
-;	INT STR R1, R0, 88		; RAM[0x040001B4] = 0  (.bss[22])
-;	INT STR R1, R0, 92		; RAM[0x040001B8] = 0  (.bss[23])
-;	INT STR R1, R0, 96		; RAM[0x040001BC] = 0  (.bss[24])
-;	INT STR R1, R0, 100		; RAM[0x040001C0] = 0  (.bss[25])
-;	INT STR R1, R0, 104		; RAM[0x040001C4] = 0  (.bss[26])
-;	INT STR R1, R0, 108		; RAM[0x040001C8] = 0  (.bss[27])
-;	INT STR R1, R0, 112		; RAM[0x040001CC] = 0  (.bss[28])
-;	INT STR R1, R0, 116		; RAM[0x040001D0] = 0  (.bss[29])
-;	INT STR R1, R0, 120		; RAM[0x040001D4] = 0  (.bss[30])
-;	INT STR R1, R0, 124		; RAM[0x040001D8] = 0  (.bss[31])
-;	INT STR R1, R0, 128		; RAM[0x040001DC] = 0  (.bss[32])
-;	INT STR R1, R0, 132		; RAM[0x040001E0] = 0  (.bss[33])
-;	INT STR R1, R0, 136		; RAM[0x040001E4] = 0  (.bss[34])
-;	INT STR R1, R0, 140		; RAM[0x040001E8] = 0  (.bss[35])
-;	INT STR R1, R0, 144		; RAM[0x040001EC] = 0  (.bss[36])
-;	INT STR R1, R0, 148		; RAM[0x040001F0] = 0  (.bss[37])
-;	INT STR R1, R0, 152		; RAM[0x040001F4] = 0  (.bss[38])
-;	INT STR R1, R0, 156		; RAM[0x040001F8] = 0  (.bss[39])
-;	INT STR R1, R0, 160		; RAM[0x040001FC] = 0  (.bss[40])
-;	INT STR R1, R0, 164		; RAM[0x04000200] = 0  (.bss[41])
-;	INT STR R1, R0, 168		; RAM[0x04000204] = 0  (.bss[42])
-;	INT STR R1, R0, 172		; RAM[0x04000208] = 0  (.bss[43])
-;	INT STR R1, R0, 176		; RAM[0x0400020C] = 0  (.bss[44])
-;	INT STR R1, R0, 180		; RAM[0x04000210] = 0  (.bss[45])
-;	INT STR R1, R0, 184		; RAM[0x04000214] = 0  (.bss[46])
-;	INT STR R1, R0, 188		; RAM[0x04000218] = 0  (.bss[47])
-;	INT STR R1, R0, 192		; RAM[0x0400021C] = 0  (.bss[48])
-;	INT STR R1, R0, 196		; RAM[0x04000220] = 0  (.bss[49])
-;	INT STR R1, R0, 200		; RAM[0x04000224] = 0  (.bss[50])
-;	INT STR R1, R0, 204		; RAM[0x04000228] = 0  (.bss[51])
-;	INT STR R1, R0, 208		; RAM[0x0400022C] = 0  (.bss[52])
-;	INT STR R1, R0, 212		; RAM[0x04000230] = 0  (.bss[53])
-;	INT STR R1, R0, 216		; RAM[0x04000234] = 0  (.bss[54])
-;	INT STR R1, R0, 220		; RAM[0x04000238] = 0  (.bss[55])
-;	INT STR R1, R0, 224		; RAM[0x0400023C] = 0  (.bss[56])
-;	INT STR R1, R0, 228		; RAM[0x04000240] = 0  (.bss[57])
-;	INT STR R1, R0, 232		; RAM[0x04000244] = 0  (.bss[58])
-;	INT STR R1, R0, 236		; RAM[0x04000248] = 0  (.bss[59])
-;	INT STR R1, R0, 240		; RAM[0x0400024C] = 0  (.bss[60])
-;	INT STR R1, R0, 244		; RAM[0x04000250] = 0  (.bss[61])
-;	INT STR R1, R0, 248		; RAM[0x04000254] = 0  (.bss[62])
-;	INT STR R1, R0, 252		; RAM[0x04000258] = 0  (.bss[63])
-;	INT STR R1, R0, 256		; RAM[0x0400025C] = 0  (.bss[64])
-;	INT STR R1, R0, 260		; RAM[0x04000260] = 0  (.bss[65])
-;	INT STR R1, R0, 264		; RAM[0x04000264] = 0  (.bss[66])
-;	INT STR R1, R0, 268		; RAM[0x04000268] = 0  (.bss[67])
-;	INT STR R1, R0, 272		; RAM[0x0400026C] = 0  (.bss[68])
-;	INT STR R1, R0, 276		; RAM[0x04000270] = 0  (.bss[69])
-;	INT STR R1, R0, 280		; RAM[0x04000274] = 0  (.bss[70])
-;	INT STR R1, R0, 284		; RAM[0x04000278] = 0  (.bss[71])
-;	INT STR R1, R0, 288		; RAM[0x0400027C] = 0  (.bss[72])
-;	INT STR R1, R0, 292		; RAM[0x04000280] = 0  (.bss[73])
-;	INT STR R1, R0, 296		; RAM[0x04000284] = 0  (.bss[74])
-;	INT STR R1, R0, 300		; RAM[0x04000288] = 0  (.bss[75])
-;	INT STR R1, R0, 304		; RAM[0x0400028C] = 0  (.bss[76])
-;	INT STR R1, R0, 308		; RAM[0x04000290] = 0  (.bss[77])
-;	INT STR R1, R0, 312		; RAM[0x04000294] = 0  (.bss[78])
-;	INT STR R1, R0, 316		; RAM[0x04000298] = 0  (.bss[79])
-;	INT STR R1, R0, 320		; RAM[0x0400029C] = 0  (.bss[80])
-;	INT STR R1, R0, 324		; RAM[0x040002A0] = 0  (.bss[81])
-;	INT STR R1, R0, 328		; RAM[0x040002A4] = 0  (.bss[82])
-;	INT STR R1, R0, 332		; RAM[0x040002A8] = 0  (.bss[83])
-;	INT STR R1, R0, 336		; RAM[0x040002AC] = 0  (.bss[84])
-;	INT STR R1, R0, 340		; RAM[0x040002B0] = 0  (.bss[85])
-;	INT STR R1, R0, 344		; RAM[0x040002B4] = 0  (.bss[86])
-;	INT STR R1, R0, 348		; RAM[0x040002B8] = 0  (.bss[87])
-;	INT STR R1, R0, 352		; RAM[0x040002BC] = 0  (.bss[88])
-;	INT STR R1, R0, 356		; RAM[0x040002C0] = 0  (.bss[89])
-;	INT STR R1, R0, 360		; RAM[0x040002C4] = 0  (.bss[90])
-;	INT STR R1, R0, 364		; RAM[0x040002C8] = 0  (.bss[91])
-;	INT STR R1, R0, 368		; RAM[0x040002CC] = 0  (.bss[92])
-;	INT STR R1, R0, 372		; RAM[0x040002D0] = 0  (.bss[93])
-;	INT STR R1, R0, 376		; RAM[0x040002D4] = 0  (.bss[94])
-;	INT STR R1, R0, 380		; RAM[0x040002D8] = 0  (.bss[95])
-;	INT STR R1, R0, 384		; RAM[0x040002DC] = 0  (.bss[96])
-;	INT STR R1, R0, 388		; RAM[0x040002E0] = 0  (.bss[97])
-;	INT STR R1, R0, 392		; RAM[0x040002E4] = 0  (.bss[98])
-;	INT STR R1, R0, 396		; RAM[0x040002E8] = 0  (.bss[99])
-;	INT STR R1, R0, 400		; RAM[0x040002EC] = 0  (.bss[100])
-;	INT STR R1, R0, 404		; RAM[0x040002F0] = 0  (.bss[101])
-;	INT STR R1, R0, 408		; RAM[0x040002F4] = 0  (.bss[102])
-;	INT STR R1, R0, 412		; RAM[0x040002F8] = 0  (.bss[103])
-;	INT STR R1, R0, 416		; RAM[0x040002FC] = 0  (.bss[104])
-;	INT STR R1, R0, 420		; RAM[0x04000300] = 0  (.bss[105])
-;	INT STR R1, R0, 424		; RAM[0x04000304] = 0  (.bss[106])
-;	INT STR R1, R0, 428		; RAM[0x04000308] = 0  (.bss[107])
-;	INT STR R1, R0, 432		; RAM[0x0400030C] = 0  (.bss[108])
-;	INT STR R1, R0, 436		; RAM[0x04000310] = 0  (.bss[109])
-;	INT STR R1, R0, 440		; RAM[0x04000314] = 0  (.bss[110])
-;	INT STR R1, R0, 444		; RAM[0x04000318] = 0  (.bss[111])
-;	INT STR R1, R0, 448		; RAM[0x0400031C] = 0  (.bss[112])
-;	INT STR R1, R0, 452		; RAM[0x04000320] = 0  (.bss[113])
-;	INT STR R1, R0, 456		; RAM[0x04000324] = 0  (.bss[114])
-;	INT STR R1, R0, 460		; RAM[0x04000328] = 0  (.bss[115])
-;	INT STR R1, R0, 464		; RAM[0x0400032C] = 0  (.bss[116])
-;	INT STR R1, R0, 468		; RAM[0x04000330] = 0  (.bss[117])
-;	INT STR R1, R0, 472		; RAM[0x04000334] = 0  (.bss[118])
-;	INT STR R1, R0, 476		; RAM[0x04000338] = 0  (.bss[119])
-;	INT STR R1, R0, 480		; RAM[0x0400033C] = 0  (.bss[120])
-;	INT STR R1, R0, 484		; RAM[0x04000340] = 0  (.bss[121])
-;	INT STR R1, R0, 488		; RAM[0x04000344] = 0  (.bss[122])
-;	INT STR R1, R0, 492		; RAM[0x04000348] = 0  (.bss[123])
-;	INT STR R1, R0, 496		; RAM[0x0400034C] = 0  (.bss[124])
-;	INT STR R1, R0, 500		; RAM[0x04000350] = 0  (.bss[125])
-;	INT STR R1, R0, 504		; RAM[0x04000354] = 0  (.bss[126])
-;	INT STR R1, R0, 508		; RAM[0x04000358] = 0  (.bss[127])
-;	INT STR R1, R0, 512		; RAM[0x0400035C] = 0  (.bss[128])
-;	INT STR R1, R0, 516		; RAM[0x04000360] = 0  (.bss[129])
-;	INT STR R1, R0, 520		; RAM[0x04000364] = 0  (.bss[130])
-;	INT STR R1, R0, 524		; RAM[0x04000368] = 0  (.bss[131])
-;	INT STR R1, R0, 528		; RAM[0x0400036C] = 0  (.bss[132])
-;	INT STR R1, R0, 532		; RAM[0x04000370] = 0  (.bss[133])
-;	INT STR R1, R0, 536		; RAM[0x04000374] = 0  (.bss[134])
-;	INT STR R1, R0, 540		; RAM[0x04000378] = 0  (.bss[135])
-;	INT STR R1, R0, 544		; RAM[0x0400037C] = 0  (.bss[136])
-;	INT STR R1, R0, 548		; RAM[0x04000380] = 0  (.bss[137])
-;	INT STR R1, R0, 552		; RAM[0x04000384] = 0  (.bss[138])
-;	INT STR R1, R0, 556		; RAM[0x04000388] = 0  (.bss[139])
-;	INT STR R1, R0, 560		; RAM[0x0400038C] = 0  (.bss[140])
-;	INT STR R1, R0, 564		; RAM[0x04000390] = 0  (.bss[141])
-;	INT STR R1, R0, 568		; RAM[0x04000394] = 0  (.bss[142])
-;	INT STR R1, R0, 572		; RAM[0x04000398] = 0  (.bss[143])
-;	INT STR R1, R0, 576		; RAM[0x0400039C] = 0  (.bss[144])
-;	INT STR R1, R0, 580		; RAM[0x040003A0] = 0  (.bss[145])
-;	INT STR R1, R0, 584		; RAM[0x040003A4] = 0  (.bss[146])
-;	INT STR R1, R0, 588		; RAM[0x040003A8] = 0  (.bss[147])
-;	INT STR R1, R0, 592		; RAM[0x040003AC] = 0  (.bss[148])
-;	INT STR R1, R0, 596		; RAM[0x040003B0] = 0  (.bss[149])
-;	INT STR R1, R0, 600		; RAM[0x040003B4] = 0  (.bss[150])
-;	INT STR R1, R0, 604		; RAM[0x040003B8] = 0  (.bss[151])
-;	INT STR R1, R0, 608		; RAM[0x040003BC] = 0  (.bss[152])
-;	INT STR R1, R0, 612		; RAM[0x040003C0] = 0  (.bss[153])
-;	INT STR R1, R0, 616		; RAM[0x040003C4] = 0  (.bss[154])
-;	INT STR R1, R0, 620		; RAM[0x040003C8] = 0  (.bss[155])
-;	INT STR R1, R0, 624		; RAM[0x040003CC] = 0  (.bss[156])
-;	INT STR R1, R0, 628		; RAM[0x040003D0] = 0  (.bss[157])
-;	INT STR R1, R0, 632		; RAM[0x040003D4] = 0  (.bss[158])
-;	INT STR R1, R0, 636		; RAM[0x040003D8] = 0  (.bss[159])
-;	INT STR R1, R0, 640		; RAM[0x040003DC] = 0  (.bss[160])
-;	INT STR R1, R0, 644		; RAM[0x040003E0] = 0  (.bss[161])
-;	INT STR R1, R0, 648		; RAM[0x040003E4] = 0  (.bss[162])
-;	INT STR R1, R0, 652		; RAM[0x040003E8] = 0  (.bss[163])
-;	INT STR R1, R0, 656		; RAM[0x040003EC] = 0  (.bss[164])
-;	INT STR R1, R0, 660		; RAM[0x040003F0] = 0  (.bss[165])
-;	INT STR R1, R0, 664		; RAM[0x040003F4] = 0  (.bss[166])
-;	INT STR R1, R0, 668		; RAM[0x040003F8] = 0  (.bss[167])
-;	INT STR R1, R0, 672		; RAM[0x040003FC] = 0  (.bss[168])
-;	INT STR R1, R0, 676		; RAM[0x04000400] = 0  (.bss[169])
-;	INT STR R1, R0, 680		; RAM[0x04000404] = 0  (.bss[170])
-;	INT STR R1, R0, 684		; RAM[0x04000408] = 0  (.bss[171])
-;	INT STR R1, R0, 688		; RAM[0x0400040C] = 0  (.bss[172])
-;	INT STR R1, R0, 692		; RAM[0x04000410] = 0  (.bss[173])
-;	INT STR R1, R0, 696		; RAM[0x04000414] = 0  (.bss[174])
-;	INT STR R1, R0, 700		; RAM[0x04000418] = 0  (.bss[175])
-;	INT STR R1, R0, 704		; RAM[0x0400041C] = 0  (.bss[176])
-;	INT STR R1, R0, 708		; RAM[0x04000420] = 0  (.bss[177])
-;	INT STR R1, R0, 712		; RAM[0x04000424] = 0  (.bss[178])
-;	INT STR R1, R0, 716		; RAM[0x04000428] = 0  (.bss[179])
-;	INT STR R1, R0, 720		; RAM[0x0400042C] = 0  (.bss[180])
-;	INT STR R1, R0, 724		; RAM[0x04000430] = 0  (.bss[181])
-;	INT STR R1, R0, 728		; RAM[0x04000434] = 0  (.bss[182])
-;	INT STR R1, R0, 732		; RAM[0x04000438] = 0  (.bss[183])
-;	INT STR R1, R0, 736		; RAM[0x0400043C] = 0  (.bss[184])
-;	INT STR R1, R0, 740		; RAM[0x04000440] = 0  (.bss[185])
-;	INT STR R1, R0, 744		; RAM[0x04000444] = 0  (.bss[186])
-;	INT STR R1, R0, 748		; RAM[0x04000448] = 0  (.bss[187])
-;	INT STR R1, R0, 752		; RAM[0x0400044C] = 0  (.bss[188])
-;	INT STR R1, R0, 756		; RAM[0x04000450] = 0  (.bss[189])
-;	INT STR R1, R0, 760		; RAM[0x04000454] = 0  (.bss[190])
-;	INT STR R1, R0, 764		; RAM[0x04000458] = 0  (.bss[191])
-;	INT STR R1, R0, 768		; RAM[0x0400045C] = 0  (.bss[192])
-;	INT STR R1, R0, 772		; RAM[0x04000460] = 0  (.bss[193])
-;	INT STR R1, R0, 776		; RAM[0x04000464] = 0  (.bss[194])
-;	INT STR R1, R0, 780		; RAM[0x04000468] = 0  (.bss[195])
-;	INT STR R1, R0, 784		; RAM[0x0400046C] = 0  (.bss[196])
-;	INT STR R1, R0, 788		; RAM[0x04000470] = 0  (.bss[197])
-;	INT STR R1, R0, 792		; RAM[0x04000474] = 0  (.bss[198])
-;	INT STR R1, R0, 796		; RAM[0x04000478] = 0  (.bss[199])
-;	INT STR R1, R0, 800		; RAM[0x0400047C] = 0  (.bss[200])
-;	INT STR R1, R0, 804		; RAM[0x04000480] = 0  (.bss[201])
-;	INT STR R1, R0, 808		; RAM[0x04000484] = 0  (.bss[202])
-;	INT STR R1, R0, 812		; RAM[0x04000488] = 0  (.bss[203])
-;	INT STR R1, R0, 816		; RAM[0x0400048C] = 0  (.bss[204])
-;	INT STR R1, R0, 820		; RAM[0x04000490] = 0  (.bss[205])
-;	INT STR R1, R0, 824		; RAM[0x04000494] = 0  (.bss[206])
-;	INT STR R1, R0, 828		; RAM[0x04000498] = 0  (.bss[207])
-;	INT STR R1, R0, 832		; RAM[0x0400049C] = 0  (.bss[208])
-;	INT STR R1, R0, 836		; RAM[0x040004A0] = 0  (.bss[209])
-;	INT STR R1, R0, 840		; RAM[0x040004A4] = 0  (.bss[210])
-;	INT STR R1, R0, 844		; RAM[0x040004A8] = 0  (.bss[211])
+;	H LDI R1, 0x0400		; Base .bss en RAM = 0x04000160
+;	SLT ADI R1, 0x0160
+;	INT STR R1, R0, 0		; RAM[0x04000160] = 0  (.bss[0])
+;	INT STR R1, R0, 4		; RAM[0x04000164] = 0  (.bss[1])
+;	INT STR R1, R0, 8		; RAM[0x04000168] = 0  (.bss[2])
+;	INT STR R1, R0, 12		; RAM[0x0400016C] = 0  (.bss[3])
+;	INT STR R1, R0, 16		; RAM[0x04000170] = 0  (.bss[4])
+;	INT STR R1, R0, 20		; RAM[0x04000174] = 0  (.bss[5])
+;	INT STR R1, R0, 24		; RAM[0x04000178] = 0  (.bss[6])
+;	INT STR R1, R0, 28		; RAM[0x0400017C] = 0  (.bss[7])
+;	INT STR R1, R0, 32		; RAM[0x04000180] = 0  (.bss[8])
+;	INT STR R1, R0, 36		; RAM[0x04000184] = 0  (.bss[9])
+;	INT STR R1, R0, 40		; RAM[0x04000188] = 0  (.bss[10])
+;	INT STR R1, R0, 44		; RAM[0x0400018C] = 0  (.bss[11])
+;	INT STR R1, R0, 48		; RAM[0x04000190] = 0  (.bss[12])
+;	INT STR R1, R0, 52		; RAM[0x04000194] = 0  (.bss[13])
+;	INT STR R1, R0, 56		; RAM[0x04000198] = 0  (.bss[14])
+;	INT STR R1, R0, 60		; RAM[0x0400019C] = 0  (.bss[15])
+;	INT STR R1, R0, 64		; RAM[0x040001A0] = 0  (.bss[16])
+;	INT STR R1, R0, 68		; RAM[0x040001A4] = 0  (.bss[17])
+;	INT STR R1, R0, 72		; RAM[0x040001A8] = 0  (.bss[18])
+;	INT STR R1, R0, 76		; RAM[0x040001AC] = 0  (.bss[19])
+;	INT STR R1, R0, 80		; RAM[0x040001B0] = 0  (.bss[20])
+;	INT STR R1, R0, 84		; RAM[0x040001B4] = 0  (.bss[21])
+;	INT STR R1, R0, 88		; RAM[0x040001B8] = 0  (.bss[22])
+;	INT STR R1, R0, 92		; RAM[0x040001BC] = 0  (.bss[23])
+;	INT STR R1, R0, 96		; RAM[0x040001C0] = 0  (.bss[24])
+;	INT STR R1, R0, 100		; RAM[0x040001C4] = 0  (.bss[25])
+;	INT STR R1, R0, 104		; RAM[0x040001C8] = 0  (.bss[26])
+;	INT STR R1, R0, 108		; RAM[0x040001CC] = 0  (.bss[27])
+;	INT STR R1, R0, 112		; RAM[0x040001D0] = 0  (.bss[28])
+;	INT STR R1, R0, 116		; RAM[0x040001D4] = 0  (.bss[29])
+;	INT STR R1, R0, 120		; RAM[0x040001D8] = 0  (.bss[30])
+;	INT STR R1, R0, 124		; RAM[0x040001DC] = 0  (.bss[31])
+;	INT STR R1, R0, 128		; RAM[0x040001E0] = 0  (.bss[32])
+;	INT STR R1, R0, 132		; RAM[0x040001E4] = 0  (.bss[33])
+;	INT STR R1, R0, 136		; RAM[0x040001E8] = 0  (.bss[34])
+;	INT STR R1, R0, 140		; RAM[0x040001EC] = 0  (.bss[35])
+;	INT STR R1, R0, 144		; RAM[0x040001F0] = 0  (.bss[36])
+;	INT STR R1, R0, 148		; RAM[0x040001F4] = 0  (.bss[37])
+;	INT STR R1, R0, 152		; RAM[0x040001F8] = 0  (.bss[38])
+;	INT STR R1, R0, 156		; RAM[0x040001FC] = 0  (.bss[39])
+;	INT STR R1, R0, 160		; RAM[0x04000200] = 0  (.bss[40])
+;	INT STR R1, R0, 164		; RAM[0x04000204] = 0  (.bss[41])
+;	INT STR R1, R0, 168		; RAM[0x04000208] = 0  (.bss[42])
+;	INT STR R1, R0, 172		; RAM[0x0400020C] = 0  (.bss[43])
+;	INT STR R1, R0, 176		; RAM[0x04000210] = 0  (.bss[44])
+;	INT STR R1, R0, 180		; RAM[0x04000214] = 0  (.bss[45])
+;	INT STR R1, R0, 184		; RAM[0x04000218] = 0  (.bss[46])
+;	INT STR R1, R0, 188		; RAM[0x0400021C] = 0  (.bss[47])
+;	INT STR R1, R0, 192		; RAM[0x04000220] = 0  (.bss[48])
+;	INT STR R1, R0, 196		; RAM[0x04000224] = 0  (.bss[49])
+;	INT STR R1, R0, 200		; RAM[0x04000228] = 0  (.bss[50])
+;	INT STR R1, R0, 204		; RAM[0x0400022C] = 0  (.bss[51])
+;	INT STR R1, R0, 208		; RAM[0x04000230] = 0  (.bss[52])
+;	INT STR R1, R0, 212		; RAM[0x04000234] = 0  (.bss[53])
+;	INT STR R1, R0, 216		; RAM[0x04000238] = 0  (.bss[54])
+;	INT STR R1, R0, 220		; RAM[0x0400023C] = 0  (.bss[55])
+;	INT STR R1, R0, 224		; RAM[0x04000240] = 0  (.bss[56])
+;	INT STR R1, R0, 228		; RAM[0x04000244] = 0  (.bss[57])
+;	INT STR R1, R0, 232		; RAM[0x04000248] = 0  (.bss[58])
+;	INT STR R1, R0, 236		; RAM[0x0400024C] = 0  (.bss[59])
+;	INT STR R1, R0, 240		; RAM[0x04000250] = 0  (.bss[60])
+;	INT STR R1, R0, 244		; RAM[0x04000254] = 0  (.bss[61])
+;	INT STR R1, R0, 248		; RAM[0x04000258] = 0  (.bss[62])
+;	INT STR R1, R0, 252		; RAM[0x0400025C] = 0  (.bss[63])
+;	INT STR R1, R0, 256		; RAM[0x04000260] = 0  (.bss[64])
+;	INT STR R1, R0, 260		; RAM[0x04000264] = 0  (.bss[65])
+;	INT STR R1, R0, 264		; RAM[0x04000268] = 0  (.bss[66])
+;	INT STR R1, R0, 268		; RAM[0x0400026C] = 0  (.bss[67])
+;	INT STR R1, R0, 272		; RAM[0x04000270] = 0  (.bss[68])
+;	INT STR R1, R0, 276		; RAM[0x04000274] = 0  (.bss[69])
+;	INT STR R1, R0, 280		; RAM[0x04000278] = 0  (.bss[70])
+;	INT STR R1, R0, 284		; RAM[0x0400027C] = 0  (.bss[71])
+;	INT STR R1, R0, 288		; RAM[0x04000280] = 0  (.bss[72])
+;	INT STR R1, R0, 292		; RAM[0x04000284] = 0  (.bss[73])
+;	INT STR R1, R0, 296		; RAM[0x04000288] = 0  (.bss[74])
+;	INT STR R1, R0, 300		; RAM[0x0400028C] = 0  (.bss[75])
+;	INT STR R1, R0, 304		; RAM[0x04000290] = 0  (.bss[76])
+;	INT STR R1, R0, 308		; RAM[0x04000294] = 0  (.bss[77])
+;	INT STR R1, R0, 312		; RAM[0x04000298] = 0  (.bss[78])
+;	INT STR R1, R0, 316		; RAM[0x0400029C] = 0  (.bss[79])
+;	INT STR R1, R0, 320		; RAM[0x040002A0] = 0  (.bss[80])
+;	INT STR R1, R0, 324		; RAM[0x040002A4] = 0  (.bss[81])
+;	INT STR R1, R0, 328		; RAM[0x040002A8] = 0  (.bss[82])
+;	INT STR R1, R0, 332		; RAM[0x040002AC] = 0  (.bss[83])
+;	INT STR R1, R0, 336		; RAM[0x040002B0] = 0  (.bss[84])
+;	INT STR R1, R0, 340		; RAM[0x040002B4] = 0  (.bss[85])
+;	INT STR R1, R0, 344		; RAM[0x040002B8] = 0  (.bss[86])
+;	INT STR R1, R0, 348		; RAM[0x040002BC] = 0  (.bss[87])
+;	INT STR R1, R0, 352		; RAM[0x040002C0] = 0  (.bss[88])
+;	INT STR R1, R0, 356		; RAM[0x040002C4] = 0  (.bss[89])
+;	INT STR R1, R0, 360		; RAM[0x040002C8] = 0  (.bss[90])
+;	INT STR R1, R0, 364		; RAM[0x040002CC] = 0  (.bss[91])
+;	INT STR R1, R0, 368		; RAM[0x040002D0] = 0  (.bss[92])
+;	INT STR R1, R0, 372		; RAM[0x040002D4] = 0  (.bss[93])
+;	INT STR R1, R0, 376		; RAM[0x040002D8] = 0  (.bss[94])
+;	INT STR R1, R0, 380		; RAM[0x040002DC] = 0  (.bss[95])
+;	INT STR R1, R0, 384		; RAM[0x040002E0] = 0  (.bss[96])
+;	INT STR R1, R0, 388		; RAM[0x040002E4] = 0  (.bss[97])
+;	INT STR R1, R0, 392		; RAM[0x040002E8] = 0  (.bss[98])
+;	INT STR R1, R0, 396		; RAM[0x040002EC] = 0  (.bss[99])
+;	INT STR R1, R0, 400		; RAM[0x040002F0] = 0  (.bss[100])
+;	INT STR R1, R0, 404		; RAM[0x040002F4] = 0  (.bss[101])
+;	INT STR R1, R0, 408		; RAM[0x040002F8] = 0  (.bss[102])
+;	INT STR R1, R0, 412		; RAM[0x040002FC] = 0  (.bss[103])
+;	INT STR R1, R0, 416		; RAM[0x04000300] = 0  (.bss[104])
+;	INT STR R1, R0, 420		; RAM[0x04000304] = 0  (.bss[105])
+;	INT STR R1, R0, 424		; RAM[0x04000308] = 0  (.bss[106])
+;	INT STR R1, R0, 428		; RAM[0x0400030C] = 0  (.bss[107])
+;	INT STR R1, R0, 432		; RAM[0x04000310] = 0  (.bss[108])
+;	INT STR R1, R0, 436		; RAM[0x04000314] = 0  (.bss[109])
+;	INT STR R1, R0, 440		; RAM[0x04000318] = 0  (.bss[110])
+;	INT STR R1, R0, 444		; RAM[0x0400031C] = 0  (.bss[111])
+;	INT STR R1, R0, 448		; RAM[0x04000320] = 0  (.bss[112])
+;	INT STR R1, R0, 452		; RAM[0x04000324] = 0  (.bss[113])
+;	INT STR R1, R0, 456		; RAM[0x04000328] = 0  (.bss[114])
+;	INT STR R1, R0, 460		; RAM[0x0400032C] = 0  (.bss[115])
+;	INT STR R1, R0, 464		; RAM[0x04000330] = 0  (.bss[116])
+;	INT STR R1, R0, 468		; RAM[0x04000334] = 0  (.bss[117])
+;	INT STR R1, R0, 472		; RAM[0x04000338] = 0  (.bss[118])
+;	INT STR R1, R0, 476		; RAM[0x0400033C] = 0  (.bss[119])
+;	INT STR R1, R0, 480		; RAM[0x04000340] = 0  (.bss[120])
+;	INT STR R1, R0, 484		; RAM[0x04000344] = 0  (.bss[121])
+;	INT STR R1, R0, 488		; RAM[0x04000348] = 0  (.bss[122])
+;	INT STR R1, R0, 492		; RAM[0x0400034C] = 0  (.bss[123])
+;	INT STR R1, R0, 496		; RAM[0x04000350] = 0  (.bss[124])
+;	INT STR R1, R0, 500		; RAM[0x04000354] = 0  (.bss[125])
+;	INT STR R1, R0, 504		; RAM[0x04000358] = 0  (.bss[126])
+;	INT STR R1, R0, 508		; RAM[0x0400035C] = 0  (.bss[127])
+;	INT STR R1, R0, 512		; RAM[0x04000360] = 0  (.bss[128])
+;	INT STR R1, R0, 516		; RAM[0x04000364] = 0  (.bss[129])
+;	INT STR R1, R0, 520		; RAM[0x04000368] = 0  (.bss[130])
+;	INT STR R1, R0, 524		; RAM[0x0400036C] = 0  (.bss[131])
+;	INT STR R1, R0, 528		; RAM[0x04000370] = 0  (.bss[132])
+;	INT STR R1, R0, 532		; RAM[0x04000374] = 0  (.bss[133])
+;	INT STR R1, R0, 536		; RAM[0x04000378] = 0  (.bss[134])
+;	INT STR R1, R0, 540		; RAM[0x0400037C] = 0  (.bss[135])
+;	INT STR R1, R0, 544		; RAM[0x04000380] = 0  (.bss[136])
+;	INT STR R1, R0, 548		; RAM[0x04000384] = 0  (.bss[137])
+;	INT STR R1, R0, 552		; RAM[0x04000388] = 0  (.bss[138])
+;	INT STR R1, R0, 556		; RAM[0x0400038C] = 0  (.bss[139])
+;	INT STR R1, R0, 560		; RAM[0x04000390] = 0  (.bss[140])
+;	INT STR R1, R0, 564		; RAM[0x04000394] = 0  (.bss[141])
+;	INT STR R1, R0, 568		; RAM[0x04000398] = 0  (.bss[142])
+;	INT STR R1, R0, 572		; RAM[0x0400039C] = 0  (.bss[143])
+;	INT STR R1, R0, 576		; RAM[0x040003A0] = 0  (.bss[144])
+;	INT STR R1, R0, 580		; RAM[0x040003A4] = 0  (.bss[145])
+;	INT STR R1, R0, 584		; RAM[0x040003A8] = 0  (.bss[146])
+;	INT STR R1, R0, 588		; RAM[0x040003AC] = 0  (.bss[147])
+;	INT STR R1, R0, 592		; RAM[0x040003B0] = 0  (.bss[148])
+;	INT STR R1, R0, 596		; RAM[0x040003B4] = 0  (.bss[149])
+;	INT STR R1, R0, 600		; RAM[0x040003B8] = 0  (.bss[150])
+;	INT STR R1, R0, 604		; RAM[0x040003BC] = 0  (.bss[151])
+;	INT STR R1, R0, 608		; RAM[0x040003C0] = 0  (.bss[152])
+;	INT STR R1, R0, 612		; RAM[0x040003C4] = 0  (.bss[153])
+;	INT STR R1, R0, 616		; RAM[0x040003C8] = 0  (.bss[154])
+;	INT STR R1, R0, 620		; RAM[0x040003CC] = 0  (.bss[155])
+;	INT STR R1, R0, 624		; RAM[0x040003D0] = 0  (.bss[156])
+;	INT STR R1, R0, 628		; RAM[0x040003D4] = 0  (.bss[157])
+;	INT STR R1, R0, 632		; RAM[0x040003D8] = 0  (.bss[158])
+;	INT STR R1, R0, 636		; RAM[0x040003DC] = 0  (.bss[159])
+;	INT STR R1, R0, 640		; RAM[0x040003E0] = 0  (.bss[160])
+;	INT STR R1, R0, 644		; RAM[0x040003E4] = 0  (.bss[161])
+;	INT STR R1, R0, 648		; RAM[0x040003E8] = 0  (.bss[162])
+;	INT STR R1, R0, 652		; RAM[0x040003EC] = 0  (.bss[163])
+;	INT STR R1, R0, 656		; RAM[0x040003F0] = 0  (.bss[164])
+;	INT STR R1, R0, 660		; RAM[0x040003F4] = 0  (.bss[165])
+;	INT STR R1, R0, 664		; RAM[0x040003F8] = 0  (.bss[166])
+;	INT STR R1, R0, 668		; RAM[0x040003FC] = 0  (.bss[167])
+;	INT STR R1, R0, 672		; RAM[0x04000400] = 0  (.bss[168])
+;	INT STR R1, R0, 676		; RAM[0x04000404] = 0  (.bss[169])
+;	INT STR R1, R0, 680		; RAM[0x04000408] = 0  (.bss[170])
+;	INT STR R1, R0, 684		; RAM[0x0400040C] = 0  (.bss[171])
+;	INT STR R1, R0, 688		; RAM[0x04000410] = 0  (.bss[172])
+;	INT STR R1, R0, 692		; RAM[0x04000414] = 0  (.bss[173])
+;	INT STR R1, R0, 696		; RAM[0x04000418] = 0  (.bss[174])
+;	INT STR R1, R0, 700		; RAM[0x0400041C] = 0  (.bss[175])
+;	INT STR R1, R0, 704		; RAM[0x04000420] = 0  (.bss[176])
+;	INT STR R1, R0, 708		; RAM[0x04000424] = 0  (.bss[177])
+;	INT STR R1, R0, 712		; RAM[0x04000428] = 0  (.bss[178])
+;	INT STR R1, R0, 716		; RAM[0x0400042C] = 0  (.bss[179])
+;	INT STR R1, R0, 720		; RAM[0x04000430] = 0  (.bss[180])
+;	INT STR R1, R0, 724		; RAM[0x04000434] = 0  (.bss[181])
+;	INT STR R1, R0, 728		; RAM[0x04000438] = 0  (.bss[182])
+;	INT STR R1, R0, 732		; RAM[0x0400043C] = 0  (.bss[183])
+;	INT STR R1, R0, 736		; RAM[0x04000440] = 0  (.bss[184])
+;	INT STR R1, R0, 740		; RAM[0x04000444] = 0  (.bss[185])
+;	INT STR R1, R0, 744		; RAM[0x04000448] = 0  (.bss[186])
+;	INT STR R1, R0, 748		; RAM[0x0400044C] = 0  (.bss[187])
+;	INT STR R1, R0, 752		; RAM[0x04000450] = 0  (.bss[188])
+;	INT STR R1, R0, 756		; RAM[0x04000454] = 0  (.bss[189])
+;	INT STR R1, R0, 760		; RAM[0x04000458] = 0  (.bss[190])
+;	INT STR R1, R0, 764		; RAM[0x0400045C] = 0  (.bss[191])
+;	INT STR R1, R0, 768		; RAM[0x04000460] = 0  (.bss[192])
+;	INT STR R1, R0, 772		; RAM[0x04000464] = 0  (.bss[193])
+;	INT STR R1, R0, 776		; RAM[0x04000468] = 0  (.bss[194])
+;	INT STR R1, R0, 780		; RAM[0x0400046C] = 0  (.bss[195])
+;	INT STR R1, R0, 784		; RAM[0x04000470] = 0  (.bss[196])
+;	INT STR R1, R0, 788		; RAM[0x04000474] = 0  (.bss[197])
+;	INT STR R1, R0, 792		; RAM[0x04000478] = 0  (.bss[198])
+;	INT STR R1, R0, 796		; RAM[0x0400047C] = 0  (.bss[199])
+;	INT STR R1, R0, 800		; RAM[0x04000480] = 0  (.bss[200])
+;	INT STR R1, R0, 804		; RAM[0x04000484] = 0  (.bss[201])
+;	INT STR R1, R0, 808		; RAM[0x04000488] = 0  (.bss[202])
+;	INT STR R1, R0, 812		; RAM[0x0400048C] = 0  (.bss[203])
+;	INT STR R1, R0, 816		; RAM[0x04000490] = 0  (.bss[204])
+;	INT STR R1, R0, 820		; RAM[0x04000494] = 0  (.bss[205])
+;	INT STR R1, R0, 824		; RAM[0x04000498] = 0  (.bss[206])
+;	INT STR R1, R0, 828		; RAM[0x0400049C] = 0  (.bss[207])
+;	INT STR R1, R0, 832		; RAM[0x040004A0] = 0  (.bss[208])
+;	INT STR R1, R0, 836		; RAM[0x040004A4] = 0  (.bss[209])
+;	INT STR R1, R0, 840		; RAM[0x040004A8] = 0  (.bss[210])
+;	INT STR R1, R0, 844		; RAM[0x040004AC] = 0  (.bss[211])
 ; ── Fase 3: Saltar a main ──────────────────────────────────────────────────
 ;	H LDI R15, %hi(main)		; Parte alta de la dirección de main
 ;	SLT ADI R15, %lo(main)	; Parte baja
