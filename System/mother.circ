@@ -31,6 +31,9 @@
       <a name="facing" val="south"/>
       <a name="size" val="30"/>
     </tool>
+    <tool name="Controlled Buffer">
+      <a name="facing" val="west"/>
+    </tool>
     <tool name="PLA">
       <a name="facing" val="north"/>
     </tool>
@@ -55,8 +58,9 @@
   <lib desc="#I/O" name="5"/>
   <lib desc="#Base" name="6"/>
   <lib desc="file#Memory\Main_Memories.circ" name="7"/>
-  <lib desc="file#IO\TTY\TTY_Controller.circ" name="8"/>
-  <lib desc="file#CPU.circ" name="9"/>
+  <lib desc="file#IO\keyboard\Keyboard_Controller.circ" name="8"/>
+  <lib desc="file#IO\TTY\TTY_Controller.circ" name="9"/>
+  <lib desc="file#CPU.circ" name="10"/>
   <main name="main"/>
   <options>
     <a name="gateUndefined" val="ignore"/>
@@ -132,11 +136,7 @@
       <a name="facing" val="west"/>
       <a name="radix" val="16"/>
     </comp>
-    <comp lib="0" loc="(560,400)" name="Constant">
-      <a name="facing" val="west"/>
-      <a name="value" val="0xffffffff"/>
-      <a name="width" val="32"/>
-    </comp>
+    <comp lib="10" loc="(550,250)" name="Die"/>
     <comp lib="5" loc="(250,300)" name="Button"/>
     <comp lib="5" loc="(310,250)" name="LED">
       <a name="facing" val="east"/>
@@ -147,10 +147,11 @@
       <a name="cols" val="40"/>
       <a name="rows" val="10"/>
     </comp>
+    <comp lib="5" loc="(720,340)" name="Keyboard"/>
     <comp lib="7" loc="(470,490)" name="ROM_BIOS"/>
     <comp lib="7" loc="(600,120)" name="Memory"/>
-    <comp lib="8" loc="(670,270)" name="TTY_Main"/>
-    <comp lib="9" loc="(550,250)" name="Die"/>
+    <comp lib="8" loc="(700,360)" name="Keyboard_Main"/>
+    <comp lib="9" loc="(670,270)" name="TTY_Main"/>
     <comp loc="(320,270)" name="On_Off_Sys"/>
     <wire from="(250,270)" to="(270,270)"/>
     <wire from="(250,300)" to="(270,300)"/>
@@ -185,13 +186,27 @@
     <wire from="(550,300)" to="(600,300)"/>
     <wire from="(550,310)" to="(600,310)"/>
     <wire from="(550,320)" to="(600,320)"/>
-    <wire from="(550,400)" to="(560,400)"/>
+    <wire from="(550,340)" to="(600,340)"/>
+    <wire from="(550,350)" to="(600,350)"/>
+    <wire from="(550,360)" to="(600,360)"/>
+    <wire from="(550,390)" to="(600,390)"/>
+    <wire from="(550,400)" to="(600,400)"/>
+    <wire from="(550,410)" to="(600,410)"/>
     <wire from="(670,250)" to="(680,250)"/>
     <wire from="(670,260)" to="(680,260)"/>
     <wire from="(670,280)" to="(690,280)"/>
     <wire from="(670,290)" to="(700,290)"/>
     <wire from="(690,270)" to="(690,280)"/>
     <wire from="(700,270)" to="(700,290)"/>
+    <wire from="(700,340)" to="(720,340)"/>
+    <wire from="(700,360)" to="(730,360)"/>
+    <wire from="(700,370)" to="(740,370)"/>
+    <wire from="(700,380)" to="(850,380)"/>
+    <wire from="(700,390)" to="(860,390)"/>
+    <wire from="(730,350)" to="(730,360)"/>
+    <wire from="(740,350)" to="(740,370)"/>
+    <wire from="(850,350)" to="(850,380)"/>
+    <wire from="(860,350)" to="(860,390)"/>
   </circuit>
   <circuit name="On_Off_Sys">
     <a name="appearance" val="custom"/>

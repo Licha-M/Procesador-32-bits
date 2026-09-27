@@ -10,6 +10,8 @@ typedef struct {
 
 DisplayDriver current_display;
 
+volatile bool DisplayDetected;
+
 // Estructura registros TTY
 typedef struct {
   volatile uint32_t comand;
@@ -29,6 +31,7 @@ typedef struct {
 // Estructura adaptada a tus necesidades
 typedef struct {
   const char *data; // Puntero al texto/carácter
+  char char_data;   // Copia del carácter para evitar dangling pointers
   int option;       // Comando (1, 2, 3, 4)
   int length;       // Longitud o cantidad
 } DisplayRequest;
@@ -64,7 +67,7 @@ static void tty_execute_request(DisplayRequest *req) {
   case 1:
     // Escribir una letra
     tty->cant = req->length;
-    tty->word_Addr = req->data[0];
+    tty->word_Addr = req->char_data; // Usamos la copia del carácter
     tty->comand = req->option;
     break;
   case 2:
@@ -132,6 +135,7 @@ void ttyWrite(char word[], int option, int length) {
 
   // Guardamos los datos en la cola
   display_queue.items[display_queue.tail].data = word;
+  display_queue.items[display_queue.tail].char_data = word[0]; // Copiamos valor
   display_queue.items[display_queue.tail].option = option;
   display_queue.items[display_queue.tail].length = length;
 
@@ -182,9 +186,6 @@ void initTty(uint32_t base) {
     // Habilitamos las MSI (Bit 16)
     msi_reg |= (0x1 << 16);
 
-    // Escribimos la configuracion final, pero solo los 16 bits superiores
-    ECAM_W(base, 0x0, msi_reg >> 16);
-
     ECAM_W(base, 0x4,
            LAPIC_BASE_ADDR +
                0x2C); // Le indicamos la direccion del registro MSI en LAPIC
@@ -193,6 +194,9 @@ void initTty(uint32_t base) {
 
     // Asignamos vector
     registerIRQHandler(TTY_MSI_NUM, tty_IRQHandler);
+
+    // Escribimos la configuracion final, pero solo los 16 bits superiores
+    ECAM_W(base, 0x0, msi_reg >> 16);
   }
 }
 
@@ -211,7 +215,7 @@ void gpuWrite() {}
 // ================================================================================
 
 // Busqueda de TTY o GPU
-void displaySearch() {
+bool displaySearch() {
 
   if (false) {
     // Es GPU
@@ -224,7 +228,8 @@ void displaySearch() {
     // Es TTY
     int offset = search(0x00070000); // Buscamos TTY por su Class Code
     if (offset < 0)
-      return; // No reconocido
+      return DisplayDetected = false; // No reconocido
+
     uint32_t base = ECAM_BASE | ((uint32_t)mapa[offset].bus << 20) |
                     ((uint32_t)mapa[offset].dev << 15) |
                     ((uint32_t)mapa[offset].func << 12);
@@ -232,6 +237,7 @@ void displaySearch() {
     initTty(base);
     current_display.ecam_base = base;
     current_display.write = ttyWrite;
+    return DisplayDetected = true;
   }
 }
 
@@ -246,31 +252,27 @@ size_t strlen(const char *str) {
 // Función principal
 void biosWrite(char string[], int cant) {
 
-  if (current_display.write != NULL) {
-
-    if (string[0] == '\0' && cant >= 1) {
-      // Borrar
-      current_display.write("", 2, cant);
-
-    } else if (string[0] == '\0' && cant == 0) {
-      // Limpiar
-      current_display.write("", 3, 0);
-    } else if (string[1] == '\0') {
-      // Escribir una letra
-      if (cant == 0) {
-        cant++; // Se le suma 1 para indicar que se debe escribir 1 vez
-      }
-      current_display.write(string, 1, cant);
-
-    } else {
-      // Escribir un texto en RAM
-      cant = strlen(string);
-      current_display.write(string, 4, cant);
+  if (string[0] == '\b' && string[1] == '\0') {
+    // Borrar
+    if (cant == 0) {
+      cant = 1;
     }
+    current_display.write(string, 2, cant);
+
+  } else if (string[0] == '\0' && cant == 0) {
+    // Limpiar
+    current_display.write("", 3, 0);
+  } else if (string[1] == '\0') {
+    // Escribir una letra
+    if (cant == 0) {
+      cant++; // Se le suma 1 para indicar que se debe escribir 1 vez
+    }
+    current_display.write(string, 1, cant);
 
   } else {
-    irqOff();
-    __asm__ volatile("HLT");
+    // Escribir un texto en RAM
+    cant = strlen(string);
+    current_display.write(string, 4, cant);
   }
 }
 

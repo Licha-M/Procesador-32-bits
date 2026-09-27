@@ -44,8 +44,8 @@
   </lib>
   <lib desc="#Base" name="5"/>
   <lib desc="#I/O" name="6"/>
-  <lib desc="file#..\..\PCI\ECAMs.circ" name="7"/>
-  <lib desc="file#..\MSI.circ" name="8"/>
+  <lib desc="file#..\MSI.circ" name="7"/>
+  <lib desc="file#..\..\PCI\ECAMs.circ" name="8"/>
   <main name="TTY_Main"/>
   <options>
     <a name="gateUndefined" val="ignore"/>
@@ -272,10 +272,10 @@
       <a name="selloc" val="tr"/>
       <a name="width" val="32"/>
     </comp>
-    <comp lib="7" loc="(580,360)" name="EndPoint_ECAM"/>
-    <comp lib="8" loc="(1290,110)" name="MSI_Sys"/>
+    <comp lib="7" loc="(1290,110)" name="MSI_Sys"/>
+    <comp lib="7" loc="(340,180)" name="TLP_Receptor"/>
+    <comp lib="8" loc="(580,360)" name="EndPoint_ECAM"/>
     <comp loc="(1120,430)" name="TTY_Controller"/>
-    <comp loc="(340,180)" name="TLP_Receptor"/>
     <comp loc="(850,380)" name="Registers_BAR0_TTY"/>
     <wire from="(1000,150)" to="(1000,250)"/>
     <wire from="(1000,150)" to="(1210,150)"/>
@@ -442,108 +442,6 @@
     <wire from="(980,490)" to="(980,600)"/>
     <wire from="(990,250)" to="(1000,250)"/>
     <wire from="(990,270)" to="(1030,270)"/>
-  </circuit>
-  <circuit name="TLP_Receptor">
-    <a name="appearance" val="custom"/>
-    <a name="circuit" val="TLP_Receptor"/>
-    <a name="circuitnamedboxfixedsize" val="true"/>
-    <a name="simulationFrequency" val="2048000.0"/>
-    <appear>
-      <rect fill="none" height="110" stroke="#000000" stroke-width="2" width="60" x="70" y="30"/>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="116" y="123">Up</text>
-      <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="108" y="58">Down</text>
-      <circ-anchor facing="east" x="130" y="40"/>
-      <circ-port dir="in" pin="270,300" x="130" y="120"/>
-      <circ-port dir="in" pin="270,320" x="130" y="130"/>
-      <circ-port dir="in" pin="450,190" x="70" y="40"/>
-      <circ-port dir="out" pin="280,130" x="130" y="40"/>
-      <circ-port dir="out" pin="280,150" x="130" y="50"/>
-      <circ-port dir="out" pin="280,170" x="130" y="60"/>
-      <circ-port dir="out" pin="280,190" x="130" y="70"/>
-      <circ-port dir="out" pin="280,210" x="130" y="80"/>
-      <circ-port dir="out" pin="280,230" x="130" y="90"/>
-      <circ-port dir="out" pin="280,250" x="130" y="100"/>
-      <circ-port dir="out" pin="450,320" x="70" y="60"/>
-    </appear>
-    <comp lib="0" loc="(270,300)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="Bus_REQ"/>
-    </comp>
-    <comp lib="0" loc="(270,320)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="En_Write"/>
-    </comp>
-    <comp lib="0" loc="(280,130)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="ECAM"/>
-      <a name="output" val="true"/>
-    </comp>
-    <comp lib="0" loc="(280,150)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="MMIO"/>
-      <a name="output" val="true"/>
-    </comp>
-    <comp lib="0" loc="(280,170)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="En_Write_CPU"/>
-      <a name="output" val="true"/>
-    </comp>
-    <comp lib="0" loc="(280,190)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="En_Read_CPU"/>
-      <a name="output" val="true"/>
-    </comp>
-    <comp lib="0" loc="(280,210)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="DMA_ACK"/>
-      <a name="output" val="true"/>
-    </comp>
-    <comp lib="0" loc="(280,230)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="Clk"/>
-      <a name="output" val="true"/>
-    </comp>
-    <comp lib="0" loc="(280,250)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="label" val="RST"/>
-      <a name="output" val="true"/>
-    </comp>
-    <comp lib="0" loc="(440,190)" name="Splitter">
-      <a name="appear" val="center"/>
-      <a name="facing" val="west"/>
-      <a name="fanout" val="7"/>
-      <a name="incoming" val="7"/>
-      <a name="spacing" val="2"/>
-    </comp>
-    <comp lib="0" loc="(440,320)" name="Splitter">
-      <a name="appear" val="center"/>
-      <a name="facing" val="west"/>
-      <a name="spacing" val="2"/>
-    </comp>
-    <comp lib="0" loc="(450,190)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="facing" val="west"/>
-      <a name="label" val="Ctrl_Downstream"/>
-      <a name="width" val="7"/>
-    </comp>
-    <comp lib="0" loc="(450,320)" name="Pin">
-      <a name="appearance" val="NewPins"/>
-      <a name="facing" val="west"/>
-      <a name="label" val="Ctrl_Upstream"/>
-      <a name="output" val="true"/>
-      <a name="width" val="2"/>
-    </comp>
-    <wire from="(270,300)" to="(420,300)"/>
-    <wire from="(270,320)" to="(420,320)"/>
-    <wire from="(280,130)" to="(420,130)"/>
-    <wire from="(280,150)" to="(420,150)"/>
-    <wire from="(280,170)" to="(420,170)"/>
-    <wire from="(280,190)" to="(420,190)"/>
-    <wire from="(280,210)" to="(420,210)"/>
-    <wire from="(280,230)" to="(420,230)"/>
-    <wire from="(280,250)" to="(420,250)"/>
-    <wire from="(440,190)" to="(450,190)"/>
-    <wire from="(440,320)" to="(450,320)"/>
   </circuit>
   <circuit name="TTY_Controller">
     <a name="appearance" val="custom"/>
@@ -1340,7 +1238,7 @@ xxxx0 1 # OFF
     <comp lib="5" loc="(260,560)" name="Text">
       <a name="text" val="Main Counter"/>
     </comp>
-    <comp lib="5" loc="(420,901)" name="Text">
+    <comp lib="5" loc="(420,900)" name="Text">
       <a name="text" val="Buffer"/>
     </comp>
     <comp lib="5" loc="(670,535)" name="Text">

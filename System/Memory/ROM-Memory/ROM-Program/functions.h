@@ -83,7 +83,7 @@ int search(uint32_t tipo);
 // ============================================================
 
 // Función inicial
-void displaySearch();
+bool displaySearch();
 
 // Función principal
 void biosWrite(char string[], int cant);
@@ -98,7 +98,7 @@ size_t strlen(const char *str);
 // Input System
 // ============================================================
 
-void keyboardSearch();
+bool keyboardSearch();
 
 int read(char *out_buffer, int max_size);
 

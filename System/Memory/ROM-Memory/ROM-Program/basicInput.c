@@ -7,12 +7,18 @@ volatile char line_buffer[MAX_LINE];
 volatile int line_index = 0;
 volatile bool line_ready = false;
 
+volatile bool KeyboardDetected;
+
 // ============================================================
 // Structs definitions
 // ============================================================
 
 typedef struct {
+  volatile uint32_t comand;
+  volatile uint32_t data;
 } KeyboardRegisters;
+
+volatile KeyboardRegisters *kb_registers;
 
 // ============================================================
 // Intern functions
@@ -22,7 +28,7 @@ typedef struct {
 uint32_t keyboard_IRQHandler(uint32_t eflags, uint32_t epc) {
 
   // 1. Leer el carácter de tu keyboard
-  char key = ;
+  char key = kb_registers->data;
 
   // 2. Solo procesamos si el SO no está bloqueado procesando la línea anterior
   if (!line_ready) {
@@ -38,7 +44,7 @@ uint32_t keyboard_IRQHandler(uint32_t eflags, uint32_t epc) {
       if (line_index > 0) {
         line_index--; // Eliminar lógicamente del buffer
 
-        biosWrite("", 1);
+        biosWrite("\b", 1);
       }
 
     } else {
@@ -54,6 +60,8 @@ uint32_t keyboard_IRQHandler(uint32_t eflags, uint32_t epc) {
     }
   }
 
+  kb_registers->comand = 0x2; // Limpiamos la IRQ
+
   return epc;
 }
 
@@ -64,32 +72,41 @@ void initKeyboard(uint32_t base) {
 
   // Leemos el BAR0
   uint32_t bar0 = ECAM_R(base, 0x10);
-  volatile KeyboardRegisters *registers =
-      (volatile KeyboardRegisters *)(uintptr_t)bar0;
+  kb_registers = (volatile KeyboardRegisters *)(uintptr_t)bar0;
 
   base = base + ECAM_R(base, 0x24); // Base es igual a la direccion 0 del CP
 
   if ((ECAM_R(base, 0x0) & 0xFF) == 0x5) {
 
     // MSI suported
-    int cantREQ = (ECAM_R(base, 0x0) >> 16) &
-                  0x7; // Extraemos la cantidad de IRQ requeridas
+    uint32_t msi_reg = ECAM_R(base, 0x0);
 
-    ECAM_W(base, 0x0,
-           ECAM_R(base, 0x0) |
-               (cantREQ << 24)); // Le damos las IRQ que nesesite
+    int cantREQ = (msi_reg >> 17) &
+                  0x7; // Extraemos la cantidad de IRQ requeridas (Bits 17-19)
+
+    // Limpiamos los bits superiores (16-31) para quitar valores residuales
+    msi_reg &= 0x0000FFFF;
+
+    // Le damos las IRQ que necesite en la "Cantidad dada" (Bits 20-22)
+    msi_reg |= (cantREQ << 20);
+
+    // Habilitamos las MSI (Bit 16)
+    msi_reg |= (0x1 << 16);
 
     ECAM_W(base, 0x4,
            LAPIC_BASE_ADDR +
                0x2C); // Le indicamos la direccion del registro MSI en LAPIC
 
-    ECAM_W(base, 0x8, KEYBOARD_MSI_NUM); // Indicamos el numero de vector
-
-    ECAM_W(base, 0x0, ECAM_R(base, 0x0) | (0x1 << 19)); // Habilitamos las MSI
+    ECAM_W(base, 0x8, TTY_MSI_NUM); // Indicamos el numero de vector
 
     // Asignamos vector
     registerIRQHandler(KEYBOARD_MSI_NUM, keyboard_IRQHandler);
+
+    // Escribimos la configuracion final, pero solo los 16 bits superiores
+    ECAM_W(base, 0x0, msi_reg >> 16);
   }
+
+  kb_registers->comand = 1; // Limpiamos el teclado por si acaso
 }
 
 // ============================================================
@@ -97,18 +114,20 @@ void initKeyboard(uint32_t base) {
 // ============================================================
 
 // Busqueda de keyboard
-void keyboardSearch() {
-  int offset = search(0x00000000); // Buscamos Keyboard por su Class Code
+bool keyboardSearch() {
+  int offset = search(0x00090000); // Buscamos Keyboard por su Class Code
   if (offset < 0)
-    return; // No reconocido
+    return KeyboardDetected = false; // No reconocido
+
   uint32_t base = ECAM_BASE | ((uint32_t)mapa[offset].bus << 20) |
                   ((uint32_t)mapa[offset].dev << 15) |
                   ((uint32_t)mapa[offset].func << 12);
 
   initKeyboard(base);
+  return KeyboardDetected = true;
 }
 
-// Funci´on externa para leer
+// Función externa para leer
 int read(char *out_buffer, int max_size) {
 
   uint32_t eflags;
