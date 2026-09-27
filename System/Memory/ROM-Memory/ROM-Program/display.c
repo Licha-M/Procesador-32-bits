@@ -1,4 +1,5 @@
 #include "functions.h"
+#include "inter_IRQs.h"
 
 // Estructura de función actual
 typedef struct {
@@ -111,10 +112,7 @@ uint32_t tty_IRQHandler(uint32_t eflags, uint32_t epc) {
 void ttyWrite(char word[], int option, int length) {
 
   if (system_panic) {
-    // El sistema está abortando (excepción fatal): no podemos darnos el
-    // lujo de esperar la cola ni la IRQ del TTY, porque esa IRQ podría
-    // no volver a dispararse nunca (deadlock irrecuperable). Pisamos
-    // cualquier operación en curso y escribimos directo al hardware.
+    // El sistema está abortando no se inicia más.
     DisplayRequest panic_req = {
         .data = word, .option = option, .length = length};
     tty_execute_request(&panic_req);
@@ -170,23 +168,31 @@ void initTty(uint32_t base) {
   if ((ECAM_R(base, 0x0) & 0xFF) == 0x5) {
 
     // MSI suported
-    int cantREQ = (ECAM_R(base, 0x0) >> 16) &
-                  0x7; // Extraemos la cantidad de IRQ requeridas
+    uint32_t msi_reg = ECAM_R(base, 0x0);
 
-    ECAM_W(base, 0x0,
-           ECAM_R(base, 0x0) |
-               (cantREQ << 24)); // Le damos las IRQ que nesesite
+    int cantREQ = (msi_reg >> 17) &
+                  0x7; // Extraemos la cantidad de IRQ requeridas (Bits 17-19)
+
+    // Limpiamos los bits superiores (16-31) para quitar valores residuales
+    msi_reg &= 0x0000FFFF;
+
+    // Le damos las IRQ que necesite en la "Cantidad dada" (Bits 20-22)
+    msi_reg |= (cantREQ << 20);
+
+    // Habilitamos las MSI (Bit 16)
+    msi_reg |= (0x1 << 16);
+
+    // Escribimos la configuracion final, pero solo los 16 bits superiores
+    ECAM_W(base, 0x0, msi_reg >> 16);
 
     ECAM_W(base, 0x4,
            LAPIC_BASE_ADDR +
                0x2C); // Le indicamos la direccion del registro MSI en LAPIC
 
-    ECAM_W(base, 0x8, 127); // Indicamos el numero de vector
-
-    ECAM_W(base, 0x0, ECAM_R(base, 0x0) | (0x1 << 19)); // Habilitamos las MSI
+    ECAM_W(base, 0x8, TTY_MSI_NUM); // Indicamos el numero de vector
 
     // Asignamos vector
-    registerIRQHandler(127, tty_IRQHandler);
+    registerIRQHandler(TTY_MSI_NUM, tty_IRQHandler);
   }
 }
 
@@ -241,6 +247,7 @@ size_t strlen(const char *str) {
 void biosWrite(char string[], int cant) {
 
   if (current_display.write != NULL) {
+
     if (string[0] == '\0' && cant >= 1) {
       // Borrar
       current_display.write("", 2, cant);
@@ -260,6 +267,10 @@ void biosWrite(char string[], int cant) {
       cant = strlen(string);
       current_display.write(string, 4, cant);
     }
+
+  } else {
+    irqOff();
+    __asm__ volatile("HLT");
   }
 }
 
@@ -276,8 +287,6 @@ static int current_pool_index = 0;
 
 char *intToAscii(int num) {
   // --- INICIO SECCIÓN CRÍTICA ---
-  // Guardamos el estado de las IRQs y las apagamos para que la rotación sea
-  // 100% atómica
   uint32_t flags_guardadas;
   __asm__ __volatile__("CYE SR8, %0" : "=r"(flags_guardadas));
   irqOff();
@@ -285,30 +294,41 @@ char *intToAscii(int num) {
   char *ascii_buffer = ascii_pool[current_pool_index];
   current_pool_index = (current_pool_index + 1) % ASCII_POOL_SIZE;
 
-  // Restauramos el estado original de las IRQs (por si ya estaban apagadas)
   __asm__ __volatile__("CYR %0, SR8" : : "r"(flags_guardadas));
   // --- FIN SECCIÓN CRÍTICA ---
 
+  // Apuntamos al final del buffer asignado
   char *p = ascii_buffer + ASCII_BUF_SIZE - 1;
-  *p = '\0'; // Fin de cadena
+  *p = '\0';
 
   uint32_t uval;
   int is_negative = 0;
 
   if (num < 0) {
     is_negative = 1;
-    uval = -(uint32_t)num;
+    uval = -(uint32_t)num; // Seguro para INT_MIN
   } else {
     uval = (uint32_t)num;
   }
 
-  // Extracción de dígitos de atrás hacia adelante
+  // Extracción de dígitos optimizada mediante multiplicación por recíproco
   if (uval == 0) {
     *--p = '0';
   } else {
     while (uval > 0) {
-      *--p = '0' + (uval % 10);
-      uval /= 10;
+
+      // Al multiplicar por uval, los 32 bits superiores del resultado de 64
+      // bits contienen el cociente exacto tras desplazarlo.
+      uint64_t prod = (uint64_t)uval * 0xCCCCCCCDULL;
+      uint32_t q = (uint32_t)(prod >> 35); // q = uval / 10
+
+      // Calculamos el residuo: r = uval - (q * 10)
+      // Como 10 = (q * 8) + (q * 2), usamos desplazamientos rápidos: (q << 3) +
+      // (q << 1)
+      uint32_t r = uval - ((q << 3) + (q << 1));
+
+      *--p = '0' + (char)r; // Conversión directa a ASCII
+      uval = q;             // Avanzamos al siguiente dígito
     }
   }
 
@@ -316,5 +336,5 @@ char *intToAscii(int num) {
     *--p = '-';
   }
 
-  return p; // Devuelve el puntero exacto dentro del búfer
+  return p;
 }

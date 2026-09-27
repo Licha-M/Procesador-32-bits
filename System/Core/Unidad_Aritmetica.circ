@@ -180,9 +180,11 @@
       <a name="width" val="32"/>
     </comp>
     <comp lib="3" loc="(770,270)" name="Multiplier">
+      <a name="mode" val="twosComplement"/>
       <a name="width" val="32"/>
     </comp>
     <comp lib="3" loc="(770,330)" name="Divider">
+      <a name="mode" val="twosComplement"/>
       <a name="width" val="32"/>
     </comp>
     <comp lib="3" loc="(770,510)" name="Shifter">

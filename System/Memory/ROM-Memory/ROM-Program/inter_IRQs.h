@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-
 // ============================================================
 // Auxiliary Definitions
 // ============================================================
@@ -58,5 +57,8 @@ uint32_t doubleFault(uint32_t eflags, uint32_t epc);
 // ============================================================
 // IRQs
 // ============================================================
+
+#define TTY_MSI_NUM 126      // Numero MSI para TTY
+#define KEYBOARD_MSI_NUM 127 // Numero MSI para Keyboard
 
 #endif

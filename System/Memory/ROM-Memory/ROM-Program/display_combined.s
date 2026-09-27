@@ -410,13 +410,11 @@ initTty:                                ; @initTty
 	BRH NE, R15
 ; %bb.1:                                ; %if.then
 	INT LOD R2, R1, 0
-	LDI R3, 8
-	LSH R1, R3, R1
-	LDI R3, 0
-	H LDI R3, 1792
-	SLT ADI R3, 0
+	LDI R3, 13
+	RSH R1, R3, R1
+	LDI R3, 112
 	AND R1, R3, R1
-	INT LOD R2, R3, 0
+	LDI R3, 1
 	NOR R1, R3, R1
 	NOR R1, R1, R1
 	INT STR R2, R1, 0
@@ -424,15 +422,8 @@ initTty:                                ; @initTty
 	H LDI R1, 65248
 	SLT ADI R1, 44
 	INT STR R2, R1, 4
-	LDI R1, 127
+	LDI R1, 126
 	INT STR R2, R1, 8
-	LDI R3, 0
-	H LDI R3, 8
-	SLT ADI R3, 0
-	INT LOD R2, R4, 0
-	NOR R4, R3, R3
-	NOR R3, R3, R3
-	INT STR R2, R3, 0
 	LDI R2, 0
 	H LDI R2, tty_IRQHandler
 	SLT ADI R2, tty_IRQHandler
@@ -559,13 +550,11 @@ displaySearch:                          ; @displaySearch
 	BRH NE, R15
 ; %bb.2:                                ; %if.then.i
 	INT LOD R2, R1, 0
-	LDI R3, 8
-	LSH R1, R3, R1
-	LDI R3, 0
-	H LDI R3, 1792
-	SLT ADI R3, 0
+	LDI R3, 13
+	RSH R1, R3, R1
+	LDI R3, 112
 	AND R1, R3, R1
-	INT LOD R2, R3, 0
+	LDI R3, 1
 	NOR R1, R3, R1
 	NOR R1, R1, R1
 	INT STR R2, R1, 0
@@ -573,15 +562,8 @@ displaySearch:                          ; @displaySearch
 	H LDI R1, 65248
 	SLT ADI R1, 44
 	INT STR R2, R1, 4
-	LDI R1, 127
+	LDI R1, 126
 	INT STR R2, R1, 8
-	LDI R3, 0
-	H LDI R3, 8
-	SLT ADI R3, 0
-	INT LOD R2, R4, 0
-	NOR R4, R3, R3
-	NOR R3, R3, R3
-	INT STR R2, R3, 0
 	LDI R2, 0
 	H LDI R2, tty_IRQHandler
 	SLT ADI R2, tty_IRQHandler
@@ -644,8 +626,8 @@ biosWrite:                              ; @biosWrite
 	INT LOD R2, R9, 0
 	LDI R4, 0
 	SUB R9, R4, R0
-	H LDI R15, %hi(.LBB7_13)
-	SLT ADI R15, %lo(.LBB7_13)
+	H LDI R15, %hi(.LBB7_4)
+	SLT ADI R15, %lo(.LBB7_4)
 	BRH EQ, R15
 ; %bb.1:                                ; %if.then
 	CHAR LOD R1, R5, 0
@@ -663,41 +645,51 @@ biosWrite:                              ; @biosWrite
 	BRH NE, R15
 ; %bb.3:                                ; %if.then5
 	LDI R2, 2
-	H LDI R15, %hi(.LBB7_4)
-	SLT ADI R15, %lo(.LBB7_4)
+	H LDI R15, %hi(.LBB7_8)
+	SLT ADI R15, %lo(.LBB7_8)
+	JMP R15
+.LBB7_4:                                ; %if.else27
+	H LDI R15, %hi(irqOff)
+	SLT ADI R15, %lo(irqOff)
+	CAL R15
+	;APP
+	HLT
+	;NO_APP
+	H LDI R15, %hi(.LBB7_10)
+	SLT ADI R15, %lo(.LBB7_10)
 	JMP R15
 .LBB7_5:                                ; %if.else
 	SUB R3, R4, R0
-	H LDI R15, %hi(.LBB7_8)
-	SLT ADI R15, %lo(.LBB7_8)
+	H LDI R15, %hi(.LBB7_11)
+	SLT ADI R15, %lo(.LBB7_11)
 	BRH NE, R15
 ; %bb.6:                                ; %if.else
 	AND R5, R6, R5
 	SUB R5, R4, R0
-	H LDI R15, %hi(.LBB7_8)
-	SLT ADI R15, %lo(.LBB7_8)
+	H LDI R15, %hi(.LBB7_11)
+	SLT ADI R15, %lo(.LBB7_11)
 	BRH NE, R15
 ; %bb.7:                                ; %if.then13
 	LDI R2, 3
 	LDI R3, 0
-.LBB7_4:                                ; %if.then19
+.LBB7_8:                                ; %if.end28
 	LDI R1, 0
 	H LDI R1, .L.str
 	SLT ADI R1, .L.str
-.LBB7_12:                               ; %if.then19
+.LBB7_9:                                ; %if.end28
 	CAL R9
-.LBB7_13:                               ; %if.end27
+.LBB7_10:                               ; %if.end28
 	INT LOD R14, R9, -8
 	INT LOD R14, R8, -4
 	SLT ADI R14, -12
 	RET
-.LBB7_8:                                ; %if.else14
+.LBB7_11:                               ; %if.else14
 	CHAR LOD R1, R5, 1
 	SUB R5, R4, R0
-	H LDI R15, %hi(.LBB7_10)
-	SLT ADI R15, %lo(.LBB7_10)
+	H LDI R15, %hi(.LBB7_13)
+	SLT ADI R15, %lo(.LBB7_13)
 	BRH EQ, R15
-; %bb.9:                                ; %while.cond.i.preheader
+; %bb.12:                               ; %while.cond.i.preheader
 	SLT ADD R1, R0, R8
 	H LDI R15, %hi(strlen)
 	SLT ADI R15, %lo(strlen)
@@ -705,18 +697,18 @@ biosWrite:                              ; @biosWrite
 	SLT ADD R1, R0, R3
 	LDI R2, 4
 	SLT ADD R8, R0, R1
-	H LDI R15, %hi(.LBB7_12)
-	SLT ADI R15, %lo(.LBB7_12)
+	H LDI R15, %hi(.LBB7_9)
+	SLT ADI R15, %lo(.LBB7_9)
 	JMP R15
-.LBB7_10:                               ; %if.then19
+.LBB7_13:                               ; %if.then19
 	SUB R2, R3, R0
-	H LDI R15, %hi(.LBB7_12)
-	SLT ADI R15, %lo(.LBB7_12)
+	H LDI R15, %hi(.LBB7_9)
+	SLT ADI R15, %lo(.LBB7_9)
 	BRH C, R15
-; %bb.11:                               ; %if.then19
+; %bb.14:                               ; %if.then19
 	SLT ADD R2, R0, R3
-	H LDI R15, %hi(.LBB7_12)
-	SLT ADI R15, %lo(.LBB7_12)
+	H LDI R15, %hi(.LBB7_9)
+	SLT ADI R15, %lo(.LBB7_9)
 	JMP R15
 .Lfunc_end7:
 	.size	biosWrite, .Lfunc_end7-biosWrite
@@ -725,9 +717,12 @@ biosWrite:                              ; @biosWrite
 	.type	intToAscii,@function
 intToAscii:                             ; @intToAscii
 ; %bb.0:                                ; %entry
-	SLT ADI R14, 12
+	SLT ADI R14, 24
 	INT STR R14, R8, -4
 	INT STR R14, R9, -8
+	INT STR R14, R10, -12
+	INT STR R14, R11, -16
+	INT STR R14, R12, -20
 	SLT ADD R1, R0, R8
 	;APP
 	CYE SR8, R9
@@ -756,61 +751,83 @@ intToAscii:                             ; @intToAscii
 	LDI R2, 0
 	CHAR STR R3, R2, 0
 	SUB R8, R2, R0
-	H LDI R15, %hi(.LBB8_9)
-	SLT ADI R15, %lo(.LBB8_9)
+	H LDI R15, %hi(.LBB8_11)
+	SLT ADI R15, %lo(.LBB8_11)
 	BRH EQ, R15
 ; %bb.1:                                ; %while.body.preheader
-	LDI R4, 31
-	SLT ADD R8, R0, R3
-	SUB R4, R2, R0
+	LDI R3, 31
+	LDI R4, 1
+	SLT ADD R8, R0, R5
+	SUB R3, R2, R0
 	H LDI R15, %hi(.LBB8_3)
 	SLT ADI R15, %lo(.LBB8_3)
 	BRH EQ, R15
 ; %bb.2:                                ; %while.body.preheader
-	RSH R8, R4, R2
-	LDI R3, 1
-	LSH R2, R3, R3
-	SUB R2, R3, R3
+	RSH R8, R3, R5
+	LSH R5, R4, R6
+	SUB R5, R6, R5
 .LBB8_3:                                ; %while.body.preheader
-	XOR R8, R3, R2
-	SUB R2, R3, R2
-	LDI R3, 0
-	H LDI R3, ascii_pool+30
-	SLT ADI R3, ascii_pool+30
-	ADD R1, R3, R1
-	LDI R3, 3
-	LDI R4, 10
-	LDI R5, 48
-	LDI R6, 9
-.LBB8_4:                                ; %while.body
-                                        ; =>This Inner Loop Header: Depth=1
-	SLT ADD R2, R0, R7
-	GOF R2
-	RSH R2, R3, R2
-	MUL R2, R4, R9
-	SUB R7, R9, R9
-	NOR R9, R5, R9
-	NOR R9, R9, R9
-	CHAR STR R1, R9, 0
-	ADI R1, -1
-	SUB R6, R7, R0
+	XOR R8, R5, R6
+	SUB R6, R5, R9
+	LDI R5, 0
+	H LDI R5, ascii_pool+30
+	SLT ADI R5, ascii_pool+30
+	ADD R1, R5, R1
+	LDI R5, 0
+	H LDI R5, 52429
+	SLT ADI R5, -13107
+	LDI R6, 3
+	LDI R7, 246
 	H LDI R15, %hi(.LBB8_4)
 	SLT ADI R15, %lo(.LBB8_4)
-	BRH C, R15
-; %bb.5:                                ; %if.end9
+	JMP R15
+.LBB8_6:                                ; %while.body
+                                        ;   in Loop: Header=BB8_4 Depth=1
+	AND R10, R5, R10
+	MUL R9, R5, R11
+	GOF R12
+	ADD R12, R10, R10
+	ADD R10, R9, R10
+	RSH R10, R6, R10
+	MUL R10, R7, R11
+	ADD R11, R9, R9
+	ADI R9, 48
+	CHAR STR R1, R9, 0
+	ADI R1, -1
+	SLT ADD R10, R0, R9
+	SUB R10, R2, R0
+	H LDI R15, %hi(.LBB8_7)
+	SLT ADI R15, %lo(.LBB8_7)
+	BRH EQ, R15
+.LBB8_4:                                ; %while.body
+                                        ; =>This Inner Loop Header: Depth=1
+	SLT ADD R9, R0, R10
+	SUB R3, R2, R0
+	H LDI R15, %hi(.LBB8_6)
+	SLT ADI R15, %lo(.LBB8_6)
+	BRH EQ, R15
+; %bb.5:                                ; %while.body
+                                        ;   in Loop: Header=BB8_4 Depth=1
+	RSH R9, R3, R10
+	LSH R10, R4, R11
+	SUB R10, R11, R10
+	H LDI R15, %hi(.LBB8_6)
+	SLT ADI R15, %lo(.LBB8_6)
+	JMP R15
+.LBB8_7:                                ; %if.end15
 	LDI R2, 0
 	H LDI R2, 0
 	SLT ADI R2, -1
 	SUB R2, R8, R0
-	H LDI R15, %hi(.LBB8_7)
-	SLT ADI R15, %lo(.LBB8_7)
+	H LDI R15, %hi(.LBB8_9)
+	SLT ADI R15, %lo(.LBB8_9)
 	BRH NN, R15
-; %bb.6:
+; %bb.8:
 	ADI R1, 1
-	H LDI R15, %hi(.LBB8_8)
-	SLT ADI R15, %lo(.LBB8_8)
+	H LDI R15, %hi(.LBB8_10)
+	SLT ADI R15, %lo(.LBB8_10)
 	JMP R15
-.LBB8_9:                                ; %if.end9.thread
+.LBB8_11:                               ; %if.end15.thread
 	LDI R2, 0
 	H LDI R2, ascii_pool
 	SLT ADI R2, ascii_pool
@@ -818,16 +835,19 @@ intToAscii:                             ; @intToAscii
 	LDI R2, 48
 	CHAR STR R1, R2, 30
 	ADI R1, 30
-	H LDI R15, %hi(.LBB8_8)
-	SLT ADI R15, %lo(.LBB8_8)
+	H LDI R15, %hi(.LBB8_10)
+	SLT ADI R15, %lo(.LBB8_10)
 	JMP R15
-.LBB8_7:                                ; %if.then10
+.LBB8_9:                                ; %if.then16
 	LDI R2, 45
 	CHAR STR R1, R2, 0
-.LBB8_8:                                ; %if.end12
+.LBB8_10:                               ; %if.end18
+	INT LOD R14, R12, -20
+	INT LOD R14, R11, -16
+	INT LOD R14, R10, -12
 	INT LOD R14, R9, -8
 	INT LOD R14, R8, -4
-	SLT ADI R14, -12
+	SLT ADI R14, -24
 	RET
 .Lfunc_end8:
 	.size	intToAscii, .Lfunc_end8-intToAscii
@@ -1576,7 +1596,7 @@ INT STR R14, R10, -16
 INT STR R14, R11, -12 
 INT STR R14, R12, -8 
 INT STR R14, R13, -4 
-SLT ADD R1, R0, R14 
+SLT ADD R14, R0, R1 
 SLT ADI R1, -52 
 H LDI R15, %hi(mainHandler) 
 SLT ADI R15, %lo(mainHandler) 
@@ -1998,6 +2018,59 @@ syscallsHandler:                        ; @syscallsHandler
 .Lfunc_end25:
 	.size	syscallsHandler, .Lfunc_end25-syscallsHandler
                                         ; -- End function
+	.globl	fibonacci                       ; -- Begin function fibonacci
+	.type	fibonacci,@function
+fibonacci:                              ; @fibonacci
+; %bb.0:                                ; %entry
+	SLT ADI R14, 8
+	ADD R14, R0, R2
+	SLT ADI R2, -4
+	INT STR R2, R1, 0
+	INT LOD R2, R3, 0
+	LDI R1, 1
+	SUB R3, R1, R0
+	H LDI R15, %hi(.LBB26_4)
+	SLT ADI R15, %lo(.LBB26_4)
+	BRH N, R15
+; %bb.1:                                ; %if.end
+	INT LOD R2, R3, 0
+	SUB R3, R1, R0
+	H LDI R15, %hi(.LBB26_7)
+	SLT ADI R15, %lo(.LBB26_7)
+	BRH EQ, R15
+; %bb.2:                                ; %for.cond.preheader
+	INT LOD R2, R1, 0
+	LDI R3, 2
+	SUB R1, R3, R0
+	H LDI R15, %hi(.LBB26_5)
+	SLT ADI R15, %lo(.LBB26_5)
+	BRH NN, R15
+.LBB26_4:
+	LDI R1, 0
+	H LDI R15, %hi(.LBB26_7)
+	SLT ADI R15, %lo(.LBB26_7)
+	JMP R15
+.LBB26_5:                               ; %for.body.preheader
+	LDI R3, 0
+	LDI R1, 1
+	SLT ADD R1, R0, R4
+.LBB26_6:                               ; %for.body
+                                        ; =>This Inner Loop Header: Depth=1
+	SLT ADD R3, R0, R5
+	SLT ADD R1, R0, R3
+	ADD R3, R5, R1
+	ADI R4, 1
+	INT LOD R2, R5, 0
+	SUB R4, R5, R0
+	H LDI R15, %hi(.LBB26_6)
+	SLT ADI R15, %lo(.LBB26_6)
+	BRH N, R15
+.LBB26_7:                               ; %return
+	SLT ADI R14, -8
+	RET
+.Lfunc_end26:
+	.size	fibonacci, .Lfunc_end26-fibonacci
+                                        ; -- End function
 	.globl	main                            ; -- Begin function main
 	.type	main,@function
 main:                                   ; @main
@@ -2056,16 +2129,37 @@ main:                                   ; @main
 	H LDI R15, %hi(biosWrite)
 	SLT ADI R15, %lo(biosWrite)
 	CAL R15
-.LBB26_1:                               ; %while.body
+	LDI R1, 46
+	H LDI R15, %hi(fibonacci)
+	SLT ADI R15, %lo(fibonacci)
+	CAL R15
+	H LDI R15, %hi(intToAscii)
+	SLT ADI R15, %lo(intToAscii)
+	CAL R15
+	SLT ADD R8, R0, R2
+	H LDI R15, %hi(biosWrite)
+	SLT ADI R15, %lo(biosWrite)
+	CAL R15
+	LDI R1, 0
+	H LDI R1, 65533
+	SLT ADI R1, 28549
+	H LDI R15, %hi(intToAscii)
+	SLT ADI R15, %lo(intToAscii)
+	CAL R15
+	SLT ADD R8, R0, R2
+	H LDI R15, %hi(biosWrite)
+	SLT ADI R15, %lo(biosWrite)
+	CAL R15
+.LBB27_1:                               ; %while.body
                                         ; =>This Inner Loop Header: Depth=1
 	;APP
 	HLT
 	;NO_APP
-	H LDI R15, %hi(.LBB26_1)
-	SLT ADI R15, %lo(.LBB26_1)
+	H LDI R15, %hi(.LBB27_1)
+	SLT ADI R15, %lo(.LBB27_1)
 	JMP R15
-.Lfunc_end26:
-	.size	main, .Lfunc_end26-main
+.Lfunc_end27:
+	.size	main, .Lfunc_end27-main
                                         ; -- End function
 	.type	hardware_busy,@object           ; @hardware_busy
 	.section	.bss,"aw",@nobits
@@ -2187,15 +2281,15 @@ map_size:
 	.asciz	"LAPIC e IRQs inicializadas.\n\n"
 	.size	.L.str.3.31, 30
 
-	.ident	"clang version 24.0.0git (https://github.com/Licha-M/llvm-project-ISA32-LM.git c98f7ba0fedefda52a42da5440b50bcb3b3ca4ee)"
+	.ident	"clang version 24.0.0git (https://github.com/Licha-M/llvm-project-ISA32-LM.git 0c5e6fd97de1a741b0b4c4168ebb7d55fa03ab17)"
 	.section	".note.GNU-stack","",@progbits
 
 ; ════════════════════ .start auto-generado ════════════════════
-; Inicio en palabra ROM 1709 (byte 0x001AB4)
+; Inicio en palabra ROM 1782 (byte 0x001BD8)
 ; .start:
 ; ── Fase 1: Copiar 88 palabra(s) de .data  ROM → RAM ──────────────
-;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 1621, byte 0x001954)
-;	SLT ADI R15, 0x1954
+;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 1694, byte 0x001A78)
+;	SLT ADI R15, 0x1A78
 ;	H LDI R1, 0x0400		; Dir. RAM destino = 0x04000000
 ;	SLT ADI R1, 0x0000
 ;	INT LOD R15, R2, 0		; Leer palabra 0 de ROM (.data blob)

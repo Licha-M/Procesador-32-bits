@@ -116,8 +116,9 @@ __attribute__((naked)) void entryHandler(void) {
       "INT STR R14, R13, -4 \n"
 
       // PASAR EL PUNTERO A mainHandler
-      // R1 es el primer argumento en C. Le pasamos (R14 - 52), que es donde empieza R1
-      "SLT ADD R1, R0, R14 \n" // R1 = R14
+      // R1 es el primer argumento en C. Le pasamos (R14 - 52), que es donde
+      // empieza R1
+      "SLT ADD R14, R0, R1 \n" // R14 = R1
       "SLT ADI R1, -52 \n"     // R1 = R14 - 52
 
       // Saltamos a mainHandler
