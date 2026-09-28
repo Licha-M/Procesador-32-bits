@@ -252,10 +252,10 @@ size_t strlen(const char *str) {
 // Función principal
 void biosWrite(char string[], int cant) {
 
-  if (string[0] == '\b' && string[1] == '\0') {
+  if (string[0] == '\b') {
     // Borrar
     if (cant == 0) {
-      cant = 1;
+      cant++;
     }
     current_display.write(string, 2, cant);
 

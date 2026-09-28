@@ -154,9 +154,8 @@ initKeyboard:                           ; @initKeyboard
 	H LDI R1, 65248
 	SLT ADI R1, 44
 	INT STR R10, R1, 4
-	LDI R1, 127
-	INT STR R10, R1, 8
 	LDI R1, 126
+	INT STR R10, R1, 8
 	LDI R2, 0
 	H LDI R2, keyboard_IRQHandler
 	SLT ADI R2, keyboard_IRQHandler
@@ -265,9 +264,8 @@ keyboardSearch:                         ; @keyboardSearch
 	H LDI R2, 65248
 	SLT ADI R2, 44
 	INT STR R10, R2, 4
-	LDI R2, 127
-	INT STR R10, R2, 8
 	LDI R2, 126
+	INT STR R10, R2, 8
 	SLT ADD R1, R0, R11
 	SLT ADD R2, R0, R1
 	LDI R2, 0
@@ -1078,51 +1076,46 @@ strlen:                                 ; @strlen
 	.type	biosWrite,@function
 biosWrite:                              ; @biosWrite
 ; %bb.0:                                ; %entry
-	SLT ADI R14, 8
+	SLT ADI R14, 12
 	INT STR R14, R8, -4
+	INT STR R14, R9, -8
 	SLT ADD R2, R0, R3
-	CHAR LOD R1, R2, 0
-	LDI R4, 8
-	SUB R2, R4, R0
-	H LDI R15, %hi(.LBB11_5)
-	SLT ADI R15, %lo(.LBB11_5)
-	BRH NE, R15
-; %bb.1:                                ; %land.lhs.true
-	CHAR LOD R1, R2, 1
-	LDI R4, 0
-	SUB R2, R4, R0
-	H LDI R15, %hi(.LBB11_9)
-	SLT ADI R15, %lo(.LBB11_9)
-	BRH NE, R15
-; %bb.2:                                ; %if.then
-	LDI R2, 1
-	SUB R2, R3, R0
+	CHAR LOD R1, R4, 0
+	LDI R2, 8
+	SUB R4, R2, R0
 	H LDI R15, %hi(.LBB11_4)
 	SLT ADI R15, %lo(.LBB11_4)
+	BRH NE, R15
+; %bb.1:                                ; %if.then
+	LDI R2, 1
+	SUB R2, R3, R0
+	H LDI R15, %hi(.LBB11_3)
+	SLT ADI R15, %lo(.LBB11_3)
 	BRH C, R15
-; %bb.3:                                ; %if.then
+; %bb.2:                                ; %if.then
 	SLT ADD R2, R0, R3
-.LBB11_4:                               ; %if.then
+.LBB11_3:                               ; %if.then
 	LDI R2, 0
 	H LDI R2, current_display
 	SLT ADI R2, current_display
 	INT LOD R2, R4, 0
 	LDI R2, 2
-	H LDI R15, %hi(.LBB11_13)
-	SLT ADI R15, %lo(.LBB11_13)
+	CAL R4
+	H LDI R15, %hi(.LBB11_12)
+	SLT ADI R15, %lo(.LBB11_12)
 	JMP R15
-.LBB11_5:                               ; %if.else
-	LDI R4, 0
-	SUB R3, R4, R0
-	H LDI R15, %hi(.LBB11_8)
-	SLT ADI R15, %lo(.LBB11_8)
+.LBB11_4:                               ; %if.else
+	LDI R2, 0
+	SUB R3, R2, R0
+	H LDI R15, %hi(.LBB11_7)
+	SLT ADI R15, %lo(.LBB11_7)
 	BRH NE, R15
-; %bb.6:                                ; %if.else
-	SUB R2, R4, R0
-	H LDI R15, %hi(.LBB11_8)
-	SLT ADI R15, %lo(.LBB11_8)
+; %bb.5:                                ; %if.else
+	SUB R4, R2, R0
+	H LDI R15, %hi(.LBB11_7)
+	SLT ADI R15, %lo(.LBB11_7)
 	BRH NE, R15
-; %bb.7:                                ; %if.then16
+; %bb.6:                                ; %if.then11
 	LDI R1, 0
 	H LDI R1, current_display
 	SLT ADI R1, current_display
@@ -1132,48 +1125,46 @@ biosWrite:                              ; @biosWrite
 	LDI R1, 0
 	H LDI R1, .L.str.3
 	SLT ADI R1, .L.str.3
-	H LDI R15, %hi(.LBB11_13)
-	SLT ADI R15, %lo(.LBB11_13)
+	CAL R4
+	H LDI R15, %hi(.LBB11_12)
+	SLT ADI R15, %lo(.LBB11_12)
 	JMP R15
-.LBB11_8:                               ; %if.else17
-	CHAR LOD R1, R2, 1
-	SUB R2, R4, R0
-	H LDI R15, %hi(.LBB11_10)
-	SLT ADI R15, %lo(.LBB11_10)
+.LBB11_7:                               ; %if.else12
+	LDI R4, 0
+	H LDI R4, current_display
+	SLT ADI R4, current_display
+	INT LOD R4, R9, 0
+	CHAR LOD R1, R4, 1
+	SUB R4, R2, R0
+	H LDI R15, %hi(.LBB11_9)
+	SLT ADI R15, %lo(.LBB11_9)
 	BRH EQ, R15
-.LBB11_9:                               ; %while.cond.i.preheader
+; %bb.8:                                ; %while.cond.i.preheader
 	SLT ADD R1, R0, R8
 	H LDI R15, %hi(strlen)
 	SLT ADI R15, %lo(strlen)
 	CAL R15
 	SLT ADD R1, R0, R3
-	LDI R1, 0
-	H LDI R1, current_display
-	SLT ADI R1, current_display
-	INT LOD R1, R4, 0
 	LDI R2, 4
 	SLT ADD R8, R0, R1
-.LBB11_13:                              ; %if.end30
-	CAL R4
-	INT LOD R14, R8, -4
-	SLT ADI R14, -8
-	RET
-.LBB11_10:                              ; %if.then22
+	H LDI R15, %hi(.LBB11_11)
+	SLT ADI R15, %lo(.LBB11_11)
+	JMP R15
+.LBB11_9:                               ; %if.then17
 	LDI R2, 1
 	SUB R2, R3, R0
-	H LDI R15, %hi(.LBB11_12)
-	SLT ADI R15, %lo(.LBB11_12)
+	H LDI R15, %hi(.LBB11_11)
+	SLT ADI R15, %lo(.LBB11_11)
 	BRH C, R15
-; %bb.11:                               ; %if.then22
+; %bb.10:                               ; %if.then17
 	SLT ADD R2, R0, R3
-.LBB11_12:                              ; %if.then22
-	LDI R4, 0
-	H LDI R4, current_display
-	SLT ADI R4, current_display
-	INT LOD R4, R4, 0
-	H LDI R15, %hi(.LBB11_13)
-	SLT ADI R15, %lo(.LBB11_13)
-	JMP R15
+.LBB11_11:                              ; %if.then17
+	CAL R9
+.LBB11_12:                              ; %if.end26
+	INT LOD R14, R9, -8
+	INT LOD R14, R8, -4
+	SLT ADI R14, -12
+	RET
 .Lfunc_end11:
 	.size	biosWrite, .Lfunc_end11-biosWrite
                                         ; -- End function
@@ -2829,11 +2820,11 @@ map_size:
 	.section	".note.GNU-stack","",@progbits
 
 ; ════════════════════ .start auto-generado ════════════════════
-; Inicio en palabra ROM 2208 (byte 0x002280)
+; Inicio en palabra ROM 2200 (byte 0x002260)
 ; .start:
 ; ── Fase 1: Copiar 109 palabra(s) de .data  ROM → RAM ──────────────
-;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 2099, byte 0x0020CC)
-;	SLT ADI R15, 0x20CC
+;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 2091, byte 0x0020AC)
+;	SLT ADI R15, 0x20AC
 ;	H LDI R1, 0x0400		; Dir. RAM destino = 0x04000000
 ;	SLT ADI R1, 0x0000
 ;	INT LOD R15, R2, 0		; Leer palabra 0 de ROM (.data blob)

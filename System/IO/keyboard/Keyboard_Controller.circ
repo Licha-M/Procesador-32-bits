@@ -98,15 +98,15 @@
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="61" y="51">In</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="66" y="99">Out</text>
       <text dominant-baseline="central" font-family="SansSerif" font-size="12" text-anchor="middle" x="117" y="59">Keyboard</text>
-      <circ-anchor facing="east" x="150" y="60"/>
+      <circ-anchor facing="east" x="150" y="70"/>
       <circ-port dir="in" pin="1200,460" x="150" y="80"/>
       <circ-port dir="in" pin="1200,480" x="150" y="90"/>
       <circ-port dir="in" pin="270,180" x="50" y="60"/>
       <circ-port dir="in" pin="290,320" x="50" y="50"/>
       <circ-port dir="in" pin="290,340" x="50" y="40"/>
       <circ-port dir="out" pin="1200,400" x="150" y="40"/>
-      <circ-port dir="out" pin="1200,420" x="150" y="60"/>
-      <circ-port dir="out" pin="1200,440" x="150" y="70"/>
+      <circ-port dir="out" pin="1200,420" x="150" y="70"/>
+      <circ-port dir="out" pin="1200,440" x="150" y="60"/>
       <circ-port dir="out" pin="1310,380" x="50" y="100"/>
       <circ-port dir="out" pin="270,200" x="50" y="110"/>
       <circ-port dir="out" pin="290,110" x="50" y="90"/>

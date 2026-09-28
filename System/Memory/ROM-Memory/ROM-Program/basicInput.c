@@ -97,7 +97,7 @@ void initKeyboard(uint32_t base) {
            LAPIC_BASE_ADDR +
                0x2C); // Le indicamos la direccion del registro MSI en LAPIC
 
-    ECAM_W(base, 0x8, TTY_MSI_NUM); // Indicamos el numero de vector
+    ECAM_W(base, 0x8, KEYBOARD_MSI_NUM); // Indicamos el numero de vector
 
     // Asignamos vector
     registerIRQHandler(KEYBOARD_MSI_NUM, keyboard_IRQHandler);
