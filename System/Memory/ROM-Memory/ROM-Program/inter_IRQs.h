@@ -8,6 +8,8 @@
 // Auxiliary Definitions
 // ============================================================
 
+void final();
+
 // Estructura del registro Especial Flags (SR8)
 typedef union {
   uint8_t eflags;
@@ -29,15 +31,38 @@ typedef union {
 // Bandera de pánico: se activa desde una excepción fatal
 extern volatile bool system_panic;
 
-void irqOff();
-void irqOn();
+// Apagar las IRQs
+__attribute__((always_inline)) inline void irqOff() {
+  uint32_t eflags;
+  __asm__ __volatile__("CYE SR8, %0" : "=r"(eflags));
+  uint32_t eflags_off = eflags & ~EFLAGS_EN_INTS_MASK;
+  __asm__ __volatile__("CYR %0, SR8" : : "r"(eflags_off));
+}
+// Encender las IRQs
+__attribute__((always_inline)) inline void irqOn() {
+  uint32_t eflags;
+  __asm__ __volatile__("CYE SR8, %0" : "=r"(eflags));
+  uint32_t eflags_on = eflags | EFLAGS_EN_INTS_MASK;
+  __asm__ __volatile__("CYR %0, SR8" : : "r"(eflags_on));
+}
+
+// Entrada a sección critica
+__attribute__((always_inline)) inline uint32_t enterCriticalSection() {
+  uint32_t flags;
+  __asm__ __volatile__("CYE SR8, %0" : "=r"(flags));
+  irqOff();
+  return flags;
+}
+
+// Salida de sección critica
+__attribute__((always_inline)) inline void exitCriticalSection(uint32_t flags) {
+  __asm__ __volatile__("CYR %0, SR8" : : "r"(flags));
+}
 
 // ============================================================
 // Excepciones
 // ============================================================
-// Cada excepción recibe las EFlags vigentes al momento del error (para
-// saber si ocurrió en user o kernel mode) y el EPC de retorno, y devuelve
-// el EPC ya corregido.
+// Cada excepción recibe las EFlags del error y el EPC de retorno
 
 // Error de paginas
 uint32_t pageFault(uint32_t eflags, uint32_t epc);
@@ -60,5 +85,9 @@ uint32_t doubleFault(uint32_t eflags, uint32_t epc);
 
 #define TTY_MSI_NUM 127      // Numero MSI para TTY
 #define KEYBOARD_MSI_NUM 126 // Numero MSI para Keyboard
+
+// Inicialización de MSI
+void initMSI(uint32_t base, uint32_t irq_num,
+             uint32_t (*handler)(uint32_t eflags, uint32_t epc));
 
 #endif

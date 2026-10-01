@@ -36,10 +36,14 @@ volatile LAPIC_Registers *Registros =
 // ============================================================
 
 // Manejador por defecto para IRQs no registradas
-static uint32_t defaultIRQHandler(uint32_t eflags, uint32_t epc) {
+static uint32_t defaultIRQHandler(uint32_t eflags, uint32_t epc,
+                                  uint32_t cause) {
   (void)eflags;
   irqOff();
-  biosWrite("Fatal Error: Unhandled IRQ", 0);
+  if (cause < MAX_IRQS)
+    biosWrite("Fatal Error: Unhandled IRQ", 0);
+  else
+    biosWrite("Fatal Error: Over Limit IRQ", 0);
   __asm__ volatile("HLT");
   return epc;
 }
@@ -77,6 +81,8 @@ void mainHandler(uint32_t *regs) {
     // Excepción / IRQ de hardware
     if (cause < MAX_IRQS && irq_table.handlers[cause] != NULL) {
       epc = irq_table.handlers[cause](eflags, epc);
+    } else {
+      epc = defaultIRQHandler(eflags, epc, cause);
     }
   } else {
     // Llamada al sistema (SCL)
@@ -93,7 +99,10 @@ void mainHandler(uint32_t *regs) {
   __asm__ __volatile__("CYR %0, SR9" : : "r"(flags));
   __asm__ __volatile__("CYR %0, SR10" : : "r"(carry));
 
-  Registros->EOI = 1; // Marcamos la IRQ como finalizada
+  // Solo enviar EOI al LAPIC si fue una interrupción externa de hardware
+  if (cause >= 16) {
+    Registros->EOI = 1; // Marcamos la IRQ de hardware como finalizada
+  }
 }
 
 // Entrada al router de IRQs.
@@ -150,17 +159,43 @@ __attribute__((naked)) void entryHandler(void) {
 // Extern functions
 // ============================================================
 
-// Inicia la tabla de IRQs a defaultIRQHandler
-void initIRQs() {
-  for (int i = 0; i < MAX_IRQS; i++) {
-    irq_table.handlers[i] = defaultIRQHandler;
-  }
-}
+// Cambiamos el TPR para habilitar o deshabilitar ciertas IRQs
+inline void setTPR(uint32_t level) { Registros->TPR = level; }
 
-// Registro de IRQs nuevas
-void registerIRQHandler(uint32_t cause, IRQHandler handler) {
-  if (cause < MAX_IRQS && handler != NULL) {
-    irq_table.handlers[cause] = handler;
+// Inicialización de MSI
+void initMSI(uint32_t base, uint32_t irq_num, IRQHandler handler) {
+  base = base + ECAM_R(base, 0x24); // Base es igual a la direccion 0 del CP
+
+  if ((ECAM_R(base, 0x0) & 0xFF) == 0x5) {
+
+    // MSI suported
+    uint32_t msi_reg = ECAM_R(base, 0x0);
+
+    int cantREQ = (msi_reg >> 17) &
+                  0x7; // Extraemos la cantidad de IRQ requeridas (Bits 17-19)
+
+    // Limpiamos los bits superiores (16-31) para quitar valores residuales
+    msi_reg &= 0x0000FFFF;
+
+    // Le damos las IRQ que necesite en la "Cantidad dada" (Bits 20-22)
+    msi_reg |= (cantREQ << 20);
+
+    // Habilitamos las MSI (Bit 16)
+    msi_reg |= (0x1 << 16);
+
+    ECAM_W(base, 0x4,
+           LAPIC_BASE_ADDR +
+               0x2C); // Le indicamos la direccion del registro MSI en LAPIC
+
+    ECAM_W(base, 0x8, irq_num); // Indicamos el numero de vector
+
+    // Asignamos vector
+    if (irq_num < MAX_IRQS && handler != NULL) {
+      irq_table.handlers[irq_num] = handler;
+    }
+
+    // Escribimos la configuracion final, pero solo los 16 bits superiores
+    ECAM_W(base, 0x0, msi_reg >> 16);
   }
 }
 
@@ -180,7 +215,9 @@ void initLAPIC() {
   // Inicializamos LAPIC con prioridad maxima
   Registros->BaseAddr = LAPIC_BASE_ADDR; // Base del LAPIC
   Registros->ID = 0;                     // ID del LAPIC
-  Registros->TPR = 0;          // Bajamos la prioridad a lo mas bajo posible.
+
+  // Habilitamos todas las IRQs
+  setTPR(0);                   // Bajamos la prioridad al minimo posible.
   Registros->LAPIC_Config = 3; // Habilitamos todo tipo de IRQ
 
   // Habilitamos IRQs

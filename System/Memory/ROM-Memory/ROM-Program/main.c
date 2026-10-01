@@ -1,6 +1,6 @@
 #include "functions.h"
 
-void final() {
+__attribute__((noreturn)) void final() {
   while (true) {
     // Fin dentro de un bucle para que termine por mas que alla IRQs
     __asm__ volatile("HLT");
@@ -12,9 +12,6 @@ volatile PCIe_Map *mapa = (volatile PCIe_Map *)(TABLE_Addr);
 int map_size = 0;
 
 int main() {
-
-  // Inicializamos interrupcines
-  initIRQs();
 
   // Inicializamos LAPIC y excepciones
   initLAPIC();
@@ -34,18 +31,9 @@ int main() {
   biosWrite("LAPIC e IRQs inicializadas.\n\n", 0);
 
   if (!keyboardSearch()) {
-    biosWrite("No hay teclado conectado", 0);
+    biosWrite("No hay teclado conectado\n", 0);
     final();
   }
 
-  char text[10];
-
-  while (true) {
-    biosWrite("Escriba ", 0);
-    read(text, 10);
-    biosWrite(text, 0);
-    biosWrite("\n", 0);
-  }
-
-  final();
+  BiosShell();
 }

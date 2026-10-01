@@ -1,15 +1,20 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
-#include "inter_IRQs.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#include "inter_IRQs.h"
 
 // ============================================================
 // ECAM Bus Enumeration
 // ============================================================
 
-#define ECAM_BASE 0xE0000000  // Base del espacio ECAM
+#define ECAM_BASE 0xE0000000 // Base del espacio ECAM
+#define ECAM_ADDR(bus, dev, func)                                              \
+  (ECAM_BASE | ((uint32_t)(bus) << 20) | ((uint32_t)(dev) << 15) |             \
+   ((uint32_t)(func) << 12))
 #define TABLE_Addr 0x08000000 // Espacio para guardar la tabla de dispositivos
 #define MAX_PCIE_DEVICES 64   // Cantidad maxima de dispositivos
 
@@ -85,21 +90,26 @@ int search(uint32_t tipo);
 // Función inicial
 bool displaySearch();
 
+// Función de limpieza
+void biosClear(void);
+
 // Función principal
 void biosWrite(char string[], int cant);
 
 // Conversión de entero a ASCII (devuelve dirección en memoria del buffer ASCII)
 char *intToAscii(int num);
 
-// Conteo de letras en un char []
-size_t strlen(const char *str);
+// Reemplazo de strcmp de string.h
+int strcmp(const char *s1, const char *s2);
 
 // ============================================================
 // Input System
 // ============================================================
 
+// Buscador de keyboard
 bool keyboardSearch();
 
+// Función principal de lectura
 int read(char *out_buffer, int max_size);
 
 // ============================================================
@@ -114,16 +124,17 @@ typedef uint32_t (*IRQHandler)(uint32_t eflags, uint32_t epc);
 // Inicialización de LAPIC
 void initLAPIC();
 
-// Inicio de IRQs en default
-void initIRQs();
-
-// Registro de IRQs nuevas
-void registerIRQHandler(uint32_t cause, IRQHandler handler);
-
 // ============================================================
 // Syscalls System
 // ============================================================
 
 uint32_t syscallsHandler(uint32_t *regs, uint32_t eflags, uint32_t epc);
+
+// ============================================================
+// Shell
+// ============================================================
+
+// Shell de la Bios. Puerta al futuro SO
+void BiosShell();
 
 #endif

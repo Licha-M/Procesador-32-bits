@@ -16,7 +16,6 @@ volatile bool DisplayDetected;
 typedef struct {
   volatile uint32_t comand;
   volatile uint32_t word_Addr;
-  volatile uint32_t length;
   volatile uint32_t cant;
 } TtyRegisters;
 
@@ -59,10 +58,6 @@ static void tty_execute_request(DisplayRequest *req) {
   volatile TtyRegisters *tty =
       (volatile TtyRegisters *)current_display.registers;
 
-  tty->cant = 0;
-  tty->length = 0;
-  tty->word_Addr = 0;
-
   switch (req->option) {
   case 1:
     // Escribir una letra
@@ -81,7 +76,6 @@ static void tty_execute_request(DisplayRequest *req) {
     break;
   case 4:
     // Escribir cadena de texto
-    tty->length = req->length;
     tty->word_Addr = (uintptr_t)req->data;
     tty->comand = req->option;
     break;
@@ -92,7 +86,7 @@ static void tty_execute_request(DisplayRequest *req) {
 }
 
 // Handler del TTY
-uint32_t tty_IRQHandler(uint32_t eflags, uint32_t epc) {
+static uint32_t tty_IRQHandler(uint32_t eflags, uint32_t epc) {
 
   if (display_queue.count > 0) {
     // 1. Desencolamos la petición que acaba de terminar de imprimirse
@@ -111,27 +105,52 @@ uint32_t tty_IRQHandler(uint32_t eflags, uint32_t epc) {
   return epc; // Retornamos a la instrucción interrumpida
 }
 
+// Determina si una petición requiere esperar IRQ de finalización del hardware.
+static inline bool tty_requires_irq(int option, int length) {
+  uint32_t opt = (uint32_t)option; // casteo a unsigned para operar sin signo
+  uint32_t is_long_op =
+      opt >> 2; // 1 si option >= 4, 0 si no (bit 2 en adelante)
+  uint32_t is_op3 = (uint32_t)(opt == 3);    // 1 si option == 3, 0 si no
+  uint32_t len_gt1 = (uint32_t)(length > 1); // 1 si length > 1, 0 si no
+  return (bool)(is_long_op |
+                ((1u - is_op3) & len_gt1)); // IRQ si: op>=4, o (op!=3 y len>1)
+}
+
 // Función principal que encola las peticiones (Llamada por biosWrite)
-void ttyWrite(char word[], int option, int length) {
+static void ttyWrite(char word[], int option, int length) {
 
   if (system_panic) {
     // El sistema está abortando no se inicia más.
     DisplayRequest panic_req = {
-        .data = word, .option = option, .length = length};
+        .data = word, .char_data = word[0], .option = option, .length = length};
     tty_execute_request(&panic_req);
     return;
   }
 
-  // Esperamos a la IRQ del TTY
+  // Si la operación no genera IRQ
+  if (!tty_requires_irq(option, length)) {
+    // Si el hardware estaba ocupado procesando una cadena o ráfaga esperamos
+    while (hardware_busy) {
+      __asm__ volatile("HLT");
+    }
+
+    uint32_t flags_guardadas = enterCriticalSection();
+
+    DisplayRequest direct_req = {
+        .data = word, .char_data = word[0], .option = option, .length = length};
+    tty_execute_request(&direct_req);
+
+    exitCriticalSection(flags_guardadas);
+    return;
+  }
+
+  // Esperamos a la IRQ del TTY si la cola está llena
   while (display_queue.count >= QUEUE_SIZE) {
     __asm__ volatile("HLT");
   }
 
-  // 1. Guardamos el estado real de SR8 antes de tocarlo.
-  uint32_t flags_guardadas;
-  __asm__ __volatile__("CYE SR8, %0" : "=r"(flags_guardadas));
-
-  irqOff(); // --- INICIO SECCIÓN CRÍTICA ---
+  // --- INICIO SECCIÓN CRÍTICA ---
+  uint32_t flags_guardadas = enterCriticalSection();
 
   // Guardamos los datos en la cola
   display_queue.items[display_queue.tail].data = word;
@@ -148,13 +167,12 @@ void ttyWrite(char word[], int option, int length) {
     tty_execute_request(&display_queue.items[display_queue.head]);
   }
 
-  // 3. Restauramos el valor exacto que guardamos
-  __asm__ __volatile__("CYR %0, SR8" : : "r"(flags_guardadas));
+  exitCriticalSection(flags_guardadas);
   // --- FIN SECCIÓN CRÍTICA ---
 }
 
 // Inicializador del TTY
-void initTty(uint32_t base) {
+static void initTty(uint32_t base) {
   // Inicializamos las variables de la cola
   display_queue.head = 0;
   display_queue.tail = 0;
@@ -167,37 +185,7 @@ void initTty(uint32_t base) {
   uint32_t bar0 = ECAM_R(base, 0x10);
   current_display.registers = (volatile void *)(uintptr_t)bar0;
 
-  base = base + ECAM_R(base, 0x24); // Base es igual a la direccion 0 del CP
-
-  if ((ECAM_R(base, 0x0) & 0xFF) == 0x5) {
-
-    // MSI suported
-    uint32_t msi_reg = ECAM_R(base, 0x0);
-
-    int cantREQ = (msi_reg >> 17) &
-                  0x7; // Extraemos la cantidad de IRQ requeridas (Bits 17-19)
-
-    // Limpiamos los bits superiores (16-31) para quitar valores residuales
-    msi_reg &= 0x0000FFFF;
-
-    // Le damos las IRQ que necesite en la "Cantidad dada" (Bits 20-22)
-    msi_reg |= (cantREQ << 20);
-
-    // Habilitamos las MSI (Bit 16)
-    msi_reg |= (0x1 << 16);
-
-    ECAM_W(base, 0x4,
-           LAPIC_BASE_ADDR +
-               0x2C); // Le indicamos la direccion del registro MSI en LAPIC
-
-    ECAM_W(base, 0x8, TTY_MSI_NUM); // Indicamos el numero de vector
-
-    // Asignamos vector
-    registerIRQHandler(TTY_MSI_NUM, tty_IRQHandler);
-
-    // Escribimos la configuracion final, pero solo los 16 bits superiores
-    ECAM_W(base, 0x0, msi_reg >> 16);
-  }
+  initMSI(base, TTY_MSI_NUM, tty_IRQHandler);
 }
 
 // ================================================================================
@@ -214,70 +202,49 @@ void gpuWrite() {}
 // Funciones principales
 // ================================================================================
 
-// Busqueda de TTY o GPU
+// Busqueda de TTY
 bool displaySearch() {
 
-  if (false) {
-    // Es GPU
+  int offset = search(0x00070000); // Buscamos TTY por su Class Code
+  if (offset < 0)
+    return DisplayDetected = false; // No reconocido
 
-    // initGpu(base);
-    // current_display.write = gpuWrite;
-    // current_display.ecam_base = base;
+  uint32_t base =
+      ECAM_ADDR(mapa[offset].bus, mapa[offset].dev, mapa[offset].func);
 
-  } else {
-    // Es TTY
-    int offset = search(0x00070000); // Buscamos TTY por su Class Code
-    if (offset < 0)
-      return DisplayDetected = false; // No reconocido
-
-    uint32_t base = ECAM_BASE | ((uint32_t)mapa[offset].bus << 20) |
-                    ((uint32_t)mapa[offset].dev << 15) |
-                    ((uint32_t)mapa[offset].func << 12);
-
-    initTty(base);
-    current_display.ecam_base = base;
-    current_display.write = ttyWrite;
-    return DisplayDetected = true;
-  }
+  initTty(base);
+  current_display.ecam_base = base;
+  current_display.write = ttyWrite;
+  return DisplayDetected = true;
 }
 
-size_t strlen(const char *str) {
-  const char *end = str;
-  while (*end != '\0') {
-    end++;
-  }
-  return (size_t)(end - str);
+// Función de limpieza
+inline void biosClear(void) { // cls() llama a esta
+  current_display.write(0, 3, 0);
 }
 
 // Función principal
 void biosWrite(char string[], int cant) {
+  uint32_t c0 = (uint8_t)string[0];
+  uint32_t c1 = (uint8_t)string[1];
 
-  if (string[0] == '\b') {
-    // Borrar
-    if (cant == 0) {
-      cant++;
-    }
-    current_display.write(string, 2, cant);
+  uint32_t is_long = (c1 | (0u - c1)) >> 31; // 1 si tiene 2+ caracteres
+  uint32_t m = 0u - is_long;                 // máscara de "larga"
 
-  } else if (string[0] == '\0' && cant == 0) {
-    // Limpiar
-    current_display.write("", 3, 0);
-  } else if (string[1] == '\0') {
-    // Escribir una letra
-    if (cant == 0) {
-      cant++; // Se le suma 1 para indicar que se debe escribir 1 vez
-    }
-    current_display.write(string, 1, cant);
+  uint32_t x = c0 ^ 8u;                   // '\b' == 8
+  uint32_t not_bs = (x | (0u - x)) >> 31; // 1 si c0 != '\b'
+  uint32_t opt =
+      (4u & m) | ((2u - not_bs) & ~m); // 4, 1 (letra) o 2 (backspace)
 
-  } else {
-    // Escribir un texto en RAM
-    cant = strlen(string);
-    current_display.write(string, 4, cant);
-  }
+  uint32_t u = (uint32_t)cant;
+  uint32_t nz = (u | (0u - u)) >> 31; // 1 si cant != 0
+  u += (1u - nz) & ~m;                // cant 0 -> 1, solo en carácter único
+
+  current_display.write(string, (int)opt, (int)u);
 }
 
 // ================================================================================
-// Conversión de entero a ASCII
+// Trabajo con sitrings
 // ================================================================================
 
 // Creamos un "Pool" de buffers. Debe ser mayor o igual al QUEUE_SIZE.
@@ -287,34 +254,33 @@ void biosWrite(char string[], int cant) {
 static char ascii_pool[ASCII_POOL_SIZE][ASCII_BUF_SIZE];
 static int current_pool_index = 0;
 
+// Paso de int a ASCII
 char *intToAscii(int num) {
+
   // --- INICIO SECCIÓN CRÍTICA ---
-  uint32_t flags_guardadas;
-  __asm__ __volatile__("CYE SR8, %0" : "=r"(flags_guardadas));
-  irqOff();
+  uint32_t flags_guardadas = enterCriticalSection();
 
   char *ascii_buffer = ascii_pool[current_pool_index];
   current_pool_index = (current_pool_index + 1) % ASCII_POOL_SIZE;
 
-  __asm__ __volatile__("CYR %0, SR8" : : "r"(flags_guardadas));
+  exitCriticalSection(flags_guardadas);
   // --- FIN SECCIÓN CRÍTICA ---
 
   // Apuntamos al final del buffer asignado
   char *p = ascii_buffer + ASCII_BUF_SIZE - 1;
   *p = '\0';
 
-  uint32_t uval;
-  int is_negative = 0;
-
-  if (num < 0) {
-    is_negative = 1;
-    uval = -(uint32_t)num; // Seguro para INT_MIN
-  } else {
-    uval = (uint32_t)num;
-  }
+  // Optimización branchless del signo (compatible con logical shift):
+  //   Logical shift: (uint32_t)num >> 31 extrae el bit de signo → 1 o 0.
+  //   Negación unsigned: 0u - 1 = 0xFFFFFFFF, 0u - 0 = 0x00000000.
+  //   mask = 0xFFFFFFFF si num < 0, mask = 0x00000000 si num >= 0.
+  uint32_t is_neg = (uint32_t)num >> 31; // bit de signo: 1 o 0
+  uint32_t mask = 0u - is_neg;           // expande a 0xFFFFFFFF o 0x00000000
+  // abs(num) sin branch: (num XOR mask) - mask == abs(num), seguro para INT_MIN
+  uint32_t uval = ((uint32_t)num ^ mask) - mask;
 
   // Extracción de dígitos optimizada mediante multiplicación por recíproco
-  if (uval == 0) {
+  if (__builtin_expect(uval == 0, 0)) {
     *--p = '0';
   } else {
     while (uval > 0) {
@@ -334,9 +300,21 @@ char *intToAscii(int num) {
     }
   }
 
-  if (is_negative) {
+  // Branchless: escribe '-' solo si mask != 0 (num era negativo)
+  if (mask)
     *--p = '-';
-  }
 
   return p;
+}
+
+// Reemplazo de strcmp de string.h
+int strcmp(const char *s1, const char *s2) {
+  // Bucle con un único salto condicional por iteración
+  while (*s1 && (*s1 == *s2)) {
+    s1++;
+    s2++;
+  }
+  // Se realiza la resta final convirtiendo a unsigned char
+  // para cumplir estrictamente con el estándar ANSI C
+  return *(const unsigned char *)s1 - *(const unsigned char *)s2;
 }

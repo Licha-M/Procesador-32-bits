@@ -66,7 +66,7 @@
       <circ-anchor facing="east" x="160" y="60"/>
       <circ-port dir="in" pin="270,140" x="50" y="60"/>
       <circ-port dir="in" pin="500,260" x="160" y="80"/>
-      <circ-port dir="out" pin="260,250" x="50" y="80"/>
+      <circ-port dir="out" pin="260,250" x="50" y="90"/>
       <circ-port dir="out" pin="520,160" x="50" y="100"/>
       <circ-port dir="out" pin="520,190" x="160" y="60"/>
     </appear>
