@@ -36,10 +36,14 @@ volatile LAPIC_Registers *Registros =
 // ============================================================
 
 // Manejador por defecto para IRQs no registradas
-static uint32_t defaultIRQHandler(uint32_t eflags, uint32_t epc) {
+static uint32_t defaultIRQHandler(uint32_t eflags, uint32_t epc,
+                                  uint32_t cause) {
   (void)eflags;
   irqOff();
-  biosWrite("Fatal Error: Unhandled IRQ", 0);
+  if (cause < MAX_IRQS)
+    biosWrite("Fatal Error: Unhandled IRQ", 0);
+  else
+    biosWrite("Fatal Error: Over Limit IRQ", 0);
   __asm__ volatile("HLT");
   return epc;
 }
@@ -77,6 +81,8 @@ void mainHandler(uint32_t *regs) {
     // Excepción / IRQ de hardware
     if (cause < MAX_IRQS && irq_table.handlers[cause] != NULL) {
       epc = irq_table.handlers[cause](eflags, epc);
+    } else {
+      epc = defaultIRQHandler(eflags, epc, cause);
     }
   } else {
     // Llamada al sistema (SCL)
@@ -93,53 +99,59 @@ void mainHandler(uint32_t *regs) {
   __asm__ __volatile__("CYR %0, SR9" : : "r"(flags));
   __asm__ __volatile__("CYR %0, SR10" : : "r"(carry));
 
-  Registros->EOI = 1; // Marcamos la IRQ como finalizada
+  // Solo enviar EOI al LAPIC si fue una interrupción externa de hardware
+  if (cause >= 16) {
+    Registros->EOI = 1; // Marcamos la IRQ de hardware como finalizada
+  }
 }
 
 // Entrada al router de IRQs.
 __attribute__((naked)) void entryHandler(void) {
   __asm__ volatile(
-      // Reservamos 13 words (R1..R13) en la pila
-      "SLT ADI R14, 52 \n"
-      "INT STR R14, R1, -52 \n"
-      "INT STR R14, R2, -48 \n"
-      "INT STR R14, R3, -44 \n"
-      "INT STR R14, R4, -40 \n"
-      "INT STR R14, R5, -36 \n"
-      "INT STR R14, R6, -32 \n"
-      "INT STR R14, R7, -28 \n"
-      "INT STR R14, R8, -24 \n"
-      "INT STR R14, R9, -20 \n"
-      "INT STR R14, R10, -16 \n"
-      "INT STR R14, R11, -12 \n"
-      "INT STR R14, R12, -8 \n"
-      "INT STR R14, R13, -4 \n"
+      // Reservamos 14 words (R1..R13, R15) en la pila
+      "SLT ADI R14, 56 \n"
+      "INT STR R14, R1, -56 \n"
+      "INT STR R14, R2, -52 \n"
+      "INT STR R14, R3, -48 \n"
+      "INT STR R14, R4, -44 \n"
+      "INT STR R14, R5, -40 \n"
+      "INT STR R14, R6, -36 \n"
+      "INT STR R14, R7, -32 \n"
+      "INT STR R14, R8, -28 \n"
+      "INT STR R14, R9, -24 \n"
+      "INT STR R14, R10, -20 \n"
+      "INT STR R14, R11, -16 \n"
+      "INT STR R14, R12, -12 \n"
+      "INT STR R14, R13, -8 \n"
+      "INT STR R14, R15, -4 \n"
 
       // PASAR EL PUNTERO A mainHandler
-      // R1 es el primer argumento en C. Le pasamos (R14 - 52), que es donde empieza R1
-      "SLT ADD R1, R0, R14 \n" // R1 = R14
-      "SLT ADI R1, -52 \n"     // R1 = R14 - 52
+      // R1 es el primer argumento en C. Le pasamos (R14 - 56), que es donde
+      // empieza R1
+      "SLT ADD R14, R0, R1 \n" // R14 = R1
+      "SLT ADI R1, -56 \n"     // R1 = R14 - 56
 
       // Saltamos a mainHandler
       "H LDI R15, %hi(mainHandler) \n"
       "SLT ADI R15, %lo(mainHandler) \n"
       "CAL R15 \n"
 
-      // Restauramos R1..R13
-      "INT LOD R14, R1, -52 \n"
-      "INT LOD R14, R2, -48 \n"
-      "INT LOD R14, R3, -44 \n"
-      "INT LOD R14, R4, -40 \n"
-      "INT LOD R14, R5, -36 \n"
-      "INT LOD R14, R6, -32 \n"
-      "INT LOD R14, R7, -28 \n"
-      "INT LOD R14, R8, -24 \n"
-      "INT LOD R14, R9, -20 \n"
-      "INT LOD R14, R10, -16 \n"
-      "INT LOD R14, R11, -12 \n"
-      "INT LOD R14, R12, -8 \n"
-      "INT LOD R14, R13, -4 \n"
-      "SLT ADI R14, -52 \n"
+      // Restauramos R1..R13, R15
+      "INT LOD R14, R1, -56 \n"
+      "INT LOD R14, R2, -52 \n"
+      "INT LOD R14, R3, -48 \n"
+      "INT LOD R14, R4, -44 \n"
+      "INT LOD R14, R5, -40 \n"
+      "INT LOD R14, R6, -36 \n"
+      "INT LOD R14, R7, -32 \n"
+      "INT LOD R14, R8, -28 \n"
+      "INT LOD R14, R9, -24 \n"
+      "INT LOD R14, R10, -20 \n"
+      "INT LOD R14, R11, -16 \n"
+      "INT LOD R14, R12, -12 \n"
+      "INT LOD R14, R13, -8 \n"
+      "INT LOD R14, R15, -4 \n"
+      "SLT ADI R14, -56 \n"
       "SRT \n");
 }
 
@@ -147,17 +159,43 @@ __attribute__((naked)) void entryHandler(void) {
 // Extern functions
 // ============================================================
 
-// Inicia la tabla de IRQs a defaultIRQHandler
-void initIRQs() {
-  for (int i = 0; i < MAX_IRQS; i++) {
-    irq_table.handlers[i] = defaultIRQHandler;
-  }
-}
+// Cambiamos el TPR para habilitar o deshabilitar ciertas IRQs
+inline void setTPR(uint32_t level) { Registros->TPR = level; }
 
-// Registro de IRQs nuevas
-void registerIRQHandler(uint32_t cause, IRQHandler handler) {
-  if (cause < MAX_IRQS && handler != NULL) {
-    irq_table.handlers[cause] = handler;
+// Inicialización de MSI
+void initMSI(uint32_t base, uint32_t irq_num, IRQHandler handler) {
+  base = base + ECAM_R(base, 0x24); // Base es igual a la direccion 0 del CP
+
+  if ((ECAM_R(base, 0x0) & 0xFF) == 0x5) {
+
+    // MSI suported
+    uint32_t msi_reg = ECAM_R(base, 0x0);
+
+    int cantREQ = (msi_reg >> 17) &
+                  0x7; // Extraemos la cantidad de IRQ requeridas (Bits 17-19)
+
+    // Limpiamos los bits superiores (16-31) para quitar valores residuales
+    msi_reg &= 0x0000FFFF;
+
+    // Le damos las IRQ que necesite en la "Cantidad dada" (Bits 20-22)
+    msi_reg |= (cantREQ << 20);
+
+    // Habilitamos las MSI (Bit 16)
+    msi_reg |= (0x1 << 16);
+
+    ECAM_W(base, 0x4,
+           LAPIC_BASE_ADDR +
+               0x2C); // Le indicamos la direccion del registro MSI en LAPIC
+
+    ECAM_W(base, 0x8, irq_num); // Indicamos el numero de vector
+
+    // Asignamos vector
+    if (irq_num < MAX_IRQS && handler != NULL) {
+      irq_table.handlers[irq_num] = handler;
+    }
+
+    // Escribimos la configuracion final, pero solo los 16 bits superiores
+    ECAM_W(base, 0x0, msi_reg >> 16);
   }
 }
 
@@ -177,7 +215,9 @@ void initLAPIC() {
   // Inicializamos LAPIC con prioridad maxima
   Registros->BaseAddr = LAPIC_BASE_ADDR; // Base del LAPIC
   Registros->ID = 0;                     // ID del LAPIC
-  Registros->TPR = 0;          // Bajamos la prioridad a lo mas bajo posible.
+
+  // Habilitamos todas las IRQs
+  setTPR(0);                   // Bajamos la prioridad al minimo posible.
   Registros->LAPIC_Config = 3; // Habilitamos todo tipo de IRQ
 
   // Habilitamos IRQs

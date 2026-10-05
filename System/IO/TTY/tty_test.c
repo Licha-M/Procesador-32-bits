@@ -6,8 +6,9 @@
   (*(volatile uint32_t *)((uintptr_t)(base) + (uint32_t)(off)) =               \
        (uint32_t)(val))
 
-#define ECAM_BASE 0xE0000000   // Base del espacio ECAM
-#define MIN_BAR_POS 0xC0000000 // Base para la asignación de memoria BAR
+#define ECAM_BASE 0xE0000000       // Base del espacio ECAM
+#define MIN_BAR_POS 0xC0000000     // Base para la asignación de memoria BAR
+#define LAPIC_BASE_ADDR 0xFEE00000 // Base del LAPIC
 
 // Estructura registros TTY
 typedef struct {
@@ -23,12 +24,42 @@ int main() {
   uintptr_t base = ECAM_BASE + ((0 << 20) | (1 << 15) | (0 << 12));
   ECAM_W(base, 0x18, 0xC000C000); // Escribimos Limit y Base
   ECAM_W(base, 0x10, 0x00010100); // Escribimos PSS
-  ECAM_W(base, 0x04, 1);          // Escribimos el Comand
+  ECAM_W(base, 0x04, 3);          // Escribimos el Comand
 
   // Configuración del dispositivo
   base = ECAM_BASE + ((1 << 20) | (0 << 15) | (0 << 12));
   ECAM_W(base, 0x10, MIN_BAR_POS); // Inicializamos BAR[0]
   ECAM_W(base, 0x04, 3);           // Activamos TTY
+
+  base = base + ECAM_R(base, 0x24); // Base es igual a la direccion 0 del CP
+
+  if ((ECAM_R(base, 0x0) & 0xFF) == 0x5) {
+
+    // MSI suported
+    uint32_t msi_reg = ECAM_R(base, 0x0);
+
+    int cantREQ = (msi_reg >> 17) &
+                  0x7; // Extraemos la cantidad de IRQ requeridas (Bits 17-19)
+
+    // Limpiamos los bits superiores (16-31) para quitar valores residuales
+    msi_reg &= 0x0000FFFF;
+
+    // Le damos las IRQ que necesite en la "Cantidad dada" (Bits 20-22)
+    msi_reg |= (cantREQ << 20);
+
+    // Habilitamos las MSI (Bit 16)
+    msi_reg |= (0x1 << 16);
+
+    // Escribimos la configuracion final, pero solo los 16 bits superiores
+    ECAM_W(base, 0x0, msi_reg >> 16);
+
+    ECAM_W(base, 0x4,
+           LAPIC_BASE_ADDR +
+               0x2C); // Le indicamos la direccion del registro MSI en LAPIC
+
+    ECAM_W(base, 0x8, 126); // Indicamos el numero de vector
+  }
+
   volatile TtyRegisters *tty = (volatile TtyRegisters *)MIN_BAR_POS;
 
   // Escritura

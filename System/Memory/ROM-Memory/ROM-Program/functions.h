@@ -1,15 +1,22 @@
 #ifndef FUNCTIONS_H
 #define FUNCTIONS_H
-#include "inter_IRQs.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+
+#include "inter_IRQs.h"
+
+int main();
 
 // ============================================================
 // ECAM Bus Enumeration
 // ============================================================
 
-#define ECAM_BASE 0xE0000000  // Base del espacio ECAM
+#define ECAM_BASE 0xE0000000 // Base del espacio ECAM
+#define ECAM_ADDR(bus, dev, func)                                              \
+  (ECAM_BASE | ((uint32_t)(bus) << 20) | ((uint32_t)(dev) << 15) |             \
+   ((uint32_t)(func) << 12))
 #define TABLE_Addr 0x08000000 // Espacio para guardar la tabla de dispositivos
 #define MAX_PCIE_DEVICES 64   // Cantidad maxima de dispositivos
 
@@ -83,16 +90,39 @@ int search(uint32_t tipo);
 // ============================================================
 
 // Función inicial
-void displaySearch();
+bool displaySearch();
+
+// Función de limpieza
+void biosClear(void);
 
 // Función principal
 void biosWrite(char string[], int cant);
 
-// Conversión de entero a ASCII (devuelve dirección en memoria del buffer ASCII)
-char *intToAscii(int num);
+// Formatos para ToAscii()
+#define FMT_INT       0 // Decimal con signo
+#define FMT_UINT      1 // Decimal sin signo
+#define FMT_HEX       2 // Hexadecimal truncado (sin ceros a la izquierda, ej: E)
+#define FMT_HEX_TRUNC 2 // Alias para hexadecimal truncado
+#define FMT_HEX_FULL  3 // Hexadecimal completo 32 bits / 4 bytes (8 dígitos fijos, ej: 0000000E)
 
-// Conteo de letras en un char []
-size_t strlen(const char *str);
+// Conversión de valor numérico a ASCII
+char *ToAscii(uint32_t num, int fmt);
+
+// Reemplazo de strcmp de string.h
+int strcmp(const char *s1, const char *s2);
+
+// Reemplazo de strlen de string.h
+size_t strlen(const char *s);
+
+// ============================================================
+// Input System
+// ============================================================
+
+// Buscador de keyboard
+bool keyboardSearch();
+
+// Función principal de lectura
+int read(char *out_buffer, int max_size);
 
 // ============================================================
 // IRQs System
@@ -106,16 +136,17 @@ typedef uint32_t (*IRQHandler)(uint32_t eflags, uint32_t epc);
 // Inicialización de LAPIC
 void initLAPIC();
 
-// Inicio de IRQs en default
-void initIRQs();
-
-// Registro de IRQs nuevas
-void registerIRQHandler(uint32_t cause, IRQHandler handler);
-
 // ============================================================
 // Syscalls System
 // ============================================================
 
 uint32_t syscallsHandler(uint32_t *regs, uint32_t eflags, uint32_t epc);
+
+// ============================================================
+// Shell
+// ============================================================
+
+// Shell de la Bios. Puerta al futuro SO
+void BiosShell();
 
 #endif

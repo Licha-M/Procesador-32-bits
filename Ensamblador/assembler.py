@@ -1226,35 +1226,11 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                 start_listing.append(f';\tINT LOD R15, R2, {offset}\t\t; Leer palabra {i} de ROM (.data blob)')
                 start_listing.append(f';\tINT STR R1, R2, {offset}\t\t; Escribir en RAM[0x{(0x04000000 + offset):08X}]')
 
-        # ── Parte 2: Zero-inicializar .bss en RAM (si hay variables en .bss) ──
-        num_bss_words = (ram_bss_offset + 3) // 4
-        if num_bss_words > 0:
-            ram_bss_start = (ram_data_offset + 3) & ~3
-            ram_bss_base = RAM_BASE + ram_bss_start
-
-            # Reusamos R1 para almacenar la dirección base de .bss en RAM.
-            # R1 ya finalizó su función como puntero de destino para .data arriba,
-            # por lo que recalcularlo para la base de .bss es seguro y no requiere
-            # gastar ningún registro scratch adicional.
-            hi_bss, lo_bss = compute_hi_lo(ram_bss_base)
-            # H LDI R1, hi_bss
-            pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['LDI'], (1 << 20) | hi_bss)], src_line=0))
-            # SLT ADI R1, lo_bss
-            pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (1 << 20) | lo_bss)], src_line=0))
-
-            start_listing.append(f'; ── Fase 2: Zero-inicializar {num_bss_words} palabra(s) de .bss en RAM ─────────────')
-            start_listing.append(f';\tH LDI R1, 0x{hi_bss:04X}\t\t; Base .bss en RAM = 0x{ram_bss_base:08X}')
-            start_listing.append(f';\tSLT ADI R1, 0x{lo_bss:04X}')
-
-            # Escribir 0x00000000 en cada palabra de .bss usando R0 como fuente.
-            # En la ISA32_LM el registro R0 está fijado a 0 por hardware,
-            # por lo que INT STR R1, R0, offset escribe 0 directo a RAM[R1 + offset].
-            for i in range(num_bss_words):
-                offset = i * 4
-                # INT STR R1, R0, offset  -> ra=1, rb=0, tipo=0b010 (INT)
-                w_zero = build_word(0b010, OPCODES['STR'], (1 << 20) | (0 << 16) | (offset & 0xFFFF))
-                pending.append(PendingInstruction(words=[w_zero], src_line=0))
-                start_listing.append(f';\tINT STR R1, R0, {offset}\t\t; RAM[0x{(ram_bss_base + offset):08X}] = 0  (.bss[{i}])')
+        # ── Parte 2: Zero-inicializar .bss en RAM ──────────────────────────────
+        # La RAM arranca con todos los bytes en 0 por hardware, por lo que no
+        # es necesario emitir instrucciones STR para inicializar .bss.
+        # ram_bss_offset ya fue usado más arriba para el FIXUP de etiquetas .bss,
+        # así que las direcciones RAM quedan correctas sin ningún código extra.
 
         # ── Parte 3: Saltar a main o a la primera instrucción de .text ─────
         main_entry = None

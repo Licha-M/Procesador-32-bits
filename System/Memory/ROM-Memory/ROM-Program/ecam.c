@@ -35,7 +35,7 @@ void bus_Enumeration(uint32_t bus, int *next_bus_number, int *offset_BAR_Pos) {
     for (uint32_t func = 0; func < 8; func++) {
 
       // Dirección base del slot ECAM (Bits: Bus=20, Dev=15, Func=12)
-      uintptr_t base = ECAM_BASE | ((bus << 20) | (dev << 15) | (func << 12));
+      uintptr_t base = ECAM_ADDR(bus, dev, func);
 
       // ---- Verificar si hay dispositivo ----
       uint32_t vendor_device = ECAM_R(base, OFF_VENDOR_DEVICE);
