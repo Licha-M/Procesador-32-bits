@@ -94,30 +94,52 @@ int read(char *out_buffer, int max_size) {
   }
 
   int n = 0;
-  while (true) {
+  int echoed_n = 0; // Caracteres de out_buffer ya mostrados en pantalla
+  bool done = false;
+
+  while (!done) {
+    // Esperamos a que haya al menos un carácter disponible
     while (kq_tail == kq_head)
       waitForKey();
 
-    char key = key_queue[kq_tail];
-    kq_tail = (kq_tail + 1) & KEYQ_MASK;
+    // Drenamos todo lo disponible actualmente en la cola
+    while (!done && kq_tail != kq_head) {
+      char key = key_queue[kq_tail];
+      kq_tail = (kq_tail + 1) & KEYQ_MASK;
 
-    if (key == '\n' || key == '\r') {
-      biosWrite("\n", 0);
-      break;
+      if (key == '\n' || key == '\r') {
+        if (key == '\r' && kq_tail != kq_head && key_queue[kq_tail] == '\n') {
+          kq_tail = (kq_tail + 1) & KEYQ_MASK;
+        }
+        done = true;
+        break;
+      } else if (key == '\b' || key == 127) {
+        if (n > 0) {
+          n--;
+          // Si el carácter borrado ya había sido mostrado en pantalla, lo borramos visualmente
+          if (echoed_n > n) {
+            echoed_n = n;
+            biosWrite("\b", 1);
+          }
+        }
+      } else if ((unsigned char)key >= 32 && (unsigned char)key < 127) {
+        if (n < max_size - 1) {
+          out_buffer[n++] = key;
+        }
+      }
     }
-    if (key == '\b' || key == 127) {
-      if (n > 0) {
-        n--;
-        biosWrite("\b", 1);
-      }
-    } else if ((unsigned char)key >= 32 && (unsigned char)key < 127) {
-      if (n < max_size - 1) {
-        out_buffer[n++] = key;
-        char s[2] = {key, '\0'};
-        biosWrite(s, 0); // un solo carácter va por el camino directo
-      }
+
+    // Volcado de caracteres acumulados a pantalla:
+    // - Si el usuario escribió tecla por tecla (esperando el HLT), habrá 1 carácter y se refleja de inmediato.
+    // - Si el usuario escribió de golpe / ráfaga, se procesan todos en memoria y se muestran juntos en una sola llamada.
+    if (n > echoed_n) {
+      out_buffer[n] = '\0';
+      biosWrite(&out_buffer[echoed_n], 0);
+      echoed_n = n;
     }
   }
+
   out_buffer[n] = '\0';
+  biosWrite("\n", 0);
   return n;
 }

@@ -88,17 +88,15 @@ static void tty_execute_request(DisplayRequest *req) {
 // Handler del TTY
 static uint32_t tty_IRQHandler(uint32_t eflags, uint32_t epc) {
 
-  if (display_queue.count > 0) {
-    // 1. Desencolamos la petición que acaba de terminar de imprimirse
-    display_queue.head = (display_queue.head + 1) % QUEUE_SIZE;
-    display_queue.count--;
-  }
+  // El IRQ solo dispara cuando el hardware terminó → siempre hay algo que desencolar.
+  display_queue.head = (display_queue.head + 1) % QUEUE_SIZE;
+  display_queue.count--;
 
-  if (display_queue.count > 0) {
-    // 2. Si quedan peticiones, disparamos la siguiente
+  if (__builtin_expect(display_queue.count > 0, 0)) {
+    // Quedan peticiones: disparamos la siguiente
     tty_execute_request(&display_queue.items[display_queue.head]);
   } else {
-    // 3. Si la cola quedó vacía, marcamos el hardware como libre
+    // Cola vacía: marcamos el hardware como libre
     hardware_busy = false;
   }
 
@@ -119,7 +117,7 @@ static inline bool tty_requires_irq(int option, int length) {
 // Función principal que encola las peticiones (Llamada por biosWrite)
 static void ttyWrite(char word[], int option, int length) {
 
-  if (system_panic) {
+  if (__builtin_expect(system_panic, 0)) {
     // El sistema está abortando no se inicia más.
     DisplayRequest panic_req = {
         .data = word, .char_data = word[0], .option = option, .length = length};
@@ -254,8 +252,10 @@ void biosWrite(char string[], int cant) {
 static char ascii_pool[ASCII_POOL_SIZE][ASCII_BUF_SIZE];
 static int current_pool_index = 0;
 
-// Paso de int a ASCII
-char *intToAscii(int num) {
+// Paso de valor numérico a ASCII.
+// fmt: FMT_INT (decimal con signo), FMT_UINT (decimal sin signo), FMT_HEX
+// (hexadecimal).
+char *ToAscii(uint32_t num, int fmt) {
 
   // --- INICIO SECCIÓN CRÍTICA ---
   uint32_t flags_guardadas = enterCriticalSection();
@@ -266,41 +266,71 @@ char *intToAscii(int num) {
   exitCriticalSection(flags_guardadas);
   // --- FIN SECCIÓN CRÍTICA ---
 
-  // Apuntamos al final del buffer asignado
   char *p = ascii_buffer + ASCII_BUF_SIZE - 1;
   *p = '\0';
 
-  // Optimización branchless del signo (compatible con logical shift):
-  //   Logical shift: (uint32_t)num >> 31 extrae el bit de signo → 1 o 0.
-  //   Negación unsigned: 0u - 1 = 0xFFFFFFFF, 0u - 0 = 0x00000000.
-  //   mask = 0xFFFFFFFF si num < 0, mask = 0x00000000 si num >= 0.
-  uint32_t is_neg = (uint32_t)num >> 31; // bit de signo: 1 o 0
-  uint32_t mask = 0u - is_neg;           // expande a 0xFFFFFFFF o 0x00000000
-  // abs(num) sin branch: (num XOR mask) - mask == abs(num), seguro para INT_MIN
-  uint32_t uval = ((uint32_t)num ^ mask) - mask;
+  if (fmt == FMT_HEX_FULL) {
+    // Salida hexadecimal completa 32 bits / 4 bytes (8 dígitos fijos con ceros a la izquierda)
+    for (int i = 0; i < 8; i++) {
+      uint32_t nibble = num & 0xFu;
+      *--p = (char)(nibble < 10 ? '0' + nibble : 'A' + nibble - 10);
+      num >>= 4;
+    }
+    return p;
+  }
+
+  if (fmt == FMT_HEX || fmt == FMT_HEX_TRUNC) {
+    // Salida hexadecimal truncada (sin ceros a la izquierda)
+    if (__builtin_expect(num == 0, 0)) {
+      *--p = '0';
+    } else {
+      while (num > 0) {
+        uint32_t nibble = num & 0xFu;
+        *--p = (char)(nibble < 10 ? '0' + nibble : 'A' + nibble - 10);
+        num >>= 4;
+      }
+    }
+    return p;
+  }
+
+  uint32_t uval;
+  uint32_t mask = 0;
+
+  if (fmt == FMT_INT) {
+    // Decimal con signo: detectamos negativos branchless
+    // Logical shift: (uint32_t)num >> 31 extrae el bit de signo → 1 o 0.
+    // Negación unsigned: 0u - 1 = 0xFFFFFFFF, 0u - 0 = 0x00000000.
+    // mask = 0xFFFFFFFF si num < 0, mask = 0x00000000 si num >= 0.
+    uint32_t is_neg = num >> 31;
+    mask = 0u - is_neg;
+    // abs(num) sin branch: (num XOR mask) - mask == abs(num), seguro para
+    // INT_MIN
+    uval = (num ^ mask) - mask;
+  } else {
+    // FMT_UINT: decimal sin signo, se trata directamente
+    uval = num;
+  }
 
   // Extracción de dígitos optimizada mediante multiplicación por recíproco
   if (__builtin_expect(uval == 0, 0)) {
     *--p = '0';
   } else {
     while (uval > 0) {
-
       // Al multiplicar por uval, los 32 bits superiores del resultado de 64
       // bits contienen el cociente exacto tras desplazarlo.
       uint64_t prod = (uint64_t)uval * 0xCCCCCCCDULL;
       uint32_t q = (uint32_t)(prod >> 35); // q = uval / 10
 
       // Calculamos el residuo: r = uval - (q * 10)
-      // Como 10 = (q * 8) + (q * 2), usamos desplazamientos rápidos: (q << 3) +
-      // (q << 1)
+      // Como 10 = (q * 8) + (q * 2), usamos desplazamientos rápidos.
       uint32_t r = uval - ((q << 3) + (q << 1));
 
-      *--p = '0' + (char)r; // Conversión directa a ASCII
-      uval = q;             // Avanzamos al siguiente dígito
+      *--p = '0' + (char)r;
+      uval = q;
     }
   }
 
-  // Branchless: escribe '-' solo si mask != 0 (num era negativo)
+  // Branchless: escribe '-' solo si mask != 0 (FMT_INT y era negativo)
   if (mask)
     *--p = '-';
 
@@ -317,4 +347,36 @@ int strcmp(const char *s1, const char *s2) {
   // Se realiza la resta final convirtiendo a unsigned char
   // para cumplir estrictamente con el estándar ANSI C
   return *(const unsigned char *)s1 - *(const unsigned char *)s2;
+}
+
+// Reemplazo de strlen de string.h
+size_t strlen(const char *s) {
+  const char *p = s;
+
+  // 1. Alinear la dirección de memoria para lecturas eficientes
+  while ((uintptr_t)p & (sizeof(uintptr_t) - 1)) {
+    if (__builtin_expect(!*p, 0)) // raro: \0 en los bytes de alineación
+      return (size_t)(p - s);
+    p++;
+  }
+
+  // 2. Procesar por palabras (Ej: 4 bytes en 32 bits) sin saltos internos
+  const uintptr_t *w = (const uintptr_t *)p;
+  const uintptr_t mask_low  = (uintptr_t)-1 / 0xFF; // 0x01010101...
+  const uintptr_t mask_high = mask_low << 7;         // 0x80808080...
+
+  while (1) {
+    uintptr_t val = *w;
+    // Truco de bits: detecta si algún byte en la palabra es 0x00
+    if (__builtin_expect((val - mask_low) & ~val & mask_high, 0)) // raro: fin de string
+      break;
+    w++;
+  }
+
+  // 3. Encontrar el byte exacto donde estaba el cero
+  p = (const char *)w;
+  while (*p)
+    p++;
+
+  return (size_t)(p - s);
 }

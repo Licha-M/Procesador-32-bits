@@ -7,6 +7,8 @@
 
 #include "inter_IRQs.h"
 
+int main();
+
 // ============================================================
 // ECAM Bus Enumeration
 // ============================================================
@@ -96,11 +98,21 @@ void biosClear(void);
 // Función principal
 void biosWrite(char string[], int cant);
 
-// Conversión de entero a ASCII (devuelve dirección en memoria del buffer ASCII)
-char *intToAscii(int num);
+// Formatos para ToAscii()
+#define FMT_INT       0 // Decimal con signo
+#define FMT_UINT      1 // Decimal sin signo
+#define FMT_HEX       2 // Hexadecimal truncado (sin ceros a la izquierda, ej: E)
+#define FMT_HEX_TRUNC 2 // Alias para hexadecimal truncado
+#define FMT_HEX_FULL  3 // Hexadecimal completo 32 bits / 4 bytes (8 dígitos fijos, ej: 0000000E)
+
+// Conversión de valor numérico a ASCII
+char *ToAscii(uint32_t num, int fmt);
 
 // Reemplazo de strcmp de string.h
 int strcmp(const char *s1, const char *s2);
+
+// Reemplazo de strlen de string.h
+size_t strlen(const char *s);
 
 // ============================================================
 // Input System
