@@ -1,34 +1,38 @@
-#include "functions.h"
+#include "bios_types.h"
+#include "drivers/keyboard/keyboard.h"
+#include "drivers/nvm/nvm.h"
+#include "drivers/tty/tty.h"
+#include "hal/ecam.h"
+#include "hal/lapic.h"
+#include "lib/format.h"
+#include "shell/shell.h"
 
-__attribute__((noreturn)) void final() {
+// Detiene el procesador de forma indefinida en un bucle con la instruccion HLT.
+__attribute__((noreturn)) void final(void) {
   while (true) {
-    // Fin dentro de un bucle para que termine por mas que alla IRQs
     __asm__ volatile("HLT");
   }
 }
 
-// Definimos el mapa de dispositivos
-volatile PCIe_Map *mapa = (volatile PCIe_Map *)(TABLE_Addr);
-int map_size = 0;
-
-int main() {
-
-  // Inicializamos LAPIC y excepciones
+// Punto de entrada de la BIOS: inicializa interrupciones, PCIe, pantalla,
+// teclado e inicia la shell.
+int main(void) {
   initLAPIC();
-
-  // Enumeramos los buses PCIe
   PCIe_Bus_Enumeration();
 
-  // Buscamos una pantalla
   if (!displaySearch())
     final();
 
-  // Ya se puede usar biosWrite()
   biosWrite("Enumeracion de buses finalizada.\n", 0);
   biosWrite("Hay ", 0);
   biosWrite(ToAscii(map_size, FMT_INT), 0);
   biosWrite(" dispositivos conectados.\n\n", 0);
   biosWrite("LAPIC e IRQs inicializadas.\n\n", 0);
+
+  if (!nvmSearch()) {
+    biosWrite("No se encontraron Memorias secundarias\n", 0);
+    final();
+  }
 
   if (!keyboardSearch()) {
     biosWrite("No hay teclado conectado\n", 0);

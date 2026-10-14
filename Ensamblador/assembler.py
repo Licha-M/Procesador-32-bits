@@ -68,7 +68,7 @@ except ImportError:
 # =============================================================================
 
 # Ruta de salida por defecto (imagen ROM de Logisim)
-ROM_OUTPUT_PATH = r"d:\Yo\Escritorio\Procesador-32-bits\System\Memory\ROM-Memory\ROM"
+ROM_OUTPUT_PATH = r"D:\Yo\Escritorio\Procesador-32-bits\System\Memory\ROM"
 
 # [NUEVO] Comandos de compilación para C/C++ → LLVM IR → .s
 # 1. Crear los .ll:  clang++ -O2 -fno-ms-volatile -S -emit-llvm archivo1.c -o archivo1.ll
@@ -218,7 +218,7 @@ def parse_immediate(token: str, line_num: int, bits: int = 16,
 #   - Etiquetas clásicas:       [A-Za-z_][A-Za-z0-9_]*
 #   - Etiquetas locales LLVM:   .[A-Za-z_][A-Za-z0-9_.$]*
 #   - Etiquetas entre comillas: "cualquier cosa" (se quitan las comillas)
-_LABEL_PLAIN_RE  = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
+_LABEL_PLAIN_RE  = re.compile(r'^[A-Za-z_][A-Za-z0-9_.@$]*$')
 _LABEL_LOCAL_RE  = re.compile(r'^\.[A-Za-z_][A-Za-z0-9_.@$]*$')
 _LABEL_QUOTED_RE = re.compile(r'^"([^"]*)"$')
 
@@ -1891,6 +1891,7 @@ class AssemblerGUI:
         tk.Entry(top, textvariable=self.path_var, width=52).pack(side='left', padx=5)
         # [NUEVO] Botón Examinar acepta múltiples archivos y .c/.C
         tk.Button(top, text="Examinar…",  command=self._browse).pack(side='left')
+        tk.Button(top, text="Carpeta…",   command=self._browse_dir).pack(side='left', padx=(5, 0))
         tk.Button(top, text="Ensamblar ▶", command=self._run,
                   bg='#2a7ae2', fg='white', relief='flat',
                   padx=10).pack(side='left', padx=8)
@@ -1959,6 +1960,12 @@ class AssemblerGUI:
                 self.path_var.set(f"[{len(files)} archivos] " +
                                   ", ".join(os.path.basename(f) for f in files))
 
+    def _browse_dir(self):
+        folder = filedialog.askdirectory(title="Seleccionar carpeta de código")
+        if folder:
+            self._selected_files = [folder]
+            self.path_var.set(folder)
+
     def _browse_rom(self):
         p = filedialog.asksaveasfilename(
             title="Guardar ROM como…",
@@ -1997,6 +2004,24 @@ class AssemblerGUI:
         if not files:
             self._log("⚠  Selecciona primero un archivo fuente.", 'error')
             return
+
+        import glob
+        expanded_args = []
+        for a in files:
+            if '*' in a or '?' in a:
+                expanded = glob.glob(a, recursive=True)
+                if expanded:
+                    expanded_args.extend(expanded)
+                else:
+                    expanded_args.append(a)
+            elif os.path.isdir(a):
+                for root_dir, _, filenames in os.walk(a):
+                    for fn in filenames:
+                        if fn.lower().endswith('.c'):
+                            expanded_args.append(os.path.join(root_dir, fn))
+            else:
+                expanded_args.append(a)
+        files = expanded_args
 
         for f in files:
             if not os.path.isfile(f):
@@ -2122,18 +2147,39 @@ def main():
         print(f"  Ensamblador — Procesador 32 bits (LLVM) [Modo datos: {data_mode.upper()}]")
         print("=" * 62)
 
+        # Detectar ruta de ROM de salida (último argumento si no es fuente ni directorio existente)
+        _source_exts = ('.c', '.s', '.asm', '.txt', '.C')
+        rom_path = ROM_OUTPUT_PATH
+        if args and not args[-1].lower().endswith(_source_exts) and not os.path.isdir(args[-1]):
+            rom_path = args[-1]
+            args = args[:-1]
+            if not args:
+                print("[ERROR] No se especificaron archivos de entrada (solo ruta de salida).")
+                sys.exit(1)
+
+        # Expandir directorios y comodines (glob)
+        import glob
+        expanded_args = []
+        for a in args:
+            if '*' in a or '?' in a:
+                expanded = glob.glob(a, recursive=True)
+                if expanded:
+                    expanded_args.extend(expanded)
+                else:
+                    expanded_args.append(a)
+            elif os.path.isdir(a):
+                for root_dir, _, filenames in os.walk(a):
+                    for fn in filenames:
+                        if fn.lower().endswith('.c'):
+                            expanded_args.append(os.path.join(root_dir, fn))
+            else:
+                expanded_args.append(a)
+        
+        args = expanded_args
+
         # Determinar si es modo .c o modo .s/.asm/.txt
         c_files  = [a for a in args if a.lower().endswith(('.c',))]
         asm_files = [a for a in args if not a.lower().endswith(('.c',))]
-
-        # Detectar ruta de ROM de salida (último argumento si no es .c ni .s/.asm/.txt)
-        _source_exts = ('.c', '.s', '.asm', '.txt', '.C')
-        rom_path = ROM_OUTPUT_PATH
-        if args and not args[-1].lower().endswith(_source_exts):
-            rom_path = args[-1]
-            args     = args[:-1]
-            c_files  = [a for a in args if a.lower().endswith(('.c',))]
-            asm_files = [a for a in args if not a.lower().endswith(('.c',))]
 
         # [NUEVO] Modo multi-archivo .c
         if c_files and not asm_files:

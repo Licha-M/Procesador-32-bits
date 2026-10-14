@@ -19,6 +19,9 @@
     <tool name="Clock">
       <a name="facing" val="south"/>
     </tool>
+    <tool name="Constant">
+      <a name="facing" val="west"/>
+    </tool>
   </lib>
   <lib desc="#Gates" name="1">
     <tool name="Controlled Buffer">
@@ -313,13 +316,13 @@
     <wire from="(1050,380)" to="(1090,380)"/>
     <wire from="(1060,390)" to="(1060,400)"/>
     <wire from="(1060,390)" to="(1090,390)"/>
-    <wire from="(1070,240)" to="(1080,240)"/>
+    <wire from="(1070,260)" to="(1080,260)"/>
     <wire from="(1070,410)" to="(1090,410)"/>
     <wire from="(1070,420)" to="(1080,420)"/>
     <wire from="(1070,430)" to="(1090,430)"/>
     <wire from="(1070,450)" to="(1090,450)"/>
     <wire from="(1070,460)" to="(1090,460)"/>
-    <wire from="(1070,80)" to="(1070,240)"/>
+    <wire from="(1070,80)" to="(1070,260)"/>
     <wire from="(1070,80)" to="(1280,80)"/>
     <wire from="(1080,420)" to="(1080,590)"/>
     <wire from="(1080,420)" to="(1090,420)"/>
@@ -481,8 +484,8 @@
     <wire from="(870,340)" to="(870,350)"/>
     <wire from="(890,370)" to="(900,370)"/>
     <wire from="(890,490)" to="(890,500)"/>
-    <wire from="(900,260)" to="(1080,260)"/>
-    <wire from="(900,260)" to="(900,370)"/>
+    <wire from="(900,240)" to="(1080,240)"/>
+    <wire from="(900,240)" to="(900,370)"/>
     <wire from="(930,490)" to="(930,500)"/>
     <wire from="(940,490)" to="(940,500)"/>
     <wire from="(950,190)" to="(950,300)"/>
@@ -2025,7 +2028,6 @@
       <a name="facing" val="west"/>
       <a name="label" val="DoorBell"/>
       <a name="output" val="true"/>
-      <a name="radix" val="16"/>
     </comp>
     <comp lib="1" loc="(340,170)" name="AND Gate">
       <a name="size" val="30"/>
