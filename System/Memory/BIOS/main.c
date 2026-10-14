@@ -17,7 +17,9 @@ __attribute__((noreturn)) void final(void) {
 // Punto de entrada de la BIOS: inicializa interrupciones, PCIe, pantalla,
 // teclado e inicia la shell.
 int main(void) {
+
   initLAPIC();
+
   PCIe_Bus_Enumeration();
 
   if (!displaySearch())

@@ -5,7 +5,6 @@
 #include "ecam.h"
 #include <stddef.h>
 
-
 #define MAX_IRQS 128
 
 typedef struct {
@@ -114,6 +113,7 @@ __attribute__((naked)) void entryHandler(void) {
                    "SRT \n");
 }
 
+// Setea el nivel aceptado de IRQ. 0 = todas las IRQs
 static inline void setTPR(uint32_t level) { Registros->TPR = level; }
 
 void initMSI(uint32_t base, uint32_t irq_num, IRQHandler handler) {
