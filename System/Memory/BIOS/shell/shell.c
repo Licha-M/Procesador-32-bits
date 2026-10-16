@@ -1,35 +1,26 @@
-#include "functions.h"
-#include "inter_IRQs.h"
+#include "shell.h"
+#include "../bios_types.h"
+#include "../drivers/keyboard/keyboard.h"
+#include "../drivers/tty/tty.h"
+#include "../hal/ecam.h"
+#include "../hal/lapic.h"
+#include "../lib/format.h"
+#include "../lib/string.h"
 
-// ================================================================================
-// Auxiliary Definitions
-// ================================================================================
+void help(void);
+void sysOff(void);
+void reset(void);
+void initSO(void);
+void enumdisp(void);
+void lsboot(void);
+void setboot(void);
+void cls(void);
 
-// Tabla de comandos
 typedef struct {
   const char *nombre;
   void (*funcion)(void);
 } Comando;
 
-// Prototipos de las funciones para que puedan asignarse en la tabla abajo.
-
-// Control
-void help(void);   // Listado de funciones
-void sysOff(void); // Apagado de sistema
-void reset(void);  // Reinicio del sistema
-void initSO(void); // Inicio del SO desde el SSD seleccionado
-
-// Exploración de hardware
-void enumdisp(void); // Listado de dispositivos
-void lsboot(void);   // Listado de SSD con sectores de arranque
-
-// Configuración en Memoria
-void setboot(void); // Setea el dispositivo de arranque
-
-// Interfaz
-void cls(void); // Limpiar pantalla
-
-// Declaramos la tabla
 Comando tabla_comandos[] = {
     {"help", help},       {"sysOff", sysOff},     {"reset", reset},
     {"initSO", initSO},   {"enumdisp", enumdisp}, {"lsboot", lsboot},
@@ -38,16 +29,14 @@ Comando tabla_comandos[] = {
 
 #define NUM_COMANDOS (sizeof(tabla_comandos) / sizeof(Comando))
 
-// Escribe 'string' y rellena con espacios hasta alcanzar el ancho 'width'.
-// Asume que 'string' tiene menos de 'width' caracteres.
+// Imprime una cadena en pantalla rellenando con espacios hasta completar el
+// ancho indicado.
 static void writePadded(char *string, int width) {
   biosWrite(string, 0);
-  // Contamos la longitud con puntero (evita que LLVM lo reemplace por strlen)
   const char *p = string;
   while (*p)
     p++;
   int len = (int)(p - string);
-  // Rellenamos con espacios
   char sp[2] = {' ', '\0'};
   for (int i = len; i < width; i++)
     biosWrite(sp, 0);
@@ -55,13 +44,12 @@ static void writePadded(char *string, int width) {
 
 int page_size;
 
-// Control de paginación para comandos que listen elementos.
-// Retorna false si el usuario presiona 'q' (terminar comando),
-// o true si presiona 'c' o Enter (limpia pantalla y continúa).
+// Pausa la salida para paginacion y espera confirmacion del usuario para
+// continuar o salir.
 static bool paginate(void) {
   char resp[8];
   biosWrite("Continuar? (c/Enter, q para salir): ", 0);
-  read(resp, sizeof(resp));
+  readInput(resp, sizeof(resp));
   if (resp[0] == 'q' || resp[0] == 'Q') {
     return false;
   }
@@ -69,21 +57,14 @@ static bool paginate(void) {
   return true;
 }
 
-// ================================================================================
-// Intern Functions
-// ================================================================================
-
-// Función de ayuda
-void help() {
+// Muestra en pantalla los comandos disponibles en la consola con paginacion.
+void help(void) {
   page_size = 5;
-
   biosWrite("El sistema permite estos comandos: \n", 0);
-
   for (size_t i = 0; i < NUM_COMANDOS; i++) {
     biosWrite("- ", 0);
     biosWrite((char *)tabla_comandos[i].nombre, 0);
     biosWrite("\n", 0);
-
     if ((i + 1) < NUM_COMANDOS && (i + 1) % page_size == 0) {
       if (!paginate())
         return;
@@ -92,26 +73,26 @@ void help() {
   }
 }
 
-// Función de apagado
-void sysOff() {
+// Apaga el sistema mostrando un mensaje y llamando a final().
+void sysOff(void) {
   biosWrite("Apagando sistema...", 0);
   final();
 }
 
-// Reinicio total del sistema
-void reset() { main(); }
+extern int main(void);
+// Reinicia el sistema llamando de nuevo a la funcion main().
+void reset(void) { main(); }
 
-// Función que inicia el SO
-void initSO() { return; }
+// Inicia el sistema operativo (reserva para futura implementacion).
+void initSO(void) { return; }
 
-// Enumeración de dispositivos
-void enumdisp() {
+// Muestra en una tabla paginada los dispositivos PCIe enumerados con su Class
+// Code y direccion ECAM.
+void enumdisp(void) {
   page_size = 3;
-
   biosWrite("Hay ", 0);
   biosWrite(ToAscii(map_size, FMT_INT), 0);
   biosWrite(" dispositivos conectados\n", 0);
-
   biosWrite("Class Code   ECAM Address\n", 0);
   biosWrite("------------ ------------\n", 0);
   for (int i = 0; i < map_size; i++) {
@@ -120,7 +101,6 @@ void enumdisp() {
                       FMT_HEX_FULL),
               0);
     biosWrite("\n", 0);
-
     if ((i + 1) < map_size && (i + 1) % page_size == 0) {
       if (!paginate())
         return;
@@ -130,38 +110,33 @@ void enumdisp() {
   }
 }
 
-// Lista de SSD de arranque
-void lsboot() { return; }
+// Lista los dispositivos de arranque disponibles (reserva para futura
+// implementacion).
+void lsboot(void) { return; }
 
-// Setea el SSD para arrtancar arranque
-void setboot() { return; }
+// Configura el dispositivo de arranque preferido (reserva para futura
+// implementacion).
+void setboot(void) { return; }
 
-// Función de borrado
-void cls() { biosClear(); }
+// Limpia la pantalla de la terminal.
+void cls(void) { biosClear(); }
 
-// ================================================================================
-// Extern functions
-// ================================================================================
-
-// Inicializa la shell (verdadero programa principal)
-__attribute__((noreturn)) void BiosShell() {
+// Bucle principal de la consola interactiva: lee comandos del usuario y ejecuta
+// la funcion asociada.
+__attribute__((noreturn)) void BiosShell(void) {
   char input[32];
-
   while (true) {
     bool comando = false;
-    irqOn(); // La shell siempre debería correr con IRQs habilitadas
-
+    irqOn();
     biosWrite(">", 0);
-    read(input, sizeof(input));
-
+    readInput(input, sizeof(input));
     for (size_t i = 0; i < NUM_COMANDOS; i++) {
       if (strcmp(input, tabla_comandos[i].nombre) == 0) {
-        tabla_comandos[i].funcion(); // Llama a la función directamente
+        tabla_comandos[i].funcion();
         comando = true;
         break;
       }
     }
-
     if (!comando && input[0] != '\0') {
       biosWrite("Comando no reconocido. Use 'help' para ver los comandos "
                 "reconocidos\n",
