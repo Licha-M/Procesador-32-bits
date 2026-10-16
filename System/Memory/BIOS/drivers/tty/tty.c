@@ -3,7 +3,6 @@
 #include "../../hal/ecam.h"
 #include "../../hal/lapic.h"
 
-
 typedef struct {
   void (*write)(char word[], int option, int length);
   volatile void *registers;
@@ -69,7 +68,7 @@ static void tty_execute_request(DisplayRequest *req) {
 
 // Manejador de interrupcion del TTY: se invoca al finalizar una operacion y
 // despacha la siguiente si la cola no esta vacia.
-static uint32_t tty_IRQHandler(uint32_t eflags, uint32_t epc) {
+static uint32_t tty_IRQHandler(uint32_t eflags, uint32_t epc, uint32_t cause) {
   display_queue.head = (display_queue.head + 1) % QUEUE_SIZE;
   display_queue.count--;
   if (__builtin_expect(display_queue.count > 0, 0)) {
@@ -155,7 +154,7 @@ static void initTty(uint32_t base) {
 // Busca el dispositivo de pantalla en el arbol PCIe por su Class Code y vincula
 // su funcion de escritura.
 bool displaySearch(void) {
-  int offset = search(0x00070000);
+  int offset = searchFirst(0x00070000);
   if (offset < 0)
     return DisplayDetected = false;
   uint32_t base =

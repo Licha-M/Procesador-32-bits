@@ -2306,6 +2306,7 @@
       <circ-port dir="in" pin="380,550" x="150" y="50"/>
       <circ-port dir="in" pin="380,570" x="130" y="50"/>
       <circ-port dir="in" pin="380,70" x="40" y="60"/>
+      <circ-port dir="out" pin="920,430" x="170" y="110"/>
       <circ-port dir="out" pin="920,460" x="180" y="70"/>
       <circ-port dir="out" pin="930,140" x="40" y="70"/>
       <circ-port dir="out" pin="930,310" x="180" y="90"/>
@@ -2411,6 +2412,12 @@
       <a name="facing" val="north"/>
       <a name="label" val="INT"/>
       <a name="labelfont" val="SansSerif bold 8"/>
+    </comp>
+    <comp lib="0" loc="(920,430)" name="Pin">
+      <a name="appearance" val="NewPins"/>
+      <a name="facing" val="west"/>
+      <a name="label" val="Exception"/>
+      <a name="output" val="true"/>
     </comp>
     <comp lib="0" loc="(920,460)" name="Pin">
       <a name="appearance" val="NewPins"/>
@@ -2591,6 +2598,7 @@
     <wire from="(580,260)" to="(590,260)"/>
     <wire from="(580,270)" to="(580,340)"/>
     <wire from="(580,270)" to="(590,270)"/>
+    <wire from="(580,340)" to="(670,340)"/>
     <wire from="(580,460)" to="(590,460)"/>
     <wire from="(580,500)" to="(580,520)"/>
     <wire from="(580,500)" to="(590,500)"/>
@@ -2610,6 +2618,8 @@
     <wire from="(650,500)" to="(660,500)"/>
     <wire from="(660,310)" to="(770,310)"/>
     <wire from="(660,500)" to="(660,530)"/>
+    <wire from="(670,340)" to="(670,430)"/>
+    <wire from="(670,430)" to="(920,430)"/>
     <wire from="(690,140)" to="(700,140)"/>
     <wire from="(690,160)" to="(700,160)"/>
     <wire from="(690,180)" to="(690,350)"/>

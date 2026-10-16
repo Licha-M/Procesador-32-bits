@@ -1,4 +1,5 @@
 #include "ecam.h"
+#include <stdint.h>
 
 #define MIN_BAR_POS 0xC0000000
 
@@ -110,11 +111,32 @@ void PCIe_Bus_Enumeration(void) {
   bus_Enumeration(bus, &next_bus_number, &offset_BAR_Pos);
 }
 
-int search(uint32_t tipo) {
+// Busca y devuelve el offset del primer dispositivo encontrado
+int searchFirst(uint32_t tipo) {
   for (int i = 0; i < map_size; i++) {
     if ((mapa[i].ClassCode & 0x00FFFFFF) == tipo) {
       return i;
     }
   }
   return -1;
+}
+
+#define MAX_SEARCH_CAPACITY 32
+// Busca y devuelve la cantidad de dispositivos encontrados (32 maximo)
+int search(uint32_t tipo, uint32_t buffer[MAX_SEARCH_CAPACITY]) {
+
+  int count = 0;
+
+  for (int i = 0; i < map_size; i++) {
+    if ((mapa[i].ClassCode & 0x00FFFFFF) == tipo) {
+      buffer[count] =
+          ECAM_BASE + ECAM_ADDR(mapa[i].bus, mapa[i].dev, mapa[i].func);
+      count++;
+      if (count >= MAX_SEARCH_CAPACITY) {
+        return count;
+      }
+    }
+  }
+
+  return count;
 }

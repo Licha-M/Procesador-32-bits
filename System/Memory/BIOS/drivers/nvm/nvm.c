@@ -4,124 +4,154 @@
 #include "../tty/tty.h"
 #include <stdint.h>
 
-#define NVM_HEAD_POS 0x08800000
-#define NVM_TAIL_POS 0x08800800
-#define NVM_QUEUES_SIZE 128
+#define NVM_CLASS_CODE 0x00010802
+#define NVM_HEAD_POS 0x08800000  // colas de comandos (una por dispositivo)
+#define NVM_TAIL_POS 0x08840800  // colas de finalizaciones
+#define NVM_FOUND_POS 0x08400800 // tabla de dispositivos
+#define NVM_MAX_DEVS 32
+#define NVM_QUEUE_LEN 128 // debe ser potencia de 2
+#define NVM_ID_MASK 0x00FFFFFF
+#define NVM_ENTRY_EMPTY                                                        \
+  0xFFFFFFFF // marca de "sin finalización" en la cola tail
+
+#define NEXT(i) (((i) + 1) & (NVM_QUEUE_LEN - 1))
 
 bool NvmDetected;
-static volatile uint32_t head_index;
-static volatile uint32_t tail_index;
-static volatile bool hardware_busy;
 
 typedef struct {
-  volatile uint32_t comand;
+  volatile uint32_t command;
   volatile uint32_t head;
   volatile uint32_t tail;
   volatile uint8_t doorbell;
 } NvmRegisters;
-static volatile NvmRegisters *nvm_registers;
 
 typedef struct {
-  volatile uint32_t opcode_ID;
+  volatile uint32_t
+      opcode_ID; // [31:24] opcode, [23:0] ID (= índice en la cola)
   volatile uint32_t addr;
   volatile uint32_t SLBA;
   volatile uint32_t NLBA;
-} NvmHeadRegisters;
-static volatile NvmHeadRegisters *Head;
+} NvmHeadEntry;
 
 typedef struct {
-  volatile uint32_t opcode_ID;
-  uint32_t raw;
-} NvmTailRegisters;
-static volatile NvmTailRegisters *Tail;
+  volatile uint32_t opcode_ID; // [23:0] ID del comando completado
+  volatile uint32_t raw;
+} NvmTailEntry;
 
-static uint32_t nvm_IRQHandler(uint32_t eflags, uint32_t epc) {
+typedef struct {
+  NvmRegisters *regs;
+  volatile bool busy;           // hay un comando en curso en el dispositivo
+  volatile uint32_t head_index; // próximo slot libre para encolar
+  volatile uint32_t tail_index; // próximo slot a completar
+} NvmDev;
 
-  uint32_t offset = tail_index << 3;
-  offset = NVM_TAIL_POS + offset;
+_Static_assert(sizeof(NvmHeadEntry) * NVM_QUEUE_LEN == 2048, "head queue size");
+_Static_assert(sizeof(NvmTailEntry) * NVM_QUEUE_LEN == 1024, "tail queue size");
 
-  volatile NvmTailRegisters *currentTail =
-      (volatile NvmTailRegisters *)(uintptr_t)offset;
+#define HEAD_Q ((NvmHeadEntry(*)[NVM_QUEUE_LEN])NVM_HEAD_POS)
+#define TAIL_Q ((NvmTailEntry(*)[NVM_QUEUE_LEN])NVM_TAIL_POS)
 
-  uint32_t completed_ID = currentTail->opcode_ID & 0x00FFFFFF;
+static NvmDev *const nvmDevs = (NvmDev *)NVM_FOUND_POS;
+static uint32_t nvmCount;
 
-  if (completed_ID == tail_index) {
-    tail_index = (tail_index + 1) % NVM_QUEUES_SIZE;
+// IRQ MSI: consume la finalización del dispositivo que interrumpió y lanza el
+// próximo comando si hay.
+static uint32_t nvm_IRQHandler(uint32_t eflags, uint32_t epc, uint32_t cause) {
+  (void)eflags;
+  uint32_t id = NVM_MSI_NUM - cause; // inverso de la IRQ asignada en initNvm
+  if (id >= nvmCount)
+    return epc;
 
-    if (tail_index == head_index)
-      hardware_busy = false;
+  NvmDev *dev = &nvmDevs[id];
+  uint32_t flags = enterCriticalSection();
+
+  NvmTailEntry *done = &TAIL_Q[id][dev->tail_index];
+  if ((done->opcode_ID & NVM_ID_MASK) == dev->tail_index) {
+    done->opcode_ID = NVM_ENTRY_EMPTY;
+    dev->tail_index = NEXT(dev->tail_index);
+
+    if (dev->tail_index == dev->head_index)
+      dev->busy = false;
     else
-      nvm_registers->doorbell = 1;
-
-  } else {
-    hardware_busy = true;
-    nvm_registers->doorbell = 1;
+      dev->regs->doorbell = 1;
   }
 
+  exitCriticalSection(flags);
   return epc;
 }
 
-static void initNvm(uint32_t base) {
-  hardware_busy = false;
-  ECAM_W(base, 0x04, 3);
+// Inicializa una NVM: habilita PCIe, prepara las colas, registra la MSI y
+// arranca el dispositivo.
+static void initNvm(uint32_t base, uint32_t num) {
+  NvmDev *dev = &nvmDevs[num];
+  dev->busy = false;
+  dev->head_index = 0;
+  dev->tail_index = 0;
 
-  uint32_t bar0 = ECAM_R(base, 0x10);
-  nvm_registers = (volatile NvmRegisters *)(uintptr_t)bar0;
+  for (uint32_t i = 0; i < NVM_QUEUE_LEN; i++)
+    TAIL_Q[num][i].opcode_ID = NVM_ENTRY_EMPTY;
 
-  nvm_registers->comand = 1;
-  nvm_registers->head = NVM_HEAD_POS;
-  nvm_registers->tail = NVM_TAIL_POS;
+  ECAM_W(base, 0x04, 3); // memory space + bus master
+  dev->regs = (NvmRegisters *)(uintptr_t)ECAM_R(base, 0x10); // BAR0
+  dev->regs->head = (uint32_t)(uintptr_t)HEAD_Q[num];
+  dev->regs->tail = (uint32_t)(uintptr_t)TAIL_Q[num];
 
-  Head = (volatile NvmHeadRegisters *)(uintptr_t)NVM_HEAD_POS;
-  Tail = (volatile NvmTailRegisters *)(uintptr_t)NVM_TAIL_POS;
-
-  head_index = 0;
-  tail_index = 0;
-
-  initMSI(base, NVM_MSI_NUM, nvm_IRQHandler);
+  initMSI(base, NVM_MSI_NUM - num, nvm_IRQHandler);
+  dev->regs->command = 1; // habilitar al final, con todo ya configurado
 }
 
-bool nvmSearch() {
-  int offset = search(0x00010802);
-  if (offset < 0)
-    return NvmDetected = false;
-  uint32_t base =
-      ECAM_ADDR(mapa[offset].bus, mapa[offset].dev, mapa[offset].func);
+// Busca las NVM en el bus PCIe y las inicializa; devuelve true si encontró al
+// menos una.
+bool nvmSearch(void) {
+  uint32_t found[NVM_MAX_DEVS];
+  int cant = search(NVM_CLASS_CODE, found);
 
-  initNvm(base);
+  nvmCount = (uint32_t)
+      cant; // antes de initNvm: así el handler ya reconoce los dispositivos
+  for (int i = 0; i < cant; i++)
+    initNvm(found[i], i);
 
-  return NvmDetected = true;
-};
+  return NvmDetected = (cant > 0);
+}
 
-void accesNvm(uint32_t option, uint32_t *pointer, uint32_t SLBA,
-              uint32_t Cant) {
-
-  if (!(option == 0) && !(option == 1)) {
+// Encola una lectura (0) o escritura (1) y toca el doorbell si el dispositivo
+// estaba libre.
+void NvmAccess(uint32_t option, uint32_t disp, uint32_t *pointer, uint32_t SLBA,
+               uint32_t Cant) {
+  if (option > NVM_WRITE) {
     biosWrite("\nComando de NVM no reconocido", 0);
     return;
   }
+  if (disp >= nvmCount) {
+    biosWrite("\nDispositivo NVM inexistente", 0);
+    return;
+  }
 
-  volatile uint32_t next_head = (head_index + 1) % NVM_QUEUES_SIZE;
-  while (next_head == tail_index) {
+  NvmDev *dev = &nvmDevs[disp];
+  uint32_t flags = enterCriticalSection();
+
+  // Cola llena: dormir hasta que llegue una IRQ (la finalización libera un
+  // lugar) y re-chequear
+  while (NEXT(dev->head_index) == dev->tail_index) {
     irqOn();
     __asm__ volatile("HLT" : : : "memory");
+    irqOff();
   }
 
-  uint32_t offset = head_index << 4;
-  offset = NVM_HEAD_POS + offset;
+  uint32_t idx = dev->head_index;
+  NvmHeadEntry *cmd = &HEAD_Q[disp][idx];
 
-  volatile NvmHeadRegisters *currentHead =
-      (volatile NvmHeadRegisters *)(uintptr_t)offset;
+  cmd->addr = (uint32_t)(uintptr_t)pointer;
+  cmd->SLBA = SLBA;
+  cmd->NLBA = Cant;
+  cmd->opcode_ID =
+      (option << 24) | idx; // se escribe al final: valida la entrada
+  dev->head_index = NEXT(idx);
 
-  currentHead->addr = (uintptr_t)pointer;
-  currentHead->NLBA = Cant;
-  currentHead->SLBA = SLBA;
-  currentHead->opcode_ID = ((option & 0xFF) << 24) | (head_index & 0xFFFFFF);
-
-  head_index = next_head;
-
-  if (!hardware_busy) {
-    nvm_registers->doorbell = 1;
-    hardware_busy = true;
+  if (!dev->busy) {
+    dev->busy = true;
+    dev->regs->doorbell = 1;
   }
+
+  exitCriticalSection(flags);
 }

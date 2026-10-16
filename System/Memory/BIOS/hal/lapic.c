@@ -56,7 +56,7 @@ void mainHandler(uint32_t *regs) {
 
   if (cause != 0) {
     if (cause < MAX_IRQS && irq_table.handlers[cause] != NULL) {
-      epc = irq_table.handlers[cause](eflags, epc);
+      epc = irq_table.handlers[cause](eflags, epc, cause);
     } else {
       epc = defaultIRQHandler(eflags, epc, cause);
     }

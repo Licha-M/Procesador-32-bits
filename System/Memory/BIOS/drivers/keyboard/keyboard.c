@@ -24,7 +24,7 @@ static volatile KeyboardRegisters *kb_registers;
 
 // Manejador de la interrupcion (IRQ) del teclado: lee el caracter recibido y lo
 // encola.
-uint32_t keyboard_IRQHandler(uint32_t eflags, uint32_t epc) {
+uint32_t keyboard_IRQHandler(uint32_t eflags, uint32_t epc, uint32_t cause) {
   (void)eflags;
   char key = kb_registers->data;
   // Envia comando 0x2 para limpiar/confirmar la interrupcion en el controlador
@@ -60,7 +60,7 @@ static void initKeyboard(uint32_t base) {
 // Busca el dispositivo de teclado en el arbol PCIe por su Class Code y lo
 // inicializa.
 bool keyboardSearch(void) {
-  int offset = search(0x00090000);
+  int offset = searchFirst(0x00090000);
   if (offset < 0)
     return KeyboardDetected = false;
   uint32_t base =
