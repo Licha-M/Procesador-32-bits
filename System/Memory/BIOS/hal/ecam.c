@@ -129,8 +129,7 @@ int search(uint32_t tipo, uint32_t buffer[MAX_SEARCH_CAPACITY]) {
 
   for (int i = 0; i < map_size; i++) {
     if ((mapa[i].ClassCode & 0x00FFFFFF) == tipo) {
-      buffer[count] =
-          ECAM_BASE + ECAM_ADDR(mapa[i].bus, mapa[i].dev, mapa[i].func);
+      buffer[count] = ECAM_ADDR(mapa[i].bus, mapa[i].dev, mapa[i].func);
       count++;
       if (count >= MAX_SEARCH_CAPACITY) {
         return count;

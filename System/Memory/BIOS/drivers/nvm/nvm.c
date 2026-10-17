@@ -83,6 +83,7 @@ static uint32_t nvm_IRQHandler(uint32_t eflags, uint32_t epc, uint32_t cause) {
 // Inicializa una NVM: habilita PCIe, prepara las colas, registra la MSI y
 // arranca el dispositivo.
 static void initNvm(uint32_t base, uint32_t num) {
+
   NvmDev *dev = &nvmDevs[num];
   dev->busy = false;
   dev->head_index = 0;

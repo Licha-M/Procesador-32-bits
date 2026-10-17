@@ -2414,7 +2414,7 @@ search:                                 ; @search
 	SLT ADI R6, -1
 	LDI R10, 2
 	LDI R11, 0
-	H LDI R11, 49152
+	H LDI R11, 57344
 	SLT ADI R11, 0
 	LDI R12, 30
 	SLT ADD R1, R0, R13

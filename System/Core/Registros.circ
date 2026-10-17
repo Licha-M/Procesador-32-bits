@@ -652,7 +652,7 @@
       <circ-anchor facing="east" x="250" y="60"/>
       <circ-port dir="in" pin="190,590" x="180" y="50"/>
       <circ-port dir="in" pin="190,700" x="180" y="40"/>
-      <circ-port dir="in" pin="230,110" x="180" y="170"/>
+      <circ-port dir="in" pin="230,110" x="250" y="100"/>
       <circ-port dir="in" pin="230,130" x="180" y="150"/>
       <circ-port dir="in" pin="230,150" x="180" y="160"/>
       <circ-port dir="in" pin="230,1530" x="180" y="60"/>
@@ -1010,7 +1010,7 @@
       <circ-port dir="in" pin="520,620" x="50" y="70"/>
       <circ-port dir="in" pin="520,780" x="50" y="130"/>
       <circ-port dir="in" pin="520,850" x="50" y="110"/>
-      <circ-port dir="in" pin="520,870" x="90" y="60"/>
+      <circ-port dir="in" pin="520,870" x="110" y="50"/>
       <circ-port dir="in" pin="520,920" x="50" y="80"/>
       <circ-port dir="out" pin="1110,770" x="100" y="140"/>
       <circ-port dir="out" pin="1110,800" x="130" y="80"/>
