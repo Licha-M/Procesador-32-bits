@@ -13,10 +13,13 @@
 #define NVM_ID_MASK 0x00FFFFFF
 #define NVM_ENTRY_EMPTY                                                        \
   0xFFFFFFFF // marca de "sin finalización" en la cola tail
+#define NVM_READ 0
+#define NVM_WRITE 1
 
 #define NEXT(i) (((i) + 1) & (NVM_QUEUE_LEN - 1))
 
 bool NvmDetected;
+uint32_t nvmCount;
 
 typedef struct {
   volatile uint32_t command;
@@ -40,9 +43,8 @@ typedef struct {
 
 typedef struct {
   NvmRegisters *regs;
-  volatile bool busy;           // hay un comando en curso en el dispositivo
-  volatile uint32_t head_index; // próximo slot libre para encolar
-  volatile uint32_t tail_index; // próximo slot a completar
+  volatile bool done; // el comando en curso terminó
+  uint32_t index;     // slot (comando y finalización) del próximo comando
 } NvmDev;
 
 _Static_assert(sizeof(NvmHeadEntry) * NVM_QUEUE_LEN == 2048, "head queue size");
@@ -52,10 +54,9 @@ _Static_assert(sizeof(NvmTailEntry) * NVM_QUEUE_LEN == 1024, "tail queue size");
 #define TAIL_Q ((NvmTailEntry(*)[NVM_QUEUE_LEN])NVM_TAIL_POS)
 
 static NvmDev *const nvmDevs = (NvmDev *)NVM_FOUND_POS;
-static uint32_t nvmCount;
 
-// IRQ MSI: consume la finalización del dispositivo que interrumpió y lanza el
-// próximo comando si hay.
+// IRQ MSI: si el dispositivo que interrumpió completó su comando, avisa a
+// NvmAccess.
 static uint32_t nvm_IRQHandler(uint32_t eflags, uint32_t epc, uint32_t cause) {
   (void)eflags;
   uint32_t id = NVM_MSI_NUM - cause; // inverso de la IRQ asignada en initNvm
@@ -63,34 +64,18 @@ static uint32_t nvm_IRQHandler(uint32_t eflags, uint32_t epc, uint32_t cause) {
     return epc;
 
   NvmDev *dev = &nvmDevs[id];
-  uint32_t flags = enterCriticalSection();
+  if ((TAIL_Q[id][dev->index].opcode_ID & NVM_ID_MASK) == dev->index)
+    dev->done = true;
 
-  NvmTailEntry *done = &TAIL_Q[id][dev->tail_index];
-  if ((done->opcode_ID & NVM_ID_MASK) == dev->tail_index) {
-    done->opcode_ID = NVM_ENTRY_EMPTY;
-    dev->tail_index = NEXT(dev->tail_index);
-
-    if (dev->tail_index == dev->head_index)
-      dev->busy = false;
-    else
-      dev->regs->doorbell = 1;
-  }
-
-  exitCriticalSection(flags);
   return epc;
 }
 
-// Inicializa una NVM: habilita PCIe, prepara las colas, registra la MSI y
-// arranca el dispositivo.
+// Inicializa una NVM: habilita PCIe, carga las colas, registra la MSI y arranca
+// el dispositivo.
 static void initNvm(uint32_t base, uint32_t num) {
-
   NvmDev *dev = &nvmDevs[num];
-  dev->busy = false;
-  dev->head_index = 0;
-  dev->tail_index = 0;
-
-  for (uint32_t i = 0; i < NVM_QUEUE_LEN; i++)
-    TAIL_Q[num][i].opcode_ID = NVM_ENTRY_EMPTY;
+  dev->done = false;
+  dev->index = 0;
 
   ECAM_W(base, 0x04, 3); // memory space + bus master
   dev->regs = (NvmRegisters *)(uintptr_t)ECAM_R(base, 0x10); // BAR0
@@ -115,44 +100,55 @@ bool nvmSearch(void) {
   return NvmDetected = (cant > 0);
 }
 
-// Encola una lectura (0) o escritura (1) y toca el doorbell si el dispositivo
-// estaba libre.
-void NvmAccess(uint32_t option, uint32_t disp, uint32_t *pointer, uint32_t SLBA,
-               uint32_t Cant) {
+// Envía un comando (lectura o escritura) y no retorna hasta que el dispositivo
+// lo completa.
+static int NvmAccess(uint32_t option, uint32_t disp, uint32_t *pointer,
+                     uint32_t SLBA, uint32_t Cant) {
   if (option > NVM_WRITE) {
     biosWrite("\nComando de NVM no reconocido", 0);
-    return;
+    return NVM_INVALID_OPTION;
   }
   if (disp >= nvmCount) {
     biosWrite("\nDispositivo NVM inexistente", 0);
-    return;
+    return NVM_DEVICE_NOT_RECOGNIZED;
   }
 
   NvmDev *dev = &nvmDevs[disp];
+  uint32_t idx = dev->index;
   uint32_t flags = enterCriticalSection();
 
-  // Cola llena: dormir hasta que llegue una IRQ (la finalización libera un
-  // lugar) y re-chequear
-  while (NEXT(dev->head_index) == dev->tail_index) {
+  TAIL_Q[disp][idx].opcode_ID =
+      NVM_ENTRY_EMPTY; // descarta cualquier finalización vieja
+  dev->done = false;
+
+  NvmHeadEntry *cmd = &HEAD_Q[disp][idx];
+  cmd->addr = (uint32_t)(uintptr_t)pointer;
+  cmd->SLBA = SLBA;
+  cmd->NLBA = Cant;
+  cmd->opcode_ID = (option << 24) | idx; // al final: valida la entrada
+  dev->regs->doorbell = 1;
+
+  // Dormir hasta que el handler marque done
+  while (!dev->done) {
     irqOn();
     __asm__ volatile("HLT" : : : "memory");
     irqOff();
   }
 
-  uint32_t idx = dev->head_index;
-  NvmHeadEntry *cmd = &HEAD_Q[disp][idx];
-
-  cmd->addr = (uint32_t)(uintptr_t)pointer;
-  cmd->SLBA = SLBA;
-  cmd->NLBA = Cant;
-  cmd->opcode_ID =
-      (option << 24) | idx; // se escribe al final: valida la entrada
-  dev->head_index = NEXT(idx);
-
-  if (!dev->busy) {
-    dev->busy = true;
-    dev->regs->doorbell = 1;
-  }
-
+  dev->index = NEXT(idx);
   exitCriticalSection(flags);
+  return NVM_OK;
+}
+
+// Lee count sectores desde lba al buffer y retorna cuando terminó de cargarse.
+int nvm_read_sectors(uint32_t disp, uint32_t lba, uint32_t count,
+                     uint32_t *buffer) {
+  return NvmAccess(NVM_READ, disp, buffer, lba, count);
+}
+
+// Escribe count sectores del buffer desde lba y retorna cuando terminó de
+// guardarse.
+int nvm_write_sectors(uint32_t disp, uint32_t lba, uint32_t count,
+                      uint32_t *buffer) {
+  return NvmAccess(NVM_WRITE, disp, buffer, lba, count);
 }

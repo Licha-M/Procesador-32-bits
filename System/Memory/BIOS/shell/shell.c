@@ -2,6 +2,7 @@
 #include "../bios_types.h"
 #include "../drivers/keyboard/keyboard.h"
 #include "../drivers/tty/tty.h"
+#include "../fs/fat/fat_types.h"
 #include "../hal/ecam.h"
 #include "../hal/lapic.h"
 #include "../lib/format.h"
@@ -110,8 +111,7 @@ void enumdisp(void) {
   }
 }
 
-// Lista los dispositivos de arranque disponibles (reserva para futura
-// implementacion).
+// Lista los dispositivos de arranque disponibles
 void lsboot(void) { return; }
 
 // Configura el dispositivo de arranque preferido (reserva para futura
