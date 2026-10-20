@@ -4957,135 +4957,194 @@ strcmp:                                 ; @strcmp
 	AND R1, R4, R5
 	LDI R3, 0
 	SUB R5, R3, R0
-	H LDI R15, %hi(.LBB36_5)
-	SLT ADI R15, %lo(.LBB36_5)
+	H LDI R15, %hi(.LBB36_1)
+	SLT ADI R15, %lo(.LBB36_1)
 	BRH EQ, R15
-.LBB36_1:                               ; =>This Inner Loop Header: Depth=1
+.LBB36_9:                               ; =>This Inner Loop Header: Depth=1
 	CHAR LOD R2, R5, 0
 	CHAR LOD R1, R6, 0
 	SUB R6, R3, R0
-	H LDI R15, %hi(.LBB36_3)
-	SLT ADI R15, %lo(.LBB36_3)
+	H LDI R15, %hi(.LBB36_11)
+	SLT ADI R15, %lo(.LBB36_11)
 	BRH EQ, R15
-; %bb.2:                                ;   in Loop: Header=BB36_1 Depth=1
+; %bb.10:                               ;   in Loop: Header=BB36_9 Depth=1
 	SUB R6, R5, R0
-	H LDI R15, %hi(.LBB36_3)
-	SLT ADI R15, %lo(.LBB36_3)
+	H LDI R15, %hi(.LBB36_11)
+	SLT ADI R15, %lo(.LBB36_11)
 	BRH NE, R15
-; %bb.4:                                ;   in Loop: Header=BB36_1 Depth=1
+; %bb.8:                                ;   in Loop: Header=BB36_9 Depth=1
 	ADI R2, 1
 	ADI R1, 1
 	AND R1, R4, R5
 	SUB R5, R3, R0
-	H LDI R15, %hi(.LBB36_1)
-	SLT ADI R15, %lo(.LBB36_1)
-	BRH NE, R15
-.LBB36_5:
-	LDI R7, 8
-	LDI R8, 0
-	H LDI R8, 257
-	SLT ADI R8, 256
-	LDI R9, 0
-	H LDI R9, 32897
-	SLT ADI R9, -32640
-	LDI R4, 255
-	H LDI R15, %hi(.LBB36_6)
-	SLT ADI R15, %lo(.LBB36_6)
-	JMP R15
-.LBB36_19:                              ;   in Loop: Header=BB36_6 Depth=1
-	ADI R2, 4
-	ADI R1, 4
-.LBB36_6:                               ; =>This Inner Loop Header: Depth=1
-	INT LOD R1, R10, 0
-	INT LOD R2, R13, 0
-	SUB R8, R10, R11
-	NOR R11, R10, R11
-	NOR R11, R11, R11
-	AND R11, R9, R11
-	SUB R11, R9, R0
-	H LDI R15, %hi(.LBB36_8)
-	SLT ADI R15, %lo(.LBB36_8)
-	BRH NE, R15
-; %bb.7:                                ;   in Loop: Header=BB36_6 Depth=1
-	SUB R10, R13, R0
-	H LDI R15, %hi(.LBB36_19)
-	SLT ADI R15, %lo(.LBB36_19)
-	BRH EQ, R15
-.LBB36_8:                               ;   in Loop: Header=BB36_6 Depth=1
-	AND R10, R4, R11
-	SUB R11, R3, R0
 	H LDI R15, %hi(.LBB36_9)
 	SLT ADI R15, %lo(.LBB36_9)
-	BRH EQ, R15
-; %bb.10:                               ;   in Loop: Header=BB36_6 Depth=1
-	AND R13, R4, R5
-	AND R10, R4, R6
-	SLT ADD R10, R0, R11
-	SLT ADD R13, R0, R12
-	SUB R6, R5, R0
-	H LDI R15, %hi(.LBB36_17)
-	SLT ADI R15, %lo(.LBB36_17)
 	BRH NE, R15
-; %bb.11:                               ;   in Loop: Header=BB36_6 Depth=1
-	RSH R13, R7, R12
-	RSH R10, R7, R11
-	AND R11, R4, R5
+.LBB36_1:
+	LDI R5, 4095
+	AND R1, R5, R4
+	LDI R6, 4092
+	SUB R6, R4, R0
+	H LDI R15, %hi(.LBB36_13)
+	SLT ADI R15, %lo(.LBB36_13)
+	BRH C, R15
+; %bb.2:
+	AND R2, R5, R4
+	SUB R6, R4, R0
+	H LDI R15, %hi(.LBB36_13)
+	SLT ADI R15, %lo(.LBB36_13)
+	BRH C, R15
+; %bb.3:
+	LDI R11, 0
+	H LDI R11, 32897
+	SLT ADI R11, -32640
+	LDI R4, 255
+.LBB36_4:                               ; =>This Inner Loop Header: Depth=1
+	INT LOD R1, R12, 0
+	INT LOD R2, R8, 0
+	LDI R7, 0
+	H LDI R7, 257
+	SLT ADI R7, 256
+	SUB R7, R12, R7
+	NOR R7, R12, R7
+	NOR R7, R7, R7
+	AND R7, R11, R7
+	SUB R7, R11, R0
+	H LDI R15, %hi(.LBB36_6)
+	SLT ADI R15, %lo(.LBB36_6)
+	BRH NE, R15
+; %bb.5:                                ;   in Loop: Header=BB36_4 Depth=1
+	SUB R12, R8, R0
+	H LDI R15, %hi(.LBB36_28)
+	SLT ADI R15, %lo(.LBB36_28)
+	BRH EQ, R15
+.LBB36_6:                               ;   in Loop: Header=BB36_4 Depth=1
+	AND R12, R4, R7
+	SUB R7, R3, R0
+	H LDI R15, %hi(.LBB36_7)
+	SLT ADI R15, %lo(.LBB36_7)
+	BRH EQ, R15
+; %bb.20:                               ;   in Loop: Header=BB36_4 Depth=1
+	AND R8, R4, R9
+	AND R12, R4, R10
+	SLT ADD R12, R0, R13
+	SLT ADD R8, R0, R7
+	SUB R10, R9, R0
+	H LDI R15, %hi(.LBB36_27)
+	SLT ADI R15, %lo(.LBB36_27)
+	BRH NE, R15
+; %bb.21:                               ;   in Loop: Header=BB36_4 Depth=1
+	LDI R7, 8
+	SLT ADD R7, R0, R9
+	RSH R8, R9, R7
+	RSH R12, R9, R13
+	AND R13, R4, R9
+	SUB R9, R3, R0
+	H LDI R15, %hi(.LBB36_27)
+	SLT ADI R15, %lo(.LBB36_27)
+	BRH EQ, R15
+; %bb.22:                               ;   in Loop: Header=BB36_4 Depth=1
+	AND R7, R4, R9
+	AND R13, R4, R10
+	SUB R10, R9, R0
+	H LDI R15, %hi(.LBB36_27)
+	SLT ADI R15, %lo(.LBB36_27)
+	BRH NE, R15
+; %bb.23:                               ;   in Loop: Header=BB36_4 Depth=1
+	LDI R7, 16
+	SLT ADD R7, R0, R9
+	RSH R8, R9, R7
+	RSH R12, R9, R13
+	AND R13, R4, R9
+	SUB R9, R3, R0
+	H LDI R15, %hi(.LBB36_27)
+	SLT ADI R15, %lo(.LBB36_27)
+	BRH EQ, R15
+; %bb.24:                               ;   in Loop: Header=BB36_4 Depth=1
+	AND R7, R4, R9
+	AND R13, R4, R10
+	SUB R10, R9, R0
+	H LDI R15, %hi(.LBB36_27)
+	SLT ADI R15, %lo(.LBB36_27)
+	BRH NE, R15
+; %bb.25:                               ;   in Loop: Header=BB36_4 Depth=1
+	LDI R7, 24
+	SLT ADD R7, R0, R9
+	RSH R8, R9, R7
+	RSH R12, R9, R13
+	SUB R13, R3, R0
+	H LDI R15, %hi(.LBB36_27)
+	SLT ADI R15, %lo(.LBB36_27)
+	BRH EQ, R15
+; %bb.26:                               ;   in Loop: Header=BB36_4 Depth=1
+	SUB R13, R7, R0
+	H LDI R15, %hi(.LBB36_27)
+	SLT ADI R15, %lo(.LBB36_27)
+	BRH NE, R15
+.LBB36_28:                              ;   in Loop: Header=BB36_4 Depth=1
+	ADI R2, 4
+	ADI R1, 4
+	AND R1, R5, R7
+	SUB R6, R7, R0
+	H LDI R15, %hi(.LBB36_13)
+	SLT ADI R15, %lo(.LBB36_13)
+	BRH C, R15
+; %bb.29:                               ;   in Loop: Header=BB36_4 Depth=1
+	AND R2, R5, R7
+	SUB R6, R7, R0
+	H LDI R15, %hi(.LBB36_4)
+	SLT ADI R15, %lo(.LBB36_4)
+	BRH NC, R15
+.LBB36_13:
+	CHAR LOD R1, R5, 0
 	SUB R5, R3, R0
-	H LDI R15, %hi(.LBB36_17)
-	SLT ADI R15, %lo(.LBB36_17)
-	BRH EQ, R15
-; %bb.12:                               ;   in Loop: Header=BB36_6 Depth=1
-	AND R12, R4, R5
-	AND R11, R4, R6
-	SUB R6, R5, R0
-	H LDI R15, %hi(.LBB36_17)
-	SLT ADI R15, %lo(.LBB36_17)
-	BRH NE, R15
-; %bb.13:                               ;   in Loop: Header=BB36_6 Depth=1
-	LDI R5, 16
-	RSH R13, R5, R12
-	RSH R10, R5, R11
-	AND R11, R4, R5
-	SUB R5, R3, R0
-	H LDI R15, %hi(.LBB36_17)
-	SLT ADI R15, %lo(.LBB36_17)
-	BRH EQ, R15
-; %bb.14:                               ;   in Loop: Header=BB36_6 Depth=1
-	AND R12, R4, R5
-	AND R11, R4, R6
-	SUB R6, R5, R0
-	H LDI R15, %hi(.LBB36_17)
-	SLT ADI R15, %lo(.LBB36_17)
-	BRH NE, R15
-; %bb.15:                               ;   in Loop: Header=BB36_6 Depth=1
-	LDI R5, 24
-	RSH R13, R5, R12
-	RSH R10, R5, R11
-	SUB R11, R3, R0
-	H LDI R15, %hi(.LBB36_17)
-	SLT ADI R15, %lo(.LBB36_17)
-	BRH EQ, R15
-; %bb.16:                               ;   in Loop: Header=BB36_6 Depth=1
-	SUB R11, R12, R0
 	H LDI R15, %hi(.LBB36_19)
 	SLT ADI R15, %lo(.LBB36_19)
 	BRH EQ, R15
-	H LDI R15, %hi(.LBB36_17)
-	SLT ADI R15, %lo(.LBB36_17)
-	JMP R15
-.LBB36_3:
-	SUB R6, R5, R1
+; %bb.14:                               ; %.preheader
+	ADI R1, 1
+	LDI R4, 255
+.LBB36_15:                              ; =>This Inner Loop Header: Depth=1
+	AND R5, R4, R6
+	CHAR LOD R2, R7, 0
+	SUB R6, R7, R0
+	H LDI R15, %hi(.LBB36_16)
+	SLT ADI R15, %lo(.LBB36_16)
+	BRH NE, R15
+; %bb.17:                               ;   in Loop: Header=BB36_15 Depth=1
+	ADI R2, 1
+	CHAR LOD R1, R5, 0
+	ADI R1, 1
+	SUB R5, R3, R0
+	H LDI R15, %hi(.LBB36_15)
+	SLT ADI R15, %lo(.LBB36_15)
+	BRH NE, R15
 	H LDI R15, %hi(.LBB36_18)
 	SLT ADI R15, %lo(.LBB36_18)
 	JMP R15
-.LBB36_9:
-	SLT ADD R10, R0, R11
-	SLT ADD R13, R0, R12
-.LBB36_17:
-	AND R12, R4, R1
-	AND R11, R4, R2
-	SUB R2, R1, R1
+.LBB36_11:
+	SUB R6, R5, R1
+	H LDI R15, %hi(.LBB36_12)
+	SLT ADI R15, %lo(.LBB36_12)
+	JMP R15
+.LBB36_16:
+	SLT ADD R5, R0, R3
 .LBB36_18:
+	AND R3, R4, R3
+.LBB36_19:
+	CHAR LOD R2, R1, 0
+	SUB R3, R1, R1
+	H LDI R15, %hi(.LBB36_12)
+	SLT ADI R15, %lo(.LBB36_12)
+	JMP R15
+.LBB36_7:
+	SLT ADD R12, R0, R13
+	SLT ADD R8, R0, R7
+.LBB36_27:
+	AND R7, R4, R1
+	AND R13, R4, R2
+	SUB R2, R1, R1
+.LBB36_12:
 	INT LOD R14, R13, -24
 	INT LOD R14, R12, -20
 	INT LOD R14, R11, -16
@@ -5101,106 +5160,165 @@ strcmp:                                 ; @strcmp
 	.type	strlen,@function
 strlen:                                 ; @strlen
 ; %bb.0:
-	SLT ADI R14, 4
+	SLT ADI R14, 16
+	INT STR R14, R8, -4
+	INT STR R14, R9, -8
+	INT STR R14, R10, -12
 	LDI R4, 3
-	AND R1, R4, R5
-	LDI R3, 0
-	SLT ADD R1, R0, R2
-	SUB R5, R3, R0
+	AND R1, R4, R3
+	LDI R2, 0
+	SUB R3, R2, R0
+	H LDI R15, %hi(.LBB37_1)
+	SLT ADI R15, %lo(.LBB37_1)
+	BRH EQ, R15
+; %bb.5:
+	CHAR LOD R1, R3, 0
+	SUB R3, R2, R0
 	H LDI R15, %hi(.LBB37_6)
 	SLT ADI R15, %lo(.LBB37_6)
 	BRH EQ, R15
-; %bb.1:
-	CHAR LOD R1, R2, 0
-	SUB R2, R3, R0
+; %bb.7:                                ; %.preheader2
+	SLT ADD R1, R0, R5
+	ADI R5, 1
+.LBB37_8:                               ; =>This Inner Loop Header: Depth=1
+	SLT ADD R5, R0, R3
+	AND R3, R4, R5
+	SUB R5, R2, R0
 	H LDI R15, %hi(.LBB37_2)
 	SLT ADI R15, %lo(.LBB37_2)
 	BRH EQ, R15
-; %bb.4:                                ; %.preheader
-	SLT ADD R1, R0, R5
+; %bb.9:                                ;   in Loop: Header=BB37_8 Depth=1
+	SLT ADD R3, R0, R5
 	ADI R5, 1
-.LBB37_5:                               ; =>This Inner Loop Header: Depth=1
-	SLT ADD R5, R0, R2
-	AND R2, R4, R5
-	SUB R5, R3, R0
-	H LDI R15, %hi(.LBB37_6)
-	SLT ADI R15, %lo(.LBB37_6)
-	BRH EQ, R15
-; %bb.3:                                ;   in Loop: Header=BB37_5 Depth=1
-	SLT ADD R2, R0, R5
-	ADI R5, 1
-	CHAR LOD R2, R6, 0
-	SUB R6, R3, R0
-	H LDI R15, %hi(.LBB37_5)
-	SLT ADI R15, %lo(.LBB37_5)
+	CHAR LOD R3, R6, 0
+	SUB R6, R2, R0
+	H LDI R15, %hi(.LBB37_8)
+	SLT ADI R15, %lo(.LBB37_8)
 	BRH NE, R15
-	H LDI R15, %hi(.LBB37_14)
-	SLT ADI R15, %lo(.LBB37_14)
+	H LDI R15, %hi(.LBB37_24)
+	SLT ADI R15, %lo(.LBB37_24)
+	JMP R15
+.LBB37_1:
+	SLT ADD R1, R0, R3
+.LBB37_2:
+	LDI R5, 4095
+	AND R3, R5, R4
+	LDI R6, 4093
+	SUB R4, R6, R0
+	H LDI R15, %hi(.LBB37_20)
+	SLT ADI R15, %lo(.LBB37_20)
+	BRH NC, R15
+; %bb.3:
+	INT LOD R3, R4, 0
+	LDI R6, 0
+	H LDI R6, 257
+	SLT ADI R6, 256
+	SUB R6, R4, R7
+	NOR R7, R4, R7
+	NOR R7, R7, R8
+	LDI R7, 0
+	H LDI R7, 32897
+	SLT ADI R7, -32640
+	AND R8, R7, R8
+	SUB R8, R7, R0
+	H LDI R15, %hi(.LBB37_4)
+	SLT ADI R15, %lo(.LBB37_4)
+	BRH NE, R15
+; %bb.17:                               ; %.preheader
+	ADI R3, 4
+	LDI R9, 4092
+.LBB37_18:                              ; =>This Inner Loop Header: Depth=1
+	SLT ADD R3, R0, R8
+	AND R8, R5, R3
+	SUB R9, R3, R0
+	H LDI R15, %hi(.LBB37_19)
+	SLT ADI R15, %lo(.LBB37_19)
+	BRH C, R15
+; %bb.10:                               ;   in Loop: Header=BB37_18 Depth=1
+	SLT ADD R8, R0, R3
+	ADI R3, 4
+	INT LOD R8, R4, 0
+	SUB R6, R4, R10
+	NOR R10, R4, R10
+	NOR R10, R10, R10
+	AND R10, R7, R10
+	SUB R10, R7, R0
+	H LDI R15, %hi(.LBB37_18)
+	SLT ADI R15, %lo(.LBB37_18)
+	BRH EQ, R15
+; %bb.11:                               ; %.loopexit1
+	ADI R3, -4
+	SLT ADD R3, R0, R5
+	SLT ADD R8, R0, R3
+	H LDI R15, %hi(.LBB37_12)
+	SLT ADI R15, %lo(.LBB37_12)
 	JMP R15
 .LBB37_6:
-	ADI R2, -2
-	LDI R5, 0
-	H LDI R5, 257
-	SLT ADI R5, 256
-	LDI R6, 0
-	H LDI R6, 32897
-	SLT ADI R6, -32640
-.LBB37_7:                               ; =>This Inner Loop Header: Depth=1
-	INT LOD R2, R4, 2
-	ADI R2, 4
-	SUB R5, R4, R7
-	NOR R7, R4, R7
-	NOR R7, R7, R7
-	AND R7, R6, R7
-	SUB R7, R6, R0
-	H LDI R15, %hi(.LBB37_7)
-	SLT ADI R15, %lo(.LBB37_7)
-	BRH EQ, R15
-; %bb.8:
-	LDI R5, 255
-	AND R4, R5, R5
-	SUB R5, R3, R0
-	H LDI R15, %hi(.LBB37_9)
-	SLT ADI R15, %lo(.LBB37_9)
-	BRH EQ, R15
-; %bb.10:
-	LDI R5, 0
-	H LDI R5, 1
-	SLT ADI R5, -256
-	AND R4, R5, R5
-	SUB R5, R3, R0
-	H LDI R15, %hi(.LBB37_11)
-	SLT ADI R15, %lo(.LBB37_11)
-	BRH EQ, R15
-; %bb.12:
-	LDI R5, 0
-	H LDI R5, 255
-	SLT ADI R5, 0
-	AND R4, R5, R4
-	SUB R4, R3, R0
-	H LDI R15, %hi(.LBB37_14)
-	SLT ADI R15, %lo(.LBB37_14)
+	SLT ADD R1, R0, R3
+	H LDI R15, %hi(.LBB37_24)
+	SLT ADI R15, %lo(.LBB37_24)
+	JMP R15
+.LBB37_4:
+	SLT ADD R3, R0, R5
+.LBB37_12:
+	LDI R6, 255
+	AND R4, R6, R6
+	SUB R6, R2, R0
+	H LDI R15, %hi(.LBB37_24)
+	SLT ADI R15, %lo(.LBB37_24)
 	BRH EQ, R15
 ; %bb.13:
-	ADI R2, 1
+	LDI R3, 0
+	H LDI R3, 1
+	SLT ADI R3, -256
+	AND R4, R3, R3
+	SUB R3, R2, R0
 	H LDI R15, %hi(.LBB37_14)
 	SLT ADI R15, %lo(.LBB37_14)
+	BRH EQ, R15
+; %bb.15:
+	LDI R3, 0
+	H LDI R3, 255
+	SLT ADI R3, 0
+	AND R4, R3, R3
+	SUB R3, R2, R0
+	H LDI R15, %hi(.LBB37_16)
+	SLT ADI R15, %lo(.LBB37_16)
+	BRH EQ, R15
+; %bb.22:
+	ADI R5, 3
+	H LDI R15, %hi(.LBB37_23)
+	SLT ADI R15, %lo(.LBB37_23)
 	JMP R15
-.LBB37_2:
-	SLT ADD R1, R0, R2
-	H LDI R15, %hi(.LBB37_14)
-	SLT ADI R15, %lo(.LBB37_14)
+.LBB37_19:
+	SLT ADD R8, R0, R3
+.LBB37_20:
+	ADI R3, -1
+.LBB37_21:                              ; =>This Inner Loop Header: Depth=1
+	CHAR LOD R3, R4, 1
+	ADI R3, 1
+	SUB R4, R2, R0
+	H LDI R15, %hi(.LBB37_21)
+	SLT ADI R15, %lo(.LBB37_21)
+	BRH NE, R15
+	H LDI R15, %hi(.LBB37_24)
+	SLT ADI R15, %lo(.LBB37_24)
 	JMP R15
-.LBB37_9:
-	ADI R2, -2
-	H LDI R15, %hi(.LBB37_14)
-	SLT ADI R15, %lo(.LBB37_14)
-	JMP R15
-.LBB37_11:
-	ADI R2, -1
 .LBB37_14:
-	SUB R2, R1, R1
-	SLT ADI R14, -4
+	ADI R5, 1
+	H LDI R15, %hi(.LBB37_23)
+	SLT ADI R15, %lo(.LBB37_23)
+	JMP R15
+.LBB37_16:
+	ADI R5, 2
+.LBB37_23:
+	SLT ADD R5, R0, R3
+.LBB37_24:
+	SUB R3, R1, R1
+	INT LOD R14, R10, -12
+	INT LOD R14, R9, -8
+	INT LOD R14, R8, -4
+	SLT ADI R14, -16
 	RET
 .Lfunc_end37:
 	.size	strlen, .Lfunc_end37-strlen
@@ -5246,202 +5364,209 @@ memcmp:                                 ; @memcmp
 	.type	strncpy,@function
 strncpy:                                ; @strncpy
 ; %bb.0:
-	SLT ADI R14, 28
+	SLT ADI R14, 24
 	INT STR R14, R8, -4
 	INT STR R14, R9, -8
 	INT STR R14, R10, -12
 	INT STR R14, R11, -16
 	INT STR R14, R12, -20
-	INT STR R14, R13, -24
 	LDI R4, 0
 	SUB R3, R4, R0
-	H LDI R15, %hi(.LBB39_28)
-	SLT ADI R15, %lo(.LBB39_28)
+	H LDI R15, %hi(.LBB39_30)
+	SLT ADI R15, %lo(.LBB39_30)
 	BRH EQ, R15
-; %bb.1:                                ; %.preheader8
+; %bb.1:
 	LDI R6, 3
-	SLT ADD R4, R0, R8
-.LBB39_2:                               ; =>This Inner Loop Header: Depth=1
-	ADD R1, R8, R5
-	AND R5, R6, R9
-	ADD R2, R8, R7
-	SUB R9, R4, R0
-	H LDI R15, %hi(.LBB39_5)
-	SLT ADI R15, %lo(.LBB39_5)
-	BRH EQ, R15
-; %bb.3:                                ;   in Loop: Header=BB39_2 Depth=1
-	CHAR LOD R7, R7, 0
-	CHAR STR R5, R7, 0
-	SUB R7, R4, R0
-	H LDI R15, %hi(.LBB39_15)
-	SLT ADI R15, %lo(.LBB39_15)
-	BRH EQ, R15
-; %bb.4:                                ;   in Loop: Header=BB39_2 Depth=1
-	ADI R8, 1
-	SUB R3, R8, R0
+	AND R1, R6, R5
+	SUB R5, R4, R0
 	H LDI R15, %hi(.LBB39_2)
 	SLT ADI R15, %lo(.LBB39_2)
-	BRH NE, R15
-	H LDI R15, %hi(.LBB39_28)
-	SLT ADI R15, %lo(.LBB39_28)
-	JMP R15
-.LBB39_5:
-	SUB R3, R8, R3
-	AND R7, R6, R9
-	SUB R9, R4, R0
-	H LDI R15, %hi(.LBB39_12)
-	SLT ADI R15, %lo(.LBB39_12)
-	BRH NE, R15
-; %bb.6:
-	LDI R9, 4
-	SUB R3, R9, R0
-	H LDI R15, %hi(.LBB39_12)
-	SLT ADI R15, %lo(.LBB39_12)
-	BRH C, R15
-; %bb.7:                                ; %.preheader6
-	LDI R9, 0
-	LDI R11, 0
-	H LDI R11, 257
-	SLT ADI R11, 256
-	LDI R12, 0
-	H LDI R12, 32897
-	SLT ADI R12, -32640
-.LBB39_8:                               ; =>This Inner Loop Header: Depth=1
-	ADD R2, R9, R13
-	ADD R13, R8, R13
-	INT LOD R13, R13, 0
-	SUB R11, R13, R10
-	NOR R10, R13, R10
-	NOR R10, R10, R10
-	AND R10, R12, R10
-	SUB R10, R12, R0
-	H LDI R15, %hi(.LBB39_11)
-	SLT ADI R15, %lo(.LBB39_11)
-	BRH NE, R15
-; %bb.9:                                ;   in Loop: Header=BB39_8 Depth=1
-	ADD R1, R9, R10
-	ADD R10, R8, R10
-	INT STR R10, R13, 0
-	ADI R9, 4
-	ADI R3, -4
-	SUB R6, R3, R0
-	H LDI R15, %hi(.LBB39_8)
-	SLT ADI R15, %lo(.LBB39_8)
-	BRH C, R15
-; %bb.10:
-	LDI R2, 0
-	SUB R3, R2, R0
-	H LDI R15, %hi(.LBB39_28)
-	SLT ADI R15, %lo(.LBB39_28)
 	BRH EQ, R15
-.LBB39_11:                              ; %.loopexit7
-	ADD R7, R9, R7
-	ADD R5, R9, R5
-.LBB39_12:
+; %bb.3:                                ; %.preheader9
+	LDI R8, 1
+	SLT ADD R1, R0, R5
+.LBB39_4:                               ; =>This Inner Loop Header: Depth=1
+	SLT ADD R3, R0, R7
+	CHAR LOD R2, R3, 0
+	CHAR STR R5, R3, 0
 	ADI R5, 1
-.LBB39_13:                              ; =>This Inner Loop Header: Depth=1
-	CHAR LOD R7, R2, 0
-	CHAR STR R5, R2, -1
-	SUB R2, R4, R0
-	H LDI R15, %hi(.LBB39_16)
-	SLT ADI R15, %lo(.LBB39_16)
-	BRH EQ, R15
-; %bb.14:                               ;   in Loop: Header=BB39_13 Depth=1
-	ADI R5, 1
-	ADI R7, 1
-	ADI R3, -1
 	SUB R3, R4, R0
+	H LDI R15, %hi(.LBB39_17)
+	SLT ADI R15, %lo(.LBB39_17)
+	BRH EQ, R15
+; %bb.5:                                ;   in Loop: Header=BB39_4 Depth=1
+	AND R5, R6, R9
+	SLT ADD R7, R0, R3
+	ADI R3, -1
+	ADI R2, 1
+	SUB R9, R4, R0
+	H LDI R15, %hi(.LBB39_7)
+	SLT ADI R15, %lo(.LBB39_7)
+	BRH EQ, R15
+; %bb.6:                                ;   in Loop: Header=BB39_4 Depth=1
+	SUB R7, R8, R0
+	H LDI R15, %hi(.LBB39_4)
+	SLT ADI R15, %lo(.LBB39_4)
+	BRH NE, R15
+	H LDI R15, %hi(.LBB39_7)
+	SLT ADI R15, %lo(.LBB39_7)
+	JMP R15
+.LBB39_2:
+	SLT ADD R1, R0, R5
+.LBB39_7:
+	AND R2, R6, R7
+	SUB R7, R4, R0
 	H LDI R15, %hi(.LBB39_13)
 	SLT ADI R15, %lo(.LBB39_13)
 	BRH NE, R15
-	H LDI R15, %hi(.LBB39_28)
-	SLT ADI R15, %lo(.LBB39_28)
-	JMP R15
-.LBB39_15:                              ; %.loopexit9
-	SUB R3, R8, R3
+; %bb.8:
+	LDI R7, 4
+	SUB R3, R7, R0
+	H LDI R15, %hi(.LBB39_13)
+	SLT ADI R15, %lo(.LBB39_13)
+	BRH C, R15
+; %bb.9:                                ; %.preheader6
+	LDI R7, 4095
+	LDI R8, 4092
+	LDI R9, 0
+	H LDI R9, 257
+	SLT ADI R9, 256
+	LDI R10, 0
+	H LDI R10, 32897
+	SLT ADI R10, -32640
+.LBB39_10:                              ; =>This Inner Loop Header: Depth=1
+	AND R2, R7, R11
+	SUB R8, R11, R0
+	H LDI R15, %hi(.LBB39_14)
+	SLT ADI R15, %lo(.LBB39_14)
+	BRH C, R15
+; %bb.11:                               ;   in Loop: Header=BB39_10 Depth=1
+	INT LOD R2, R11, 0
+	SUB R9, R11, R12
+	NOR R12, R11, R12
+	NOR R12, R12, R12
+	AND R12, R10, R12
+	SUB R12, R10, R0
+	H LDI R15, %hi(.LBB39_14)
+	SLT ADI R15, %lo(.LBB39_14)
+	BRH NE, R15
+; %bb.12:                               ;   in Loop: Header=BB39_10 Depth=1
+	INT STR R5, R11, 0
+	ADI R2, 4
+	ADI R5, 4
+	ADI R3, -4
+	SUB R6, R3, R0
+	H LDI R15, %hi(.LBB39_10)
+	SLT ADI R15, %lo(.LBB39_10)
+	BRH C, R15
+.LBB39_13:
+	SUB R3, R4, R0
+	H LDI R15, %hi(.LBB39_30)
+	SLT ADI R15, %lo(.LBB39_30)
+	BRH EQ, R15
+.LBB39_14:
 	ADI R5, 1
-.LBB39_16:
+.LBB39_15:                              ; =>This Inner Loop Header: Depth=1
+	CHAR LOD R2, R7, 0
+	CHAR STR R5, R7, -1
+	SUB R7, R4, R0
+	H LDI R15, %hi(.LBB39_16)
+	SLT ADI R15, %lo(.LBB39_16)
+	BRH EQ, R15
+; %bb.31:                               ;   in Loop: Header=BB39_15 Depth=1
+	ADI R5, 1
+	ADI R2, 1
 	ADI R3, -1
 	SUB R3, R4, R0
-	H LDI R15, %hi(.LBB39_28)
-	SLT ADI R15, %lo(.LBB39_28)
-	BRH EQ, R15
-; %bb.17:
-	AND R5, R6, R2
-	SUB R2, R4, R0
-	H LDI R15, %hi(.LBB39_20)
-	SLT ADI R15, %lo(.LBB39_20)
+	H LDI R15, %hi(.LBB39_15)
+	SLT ADI R15, %lo(.LBB39_15)
+	BRH NE, R15
+	H LDI R15, %hi(.LBB39_30)
+	SLT ADI R15, %lo(.LBB39_30)
+	JMP R15
+.LBB39_16:
+	SLT ADD R3, R0, R7
+.LBB39_17:
+	ADI R7, -1
+	SUB R7, R4, R0
+	H LDI R15, %hi(.LBB39_30)
+	SLT ADI R15, %lo(.LBB39_30)
 	BRH EQ, R15
 ; %bb.18:
+	AND R5, R6, R2
+	SUB R2, R4, R0
+	H LDI R15, %hi(.LBB39_22)
+	SLT ADI R15, %lo(.LBB39_22)
+	BRH EQ, R15
+; %bb.19:
 	LDI R2, 1
-.LBB39_19:                              ; =>This Inner Loop Header: Depth=1
-	SLT ADD R3, R0, R7
-	ADI R3, -1
+.LBB39_20:                              ; =>This Inner Loop Header: Depth=1
+	SLT ADD R7, R0, R3
+	ADI R7, -1
 	CHAR STR R5, R4, 0
 	ADI R5, 1
 	AND R5, R6, R8
 	SUB R8, R4, R0
+	H LDI R15, %hi(.LBB39_22)
+	SLT ADI R15, %lo(.LBB39_22)
+	BRH EQ, R15
+; %bb.21:                               ;   in Loop: Header=BB39_20 Depth=1
+	SUB R3, R2, R0
 	H LDI R15, %hi(.LBB39_20)
 	SLT ADI R15, %lo(.LBB39_20)
-	BRH EQ, R15
-; %bb.29:                               ;   in Loop: Header=BB39_19 Depth=1
-	SUB R7, R2, R0
-	H LDI R15, %hi(.LBB39_19)
-	SLT ADI R15, %lo(.LBB39_19)
 	BRH NE, R15
-.LBB39_20:
+.LBB39_22:
 	LDI R2, 4
+	SUB R7, R2, R0
+	H LDI R15, %hi(.LBB39_27)
+	SLT ADI R15, %lo(.LBB39_27)
+	BRH C, R15
+; %bb.23:
+	LDI R2, 0
+	H LDI R2, 0
+	SLT ADI R2, -4
+	AND R7, R2, R2
+	SUB R2, R4, R0
+	H LDI R15, %hi(.LBB39_26)
+	SLT ADI R15, %lo(.LBB39_26)
+	BRH EQ, R15
+; %bb.24:                               ; %dynamic-memset-expansion-main-body.preheader
+	SLT ADD R4, R0, R3
+.LBB39_25:                              ; %dynamic-memset-expansion-main-body
+                                        ; =>This Inner Loop Header: Depth=1
+	ADD R5, R3, R8
+	CHAR STR R8, R4, 0
+	ADI R3, 1
 	SUB R3, R2, R0
 	H LDI R15, %hi(.LBB39_25)
 	SLT ADI R15, %lo(.LBB39_25)
 	BRH C, R15
-; %bb.21:
-	LDI R2, 0
-	H LDI R2, 0
-	SLT ADI R2, -4
-	AND R3, R2, R2
-	SUB R2, R4, R0
-	H LDI R15, %hi(.LBB39_24)
-	SLT ADI R15, %lo(.LBB39_24)
-	BRH EQ, R15
-; %bb.22:                               ; %dynamic-memset-expansion-main-body.preheader
-	SLT ADD R4, R0, R7
-.LBB39_23:                              ; %dynamic-memset-expansion-main-body
-                                        ; =>This Inner Loop Header: Depth=1
-	ADD R5, R7, R8
-	CHAR STR R8, R4, 0
-	ADI R7, 1
-	SUB R7, R2, R0
-	H LDI R15, %hi(.LBB39_23)
-	SLT ADI R15, %lo(.LBB39_23)
-	BRH C, R15
-.LBB39_24:                              ; %dynamic-memset-post-expansion
-	AND R3, R6, R3
+.LBB39_26:                              ; %dynamic-memset-post-expansion
+	AND R7, R6, R7
 	ADD R5, R2, R5
-.LBB39_25:
-	SUB R3, R4, R0
-	H LDI R15, %hi(.LBB39_28)
-	SLT ADI R15, %lo(.LBB39_28)
+.LBB39_27:
+	SUB R7, R4, R0
+	H LDI R15, %hi(.LBB39_30)
+	SLT ADI R15, %lo(.LBB39_30)
 	BRH EQ, R15
-; %bb.26:                               ; %dynamic-memset-expansion-main-body2.preheader
+; %bb.28:                               ; %dynamic-memset-expansion-main-body2.preheader
 	SLT ADD R4, R0, R2
-.LBB39_27:                              ; %dynamic-memset-expansion-main-body2
+.LBB39_29:                              ; %dynamic-memset-expansion-main-body2
                                         ; =>This Inner Loop Header: Depth=1
-	ADD R5, R2, R6
-	CHAR STR R6, R4, 0
+	ADD R5, R2, R3
+	CHAR STR R3, R4, 0
 	ADI R2, 1
-	SUB R2, R3, R0
-	H LDI R15, %hi(.LBB39_27)
-	SLT ADI R15, %lo(.LBB39_27)
+	SUB R2, R7, R0
+	H LDI R15, %hi(.LBB39_29)
+	SLT ADI R15, %lo(.LBB39_29)
 	BRH C, R15
-.LBB39_28:
-	INT LOD R14, R13, -24
+.LBB39_30:
 	INT LOD R14, R12, -20
 	INT LOD R14, R11, -16
 	INT LOD R14, R10, -12
 	INT LOD R14, R9, -8
 	INT LOD R14, R8, -4
-	SLT ADI R14, -28
+	SLT ADI R14, -24
 	RET
 .Lfunc_end39:
 	.size	strncpy, .Lfunc_end39-strncpy
@@ -6986,11 +7111,11 @@ mapa:
 	.section	".note.GNU-stack","",@progbits
 
 ; ════════════════════ .start auto-generado ════════════════════
-; Inicio en palabra ROM 5799 (byte 0x005A9C)
+; Inicio en palabra ROM 5902 (byte 0x005C38)
 ; .start:
 ; ── Fase 1: Copiar 247 palabra(s) de .data  ROM → RAM ──────────────
-;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 5552, byte 0x0056C0)
-;	SLT ADI R15, 0x56C0
+;	H LDI R15, 0xFFF0		; Dir. ROM origen .data (palabra 5655, byte 0x00585C)
+;	SLT ADI R15, 0x585C
 ;	H LDI R1, 0x0400		; Dir. RAM destino = 0x04000000
 ;	SLT ADI R1, 0x0000
 ;	INT LOD R15, R2, 0		; Leer palabra 0 de ROM (.data blob)
