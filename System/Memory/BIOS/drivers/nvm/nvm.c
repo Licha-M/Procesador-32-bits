@@ -1,13 +1,14 @@
 #include "nvm.h"
+#include "../../fs/fat/fat_types.h"
 #include "../../hal/ecam.h"
 #include "../../hal/lapic.h"
 #include "../tty/tty.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #define NVM_CLASS_CODE 0x00010802
-#define NVM_HEAD_POS 0x08800000  // colas de comandos (una por dispositivo)
-#define NVM_TAIL_POS 0x08840800  // colas de finalizaciones
-#define NVM_FOUND_POS 0x08400800 // tabla de dispositivos
+#define NVM_HEAD_POS 0x08800000 // colas de comandos (una por dispositivo)
+#define NVM_TAIL_POS 0x08840800 // colas de finalizaciones
 #define NVM_MAX_DEVS 32
 #define NVM_QUEUE_LEN 128 // debe ser potencia de 2
 #define NVM_ID_MASK 0x00FFFFFF
@@ -20,13 +21,7 @@
 
 bool NvmDetected;
 uint32_t nvmCount;
-
-typedef struct {
-  volatile uint32_t command;
-  volatile uint32_t head;
-  volatile uint32_t tail;
-  volatile uint8_t doorbell;
-} NvmRegisters;
+NvmDev *const nvmDevs = (NvmDev *)NVM_FOUND_POS;
 
 typedef struct {
   volatile uint32_t
@@ -41,19 +36,11 @@ typedef struct {
   volatile uint32_t raw;
 } NvmTailEntry;
 
-typedef struct {
-  NvmRegisters *regs;
-  volatile bool done; // el comando en curso terminó
-  uint32_t index;     // slot (comando y finalización) del próximo comando
-} NvmDev;
-
 _Static_assert(sizeof(NvmHeadEntry) * NVM_QUEUE_LEN == 2048, "head queue size");
 _Static_assert(sizeof(NvmTailEntry) * NVM_QUEUE_LEN == 1024, "tail queue size");
 
 #define HEAD_Q ((NvmHeadEntry(*)[NVM_QUEUE_LEN])NVM_HEAD_POS)
 #define TAIL_Q ((NvmTailEntry(*)[NVM_QUEUE_LEN])NVM_TAIL_POS)
-
-static NvmDev *const nvmDevs = (NvmDev *)NVM_FOUND_POS;
 
 // IRQ MSI: si el dispositivo que interrumpió completó su comando, avisa a
 // NvmAccess.
@@ -74,6 +61,7 @@ static uint32_t nvm_IRQHandler(uint32_t eflags, uint32_t epc, uint32_t cause) {
 // el dispositivo.
 static void initNvm(uint32_t base, uint32_t num) {
   NvmDev *dev = &nvmDevs[num];
+  dev->ID = num;
   dev->done = false;
   dev->index = 0;
 
@@ -84,20 +72,26 @@ static void initNvm(uint32_t base, uint32_t num) {
 
   initMSI(base, NVM_MSI_NUM - num, nvm_IRQHandler);
   dev->regs->command = 1; // habilitar al final, con todo ya configurado
+
+  // Revisamos que la unidad sea booteable
+  dev->booteable = (fat_mount(dev) != -1);
+
+  if (NvmDetected == false)
+    NvmDetected = dev->booteable;
 }
 
 // Busca las NVM en el bus PCIe y las inicializa; devuelve true si encontró al
-// menos una.
+// menos una booteable
 bool nvmSearch(void) {
   uint32_t found[NVM_MAX_DEVS];
-  int cant = search(NVM_CLASS_CODE, found);
+  nvmCount = search(NVM_CLASS_CODE, found);
 
-  nvmCount = (uint32_t)
-      cant; // antes de initNvm: así el handler ya reconoce los dispositivos
-  for (int i = 0; i < cant; i++)
+  for (int i = 0; i < nvmCount; i++) {
+    nvm_selected = i;
     initNvm(found[i], i);
+  }
 
-  return NvmDetected = (cant > 0);
+  return NvmDetected;
 }
 
 // Envía un comando (lectura o escritura) y no retorna hasta que el dispositivo

@@ -32,7 +32,7 @@ fat_volume_t current_vol[32];
 volatile uint32_t nvm_selected = 0;
 
 // Montaje del sistema FAT
-int fat_mount(void) {
+int fat_mount(NvmDev *dev) {
 
   struct fat_boot_sector BPB;
   int response = nvm_read_sectors(nvm_selected, 0, 1, (uint32_t *)&BPB);
@@ -66,6 +66,9 @@ int fat_mount(void) {
       BPB.bytes_per_sector * BPB.sectors_per_cluster;
   // Bytes por sector
   current_vol[nvm_selected].bytes_per_sector = BPB.bytes_per_sector;
+
+  strncpy(dev->name, (const char *)(BPB.volume_label), 11);
+  dev->name[11] = '\0';
 
   return 0;
 }

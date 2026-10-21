@@ -11,6 +11,26 @@
 
 #define HARDWARE_PAGE_SIZE 4096
 
+#define NVM_FOUND_POS 0x08400800 // tabla de dispositivos
+
+typedef struct {
+  volatile uint32_t command;
+  volatile uint32_t head;
+  volatile uint32_t tail;
+  volatile uint8_t doorbell;
+} NvmRegisters;
+
+typedef struct {
+  NvmRegisters *regs;
+  volatile bool done; // el comando en curso terminó
+  uint32_t index;     // slot (comando y finalización) del próximo comando
+  bool booteable;
+  uint32_t ID;
+  char name[12];
+} NvmDev;
+
+extern NvmDev *const nvmDevs;
+
 extern bool NvmDetected;
 extern uint32_t nvmCount;
 

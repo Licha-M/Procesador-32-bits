@@ -1,12 +1,11 @@
 #include "shell.h"
 #include "../bios_types.h"
 #include "../drivers/keyboard/keyboard.h"
+#include "../drivers/nvm/nvm.h"
 #include "../drivers/tty/tty.h"
-#include "../fs/fat/fat_types.h"
 #include "../hal/ecam.h"
 #include "../hal/lapic.h"
 #include "../lib/format.h"
-#include "../lib/string.h"
 
 void help(void);
 void sysOff(void);
@@ -112,7 +111,36 @@ void enumdisp(void) {
 }
 
 // Lista los dispositivos de arranque disponibles
-void lsboot(void) { return; }
+void lsboot(void) {
+  page_size = 3;
+
+  biosWrite("Hay ", 0);
+  biosWrite(ToAscii(nvmCount, FMT_INT), 0);
+  biosWrite(" NVMs conectados\n", 0);
+  biosWrite("ID    Nombre\n", 0);
+  biosWrite("--    -----------\n", 0);
+
+  int printed_count = 0;
+
+  for (int i = 0; i < nvmCount; i++) {
+    NvmDev *dev = &nvmDevs[i];
+
+    if (dev->booteable == true) {
+      writePadded(ToAscii(i, FMT_INT), 6);
+      biosWrite(dev->name, 0);
+      biosWrite("\n", 0);
+      printed_count++;
+
+      // Paginación basada estrictamente en elementos impresos
+      if (printed_count < nvmCount && printed_count % page_size == 0) {
+        if (!paginate())
+          return;
+        biosWrite("ID    Nombre\n", 0);
+        biosWrite("--    -----------\n", 0);
+      }
+    }
+  }
+}
 
 // Configura el dispositivo de arranque preferido (reserva para futura
 // implementacion).

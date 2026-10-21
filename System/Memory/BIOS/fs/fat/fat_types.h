@@ -1,6 +1,8 @@
 #ifndef FAT_TYPES_H
 #define FAT_TYPES_H
 
+#include "../../drivers/nvm/nvm.h"
+#include "../../lib/string.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -25,7 +27,7 @@ struct directoryEntry {
   uint32_t file_size;     // En bytes
 } __attribute__((packed));
 
-int fat_mount(void);
+int fat_mount(NvmDev *dev);
 int fat_find_file(uint32_t dir_cluster, const char *target_name,
                   struct directoryEntry *out_entry);
 uint32_t fat_cluster_to_lba(uint32_t cluster);

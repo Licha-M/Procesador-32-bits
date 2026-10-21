@@ -123,9 +123,9 @@ int searchFirst(uint32_t tipo) {
 
 #define MAX_SEARCH_CAPACITY 32
 // Busca y devuelve la cantidad de dispositivos encontrados (32 maximo)
-int search(uint32_t tipo, uint32_t buffer[MAX_SEARCH_CAPACITY]) {
+uint32_t search(uint32_t tipo, uint32_t buffer[MAX_SEARCH_CAPACITY]) {
 
-  int count = 0;
+  uint32_t count = 0;
 
   for (int i = 0; i < map_size; i++) {
     if ((mapa[i].ClassCode & 0x00FFFFFF) == tipo) {

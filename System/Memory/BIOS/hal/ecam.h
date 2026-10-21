@@ -22,6 +22,6 @@ extern int map_size;
 
 void PCIe_Bus_Enumeration(void);
 int searchFirst(uint32_t tipo);
-int search(uint32_t tipo, uint32_t buffer[32]);
+uint32_t search(uint32_t tipo, uint32_t buffer[32]);
 
 #endif

@@ -1,4 +1,6 @@
 #include "../../drivers/nvm/nvm.h"
+#include "../../drivers/tty/tty.h"
+#include "../../hal/lapic.h"
 #include "../../lib/string.h"
 #include "fat_types.h"
 
@@ -33,8 +35,15 @@ int fat_find_file(uint32_t dir_cluster, const char *target_name,
       // Leemos de forma segura una página completa de 4KB en el buffer global
       int response = nvm_read_sectors(nvm_selected, start_lba + s, 1,
                                       (uint32_t *)fat_page_buffer);
-      if (response != 0)
-        return -1;
+      if (response == NVM_INVALID_OPTION) {
+        irqOff();
+        system_panic = true;
+        biosWrite("Error en el acceso al NVM", 0);
+        final();
+      } else if (response == NVM_DEVICE_NOT_RECOGNIZED) {
+        biosWrite("Dispositivo NVM no reconocido", 0);
+        return NVM_DEVICE_NOT_RECOGNIZED;
+      }
 
       uint32_t entries_per_sector =
           bytes_per_sector / sizeof(struct directoryEntry);
@@ -77,9 +86,9 @@ int fat_navigate_path(const char *path, struct directoryEntry *out_entry) {
   struct directoryEntry current_entry;
 
   while (token != NULL) {
-    if (fat_find_file(current_cluster, token, &current_entry) != 0) {
-      return -1; // No se encontró el directorio o archivo en este nivel
-    }
+    int response = fat_find_file(current_cluster, token, &current_entry);
+    if (response != 0)
+      return response; // No se encontró el directorio o archivo en este nivel
 
     // Verificamos si es una carpeta (puedes revisar el byte de atributos, ej:
     // 0x10 es directorio)
