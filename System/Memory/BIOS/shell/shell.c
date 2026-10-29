@@ -79,9 +79,15 @@ void sysOff(void) {
   final();
 }
 
-extern int main(void);
 // Reinicia el sistema llamando de nuevo a la funcion main().
-void reset(void) { main(); }
+__attribute__((noreturn)) void reset(void) {
+
+  // Ponemos el SP en 0 y saltamos a main
+  asm volatile("ADD R0, R0, R14\n"
+               "H LDI R15, %hi(main) \n"
+               "SLT ADI R15, %lo(main) \n"
+               "JMP R15 \n");
+}
 
 // Inicia el sistema operativo (reserva para futura implementacion).
 void initSO(void) { return; }
