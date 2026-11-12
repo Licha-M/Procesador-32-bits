@@ -1,0 +1,1 @@
+Library-Class: com.logisim.persistentMemory.BibliotecaRamPersistente
