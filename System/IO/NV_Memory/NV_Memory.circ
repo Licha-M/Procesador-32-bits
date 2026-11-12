@@ -52,7 +52,6 @@
   <lib desc="#I/O" name="6"/>
   <lib desc="file#..\MSI.circ" name="7"/>
   <lib desc="file#..\..\PCI\ECAMs.circ" name="8"/>
-  <lib desc="jar#Persistent-Memory\ramdisco.jar#com.logisim.persistentMemory.BibliotecaRamPersistente" name="9"/>
   <main name="NVM_Main"/>
   <options>
     <a name="gateUndefined" val="ignore"/>
@@ -281,10 +280,6 @@
     <comp lib="7" loc="(1360,70)" name="MSI_Sys"/>
     <comp lib="7" loc="(340,140)" name="TLP_Receptor"/>
     <comp lib="8" loc="(580,360)" name="EndPoint_ECAM"/>
-    <comp lib="9" loc="(1290,570)" name="RamDiscoPersistente">
-      <a name="addrWidth" val="36"/>
-      <a name="file.path" val="D:\Yo\Escritorio\Procesador-32-bits\System\IO\NV_Memory\Memory.bin"/>
-    </comp>
     <comp loc="(1010,530)" name="NVM_Core"/>
     <comp loc="(1070,420)" name="NVM_FSM"/>
     <comp loc="(1200,330)" name="NVM_DMA"/>

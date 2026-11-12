@@ -1,4 +1,5 @@
 package com.logisim.persistentMemory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -24,6 +25,10 @@ import java.util.concurrent.locks.ReentrantLock;
  * (bytes 0-7 del archivo), la 1 la segunda (bytes 8-15), etc. Se usan todos los
  * bits de
  * la dirección. Orden de bytes dentro de la palabra: big-endian.</li>
+ * <li><b>Archivo disperso:</b> se crea con la opción SPARSE para que en NTFS
+ * solo ocupe
+ * espacio real donde se escribió, aunque se acceda a direcciones
+ * altísimas.</li>
  * <li><b>Páginas:</b> el archivo se divide en páginas de {@value #TAM_PAGINA}
  * bytes que se
  * cargan bajo demanda. Las zonas no escritas leen como ceros (archivo
@@ -115,7 +120,7 @@ public final class AlmacenamientoDisco {
             Pagina p = obtenerPagina(direccion >>> BITS_PALABRAS_PAGINA);
             return leerLong(p.datos, desplazamiento(direccion));
         } catch (IOException e) {
-            ultimoError = describir(e);
+            registrarError(e);
             throw e;
         } finally {
             cerrojo.unlock();
@@ -143,11 +148,11 @@ public final class AlmacenamientoDisco {
                 try {
                     vaciarInterno(false);
                 } catch (IOException e) {
-                    ultimoError = describir(e); // se reintentará más tarde
+                    registrarError(e); // se reintentará más tarde
                 }
             }
         } catch (IOException e) {
-            ultimoError = describir(e);
+            registrarError(e);
             throw e;
         } finally {
             cerrojo.unlock();
@@ -162,7 +167,7 @@ public final class AlmacenamientoDisco {
         try {
             vaciarInterno(false);
         } catch (IOException e) {
-            ultimoError = describir(e);
+            registrarError(e);
             throw e;
         } finally {
             cerrojo.unlock();
@@ -181,7 +186,7 @@ public final class AlmacenamientoDisco {
             cache.clear();
             paginasSucias = 0;
         } catch (IOException e) {
-            ultimoError = describir(e);
+            registrarError(e);
             throw e;
         } finally {
             cerrojo.unlock();
@@ -205,7 +210,7 @@ public final class AlmacenamientoDisco {
                 cache.clear();
             }
         } catch (IOException e) {
-            ultimoError = describir(e);
+            registrarError(e);
         } finally {
             cerrojo.unlock();
         }
@@ -231,7 +236,7 @@ public final class AlmacenamientoDisco {
             // No se pudo escribir una página sucia: se conserva en caché (no se pierde el
             // dato)
             // y se informa del error, pero la operación en curso puede continuar.
-            ultimoError = describir(e);
+            registrarError(e);
         }
         return p;
     }
@@ -306,8 +311,23 @@ public final class AlmacenamientoDisco {
         if (padre != null) {
             Files.createDirectories(padre);
         }
-        canal = FileChannel.open(ruta,
-                StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE);
+        boolean existe = Files.exists(ruta);
+        if (existe && Files.isRegularFile(ruta) && Files.size(ruta) == 0) {
+            // Archivo vacío (sin datos que perder): se recrea para poder marcarlo como
+            // disperso,
+            // ya que Java solo puede pedirlo al crear el archivo.
+            Files.delete(ruta);
+            existe = false;
+        }
+        if (existe) {
+            canal = FileChannel.open(ruta, StandardOpenOption.READ, StandardOpenOption.WRITE);
+        } else {
+            // SPARSE: en NTFS evita reservar/rellenar con ceros el hueco hasta direcciones
+            // altas.
+            // Se ignora si el sistema de archivos no soporta archivos dispersos.
+            canal = FileChannel.open(ruta, StandardOpenOption.CREATE_NEW, StandardOpenOption.SPARSE,
+                    StandardOpenOption.READ, StandardOpenOption.WRITE);
+        }
     }
 
     private void cerrarCanal() throws IOException {
@@ -344,6 +364,18 @@ public final class AlmacenamientoDisco {
             b[off + i] = (byte) v;
             v >>>= 8;
         }
+    }
+
+    /**
+     * Guarda el último error y lo escribe en stderr (solo si cambia, para no
+     * inundar la consola).
+     */
+    private void registrarError(IOException e) {
+        String nuevo = describir(e);
+        if (!nuevo.equals(ultimoError)) {
+            System.err.println("[RamDisco] " + ruta + " -> " + nuevo);
+        }
+        ultimoError = nuevo;
     }
 
     private static String describir(IOException e) {
