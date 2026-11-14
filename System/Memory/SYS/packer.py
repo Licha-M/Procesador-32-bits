@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-make_customfs_image.py
+packer.py
 ======================
 Genera una imagen de disco binaria (.bin) particionada con GPT y formateada
 con "CustomFS" (FAT32 simplificado) a partir de una estructura de carpetas.
@@ -19,9 +17,9 @@ Todas las estructuras binarias (GPT, BPB, FAT, Dirents) se empaquetan con el
 módulo `struct` en Little Endian ("<").
 
 Uso:
-    python make_customfs_image.py                      # abre la interfaz gráfica
-    python make_customfs_image.py -i MiDisco -o disco.bin --verify   # línea de comandos
-    python make_customfs_image.py -i MiDisco           # CLI: pregunta la salida
+    python packer.py                      # abre la interfaz gráfica
+    python packer.py -i MiDisco -o disco.bin --verify   # línea de comandos
+    python packer.py -i MiDisco           # CLI: pregunta la salida
 
 Formato de _part.cfg (clave = valor, '#' o ';' al inicio = comentario):
     label        = SISTEMA        # obligatorio (máx. 31 bytes UTF-8)
@@ -78,6 +76,9 @@ ALIGN_SECTORS = 2048                 # 1 MB
 RESERVED_SECTORS = 8                 # 8 x 512 B = 4 KB (una página de SSD)
 DEFAULT_CLUSTER_BYTES = 512
 DEFAULT_NUM_FATS = 1
+
+CUSTOM_DIR_SRC = r"D:/Yo/Escritorio/Procesador-32-bits/System/Memory/NVM"
+CUSTOM_DIR_DEST = r"D:/Yo/Escritorio/Procesador-32-bits/System/IO/NV_Memory/Memory.bin"
 
 # GUID de tipo de partición de CustomFS. Variable global modificable por código
 # (o con --type-guid). Siempre se lee en el momento de usarla.
@@ -610,7 +611,7 @@ class CustomFSGUI:
         top = tk.Frame(self.root, pady=8, padx=12)
         top.pack(fill="x")
         tk.Label(top, text="Carpeta origen:").pack(side="left")
-        self.src_var = tk.StringVar(value="MiDisco" if Path("MiDisco").is_dir() else "")
+        self.src_var = tk.StringVar(value=CUSTOM_DIR_SRC if Path(CUSTOM_DIR_SRC).is_dir() else ("MiDisco" if Path("MiDisco").is_dir() else ""))
         tk.Entry(top, textvariable=self.src_var, width=50).pack(side="left", padx=5)
         tk.Button(top, text="Carpeta…", command=self._browse_src).pack(side="left")
         self.run_btn = tk.Button(top, text="Generar imagen ▶", command=self._run,
@@ -621,7 +622,7 @@ class CustomFSGUI:
         out_frame = tk.Frame(self.root, padx=12)
         out_frame.pack(fill="x")
         tk.Label(out_frame, text="Imagen salida:").pack(side="left")
-        self.out_var = tk.StringVar(value="MiDisco.bin")
+        self.out_var = tk.StringVar(value=CUSTOM_DIR_DEST)
         tk.Entry(out_frame, textvariable=self.out_var, width=65).pack(side="left", padx=5)
         tk.Button(out_frame, text="…", command=self._browse_out).pack(side="left")
 
@@ -658,7 +659,10 @@ class CustomFSGUI:
             self.src_var.set(folder)
 
     def _browse_out(self):
-        p = filedialog.asksaveasfilename(title="Guardar imagen como…", initialfile="MiDisco.bin",
+        initial_file = Path(CUSTOM_DIR_DEST).name if CUSTOM_DIR_DEST else "MiDisco.bin"
+        initial_dir = str(Path(CUSTOM_DIR_DEST).parent) if CUSTOM_DIR_DEST else None
+        p = filedialog.asksaveasfilename(title="Guardar imagen como…", initialfile=initial_file,
+                                         initialdir=initial_dir,
                                          defaultextension=".bin",
                                          filetypes=[("Imagen de disco", "*.bin"), ("Todos", "*.*")])
         if p:
@@ -712,7 +716,8 @@ class CustomFSGUI:
 
         out = Path(out_text).expanduser()
         if out.is_dir():
-            out = out / "MiDisco.bin"
+            default_name = Path(CUSTOM_DIR_DEST).name if CUSTOM_DIR_DEST else "MiDisco.bin"
+            out = out / default_name
         if out.exists() and not messagebox.askyesno("Sobrescribir", f"'{out}' ya existe.\n¿Sobrescribir?"):
             return
 
@@ -749,8 +754,10 @@ class CustomFSGUI:
 def main():
     global CUSTOMFS_TYPE_GUID
     ap = argparse.ArgumentParser(description="Generador de imagen GPT + CustomFS")
-    ap.add_argument("-i", "--input", default="MiDisco", help="carpeta origen (defecto: MiDisco)")
-    ap.add_argument("-o", "--output", help="ruta del .bin de salida (si falta, se pregunta)")
+    default_src = CUSTOM_DIR_SRC if CUSTOM_DIR_SRC else "MiDisco"
+    default_dest = CUSTOM_DIR_DEST if CUSTOM_DIR_DEST else "MiDisco.bin"
+    ap.add_argument("-i", "--input", default=default_src, help=f"carpeta origen (defecto: {default_src})")
+    ap.add_argument("-o", "--output", default=default_dest, help=f"ruta del .bin de salida (defecto: {default_dest})")
     ap.add_argument("--type-guid", help="GUID de tipo de partición de CustomFS")
     ap.add_argument("--force", action="store_true", help="sobrescribir sin preguntar")
     ap.add_argument("--verify", action="store_true", help="releer la imagen y listar su contenido")
@@ -775,10 +782,11 @@ def main():
 
     out_text = args.output
     if not out_text:
-        out_text = input("Ubicación del archivo .bin de salida [MiDisco.bin]: ").strip() or "MiDisco.bin"
+        out_text = input(f"Ubicación del archivo .bin de salida [{default_dest}]: ").strip() or default_dest
     out = Path(out_text).expanduser()
     if out.is_dir():
-        out = out / "MiDisco.bin"
+        default_name = Path(CUSTOM_DIR_DEST).name if CUSTOM_DIR_DEST else "MiDisco.bin"
+        out = out / default_name
     if out.exists() and not args.force:
         if input(f"'{out}' ya existe. ¿Sobrescribir? [s/N]: ").strip().lower() not in ("s", "y"):
             sys.exit("Cancelado.")
