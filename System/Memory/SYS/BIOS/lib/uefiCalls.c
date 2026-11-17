@@ -1,0 +1,1 @@
+// Lee la cantidad de RAM ECAM_R(ECAM_ADDR(0, 0, 0), 0x4)

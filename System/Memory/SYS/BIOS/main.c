@@ -4,6 +4,7 @@
 #include "drivers/tty/tty.h"
 #include "hal/ecam.h"
 #include "hal/lapic.h"
+#include "hal/ram.h"
 #include "lib/format.h"
 #include "shell/shell.h"
 
@@ -17,6 +18,9 @@ __attribute__((noreturn)) void final(void) {
 // Punto de entrada de la BIOS: inicializa interrupciones, PCIe, pantalla,
 // teclado e inicia la shell.
 int main(void) {
+
+  if (initRAM() != 0)
+    final();
 
   initLAPIC();
 
