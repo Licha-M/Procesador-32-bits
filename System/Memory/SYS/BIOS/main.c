@@ -18,7 +18,9 @@ globalVars *Globals = NULL;
 
 // Inicializador de variables en RAM
 void initGlobalVars() {
-  if (allocatePages(0x00000000, BOOT_ONLY_DATA, 1, NULL) != 0)
+  uint32_t *pointer = (uint32_t *)0xFFFFFFFF;
+  if (allocatePages(0x00000000, BOOT_ONLY_DATA, 1, (void **)&pointer) != 0 ||
+      pointer != 0x00000000)
     final();
   // Alojamos las variables globales
   if (allocatePool(BOOT_ONLY_DATA, sizeof(*Globals), (void **)&Globals) != 0)

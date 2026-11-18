@@ -18,10 +18,10 @@ typedef struct {
 } PCIe_Map;
 
 typedef struct {
-  uint32_t map_size;
+  volatile uint32_t map_size;
   volatile bool system_panic;
-  uint32_t nvm_selected;
-  uint32_t nvmCount;
+  volatile uint32_t nvm_selected;
+  volatile uint32_t nvmCount;
   uint32_t CantRamMB;
 } globalVars;
 
