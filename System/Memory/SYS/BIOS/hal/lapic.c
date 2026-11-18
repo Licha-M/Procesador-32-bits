@@ -2,6 +2,7 @@
 #include "../drivers/tty/tty.h"
 #include "../kernel/exceptions.h"
 #include "../kernel/syscalls.h"
+#include "../lib/uefiCalls.h"
 #include "ecam.h"
 #include <stddef.h>
 
@@ -11,7 +12,7 @@ typedef struct {
   IRQHandler handlers[MAX_IRQS];
 } IRQTable;
 
-static IRQTable irq_table;
+static IRQTable *irq_table;
 
 typedef struct {
   volatile uint32_t BaseAddr;
@@ -25,8 +26,7 @@ typedef struct {
   volatile uint32_t MSI;
 } LAPIC_Registers;
 
-volatile LAPIC_Registers *Registros =
-    (volatile LAPIC_Registers *)(LAPIC_BASE_ADDR);
+LAPIC_Registers *Registros;
 
 static uint32_t defaultIRQHandler(uint32_t eflags, uint32_t epc,
                                   uint32_t cause) {
@@ -55,8 +55,8 @@ void mainHandler(uint32_t *regs) {
   }
 
   if (cause != 0) {
-    if (cause < MAX_IRQS && irq_table.handlers[cause] != NULL) {
-      epc = irq_table.handlers[cause](eflags, epc, cause);
+    if (cause < MAX_IRQS && irq_table->handlers[cause] != NULL) {
+      epc = irq_table->handlers[cause](eflags, epc, cause);
     } else {
       epc = defaultIRQHandler(eflags, epc, cause);
     }
@@ -127,20 +127,25 @@ void initMSI(uint32_t base, uint32_t irq_num, IRQHandler handler) {
     ECAM_W(base, 0x4, LAPIC_BASE_ADDR + 0x2C);
     ECAM_W(base, 0x8, irq_num);
     if (irq_num < MAX_IRQS && handler != NULL) {
-      irq_table.handlers[irq_num] = handler;
+      irq_table->handlers[irq_num] = handler;
     }
     ECAM_W(base, 0x0, msi_reg >> 16);
   }
 }
 
 void initLAPIC(void) {
-  irq_table.handlers[1] = &pageFault;
-  irq_table.handlers[2] = &alignamentFault;
-  irq_table.handlers[3] = &generalProtectionFault;
-  irq_table.handlers[4] = &invalidOpCode;
-  irq_table.handlers[5] = &doubleFault;
+  if (allocatePool(IRQ_TABLE_DATA, sizeof(*irq_table), (void **)&irq_table))
+    final();
+
+  irq_table->handlers[1] = &pageFault;
+  irq_table->handlers[2] = &alignamentFault;
+  irq_table->handlers[3] = &generalProtectionFault;
+  irq_table->handlers[4] = &invalidOpCode;
+  irq_table->handlers[5] = &doubleFault;
 
   __asm__ __volatile__("CYR %0, SR12" : : "r"(&entryHandler));
+
+  Registros = (LAPIC_Registers *)(LAPIC_BASE_ADDR);
 
   Registros->BaseAddr = LAPIC_BASE_ADDR;
   Registros->ID = 0;

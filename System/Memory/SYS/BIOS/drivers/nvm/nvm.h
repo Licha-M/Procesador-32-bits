@@ -10,8 +10,23 @@
 #define NVM_DEVICE_NOT_RECOGNIZED 2
 
 #define HARDWARE_PAGE_SIZE 4096
+#define NVM_QUEUE_LEN 128 // Movido aquí para definir el tamaño en NvmDev
 
-#define NVM_FOUND_POS 0x08400800 // tabla de dispositivos
+typedef struct {
+  volatile uint32_t
+      opcode_ID; // [31:24] opcode, [23:0] ID (= índice en la cola)
+  volatile uint32_t addr;
+  volatile uint32_t SLBA;
+  volatile uint32_t NLBA;
+} NvmHeadEntry;
+
+typedef struct {
+  volatile uint32_t opcode_ID; // [23:0] ID del comando completado
+  volatile uint32_t raw;
+} NvmTailEntry;
+
+_Static_assert(sizeof(NvmHeadEntry) * NVM_QUEUE_LEN == 2048, "head queue size");
+_Static_assert(sizeof(NvmTailEntry) * NVM_QUEUE_LEN == 1024, "tail queue size");
 
 typedef struct {
   volatile uint32_t command;
@@ -22,6 +37,8 @@ typedef struct {
 
 typedef struct {
   NvmRegisters *regs;
+  NvmHeadEntry *head; // Cola de comandos asignada por allocatePages
+  NvmTailEntry *tail; // Cola de finalizaciones asignada por allocatePages
   volatile bool done; // el comando en curso terminó
   uint32_t index;     // slot (comando y finalización) del próximo comando
   bool booteable;
@@ -29,10 +46,7 @@ typedef struct {
   char name[12];
 } NvmDev;
 
-extern NvmDev *const nvmDevs;
-
-extern bool NvmDetected;
-extern uint32_t nvmCount;
+extern NvmDev *nvmDevs;
 
 // Busca e inicializa las NVM del bus PCIe; devuelve true si hay al menos una.
 bool nvmSearch(void);

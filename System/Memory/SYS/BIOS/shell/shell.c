@@ -21,7 +21,8 @@ typedef struct {
   void (*funcion)(void);
 } Comando;
 
-Comando tabla_comandos[] = {
+// 'const' asegura que quede en .rodata y no ocupe RAM en .data
+static const Comando tabla_comandos[] = {
     {"help", help},       {"sysOff", sysOff},     {"reset", reset},
     {"initSO", initSO},   {"enumdisp", enumdisp}, {"lsboot", lsboot},
     {"setboot", setboot}, {"cls", cls},
@@ -42,8 +43,6 @@ static void writePadded(char *string, int width) {
     biosWrite(sp, 0);
 }
 
-int page_size;
-
 // Pausa la salida para paginacion y espera confirmacion del usuario para
 // continuar o salir.
 static bool paginate(void) {
@@ -59,7 +58,7 @@ static bool paginate(void) {
 
 // Muestra en pantalla los comandos disponibles en la consola con paginacion.
 void help(void) {
-  page_size = 5;
+  const int page_size = 5;
   biosWrite("El sistema permite estos comandos: \n", 0);
   for (size_t i = 0; i < NUM_COMANDOS; i++) {
     biosWrite("- ", 0);
@@ -81,12 +80,12 @@ void sysOff(void) {
 
 // Reinicia el sistema llamando de nuevo a la funcion main().
 __attribute__((noreturn)) void reset(void) {
-
   // Ponemos el SP en 0 y saltamos a main
-  asm volatile("ADD R0, R0, R14\n"
+  asm volatile("H LDI R14, 0\n"
+               "SLT ADI R14, 4096\n"
                "H LDI R15, %hi(main) \n"
                "SLT ADI R15, %lo(main) \n"
-               "JMP R15 \n");
+               "JMP R15");
 }
 
 // Inicia el sistema operativo (reserva para futura implementacion).
@@ -95,19 +94,19 @@ void initSO(void) { return; }
 // Muestra en una tabla paginada los dispositivos PCIe enumerados con su Class
 // Code y direccion ECAM.
 void enumdisp(void) {
-  page_size = 3;
+  const int page_size = 3;
   biosWrite("Hay ", 0);
-  biosWrite(ToAscii(map_size, FMT_INT), 0);
+  biosWrite(ToAscii(Globals->map_size, FMT_INT), 0);
   biosWrite(" dispositivos conectados\n", 0);
   biosWrite("Class Code   ECAM Address\n", 0);
   biosWrite("------------ ------------\n", 0);
-  for (int i = 0; i < map_size; i++) {
+  for (int i = 0; i < Globals->map_size; i++) {
     writePadded(ToAscii(mapa[i].ClassCode, FMT_HEX_FULL), 13);
     biosWrite(ToAscii(ECAM_ADDR(mapa[i].bus, mapa[i].dev, mapa[i].func),
                       FMT_HEX_FULL),
               0);
     biosWrite("\n", 0);
-    if ((i + 1) < map_size && (i + 1) % page_size == 0) {
+    if ((i + 1) < Globals->map_size && (i + 1) % page_size == 0) {
       if (!paginate())
         return;
       biosWrite("Class Code   ECAM Address\n", 0);
@@ -118,17 +117,17 @@ void enumdisp(void) {
 
 // Lista los dispositivos de arranque disponibles
 void lsboot(void) {
-  page_size = 3;
+  const int page_size = 3;
 
   biosWrite("Hay ", 0);
-  biosWrite(ToAscii(nvmCount, FMT_INT), 0);
+  biosWrite(ToAscii(Globals->nvm_selected, FMT_INT), 0);
   biosWrite(" NVMs conectados\n", 0);
   biosWrite("ID    Nombre\n", 0);
   biosWrite("--    -----------\n", 0);
 
   int printed_count = 0;
 
-  for (int i = 0; i < nvmCount; i++) {
+  for (int i = 0; i < Globals->nvm_selected; i++) {
     NvmDev *dev = &nvmDevs[i];
 
     if (dev->booteable == true) {
@@ -138,7 +137,8 @@ void lsboot(void) {
       printed_count++;
 
       // Paginación basada estrictamente en elementos impresos
-      if (printed_count < nvmCount && printed_count % page_size == 0) {
+      if (printed_count < Globals->nvm_selected &&
+          printed_count % page_size == 0) {
         if (!paginate())
           return;
         biosWrite("ID    Nombre\n", 0);
@@ -158,7 +158,7 @@ void cls(void) { biosClear(); }
 // Bucle principal de la consola interactiva: lee comandos del usuario y ejecuta
 // la funcion asociada.
 __attribute__((noreturn)) void BiosShell(void) {
-  char input[32];
+  char input[32]; // Ya vive en el stack
   while (true) {
     bool comando = false;
     irqOn();

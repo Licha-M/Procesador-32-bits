@@ -18,7 +18,6 @@
        (uint32_t)(val))
 
 extern volatile PCIe_Map *mapa;
-extern int map_size;
 
 void PCIe_Bus_Enumeration(void);
 int searchFirst(uint32_t tipo);

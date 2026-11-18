@@ -1,16 +1,13 @@
 #include "nvm.h"
-#include "../../fs/fat/fat_types.h"
 #include "../../hal/ecam.h"
 #include "../../hal/lapic.h"
+#include "../../lib/uefiCalls.h"
 #include "../tty/tty.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 #define NVM_CLASS_CODE 0x00010802
-#define NVM_HEAD_POS 0x08800000 // colas de comandos (una por dispositivo)
-#define NVM_TAIL_POS 0x08840800 // colas de finalizaciones
 #define NVM_MAX_DEVS 32
-#define NVM_QUEUE_LEN 128 // debe ser potencia de 2
 #define NVM_ID_MASK 0x00FFFFFF
 #define NVM_ENTRY_EMPTY                                                        \
   0xFFFFFFFF // marca de "sin finalización" en la cola tail
@@ -18,80 +15,83 @@
 #define NVM_WRITE 1
 
 #define NEXT(i) (((i) + 1) & (NVM_QUEUE_LEN - 1))
-
-bool NvmDetected;
-uint32_t nvmCount;
-NvmDev *const nvmDevs = (NvmDev *)NVM_FOUND_POS;
-
-typedef struct {
-  volatile uint32_t
-      opcode_ID; // [31:24] opcode, [23:0] ID (= índice en la cola)
-  volatile uint32_t addr;
-  volatile uint32_t SLBA;
-  volatile uint32_t NLBA;
-} NvmHeadEntry;
-
-typedef struct {
-  volatile uint32_t opcode_ID; // [23:0] ID del comando completado
-  volatile uint32_t raw;
-} NvmTailEntry;
-
-_Static_assert(sizeof(NvmHeadEntry) * NVM_QUEUE_LEN == 2048, "head queue size");
-_Static_assert(sizeof(NvmTailEntry) * NVM_QUEUE_LEN == 1024, "tail queue size");
-
-#define HEAD_Q ((NvmHeadEntry(*)[NVM_QUEUE_LEN])NVM_HEAD_POS)
-#define TAIL_Q ((NvmTailEntry(*)[NVM_QUEUE_LEN])NVM_TAIL_POS)
+NvmDev *nvmDevs = NULL;
 
 // IRQ MSI: si el dispositivo que interrumpió completó su comando, avisa a
 // NvmAccess.
 static uint32_t nvm_IRQHandler(uint32_t eflags, uint32_t epc, uint32_t cause) {
   (void)eflags;
   uint32_t id = NVM_MSI_NUM - cause; // inverso de la IRQ asignada en initNvm
-  if (id >= nvmCount)
+  if (id >= Globals->nvm_selected || nvmDevs == NULL)
     return epc;
 
   NvmDev *dev = &nvmDevs[id];
-  if ((TAIL_Q[id][dev->index].opcode_ID & NVM_ID_MASK) == dev->index)
+  if ((dev->tail[dev->index].opcode_ID & NVM_ID_MASK) == dev->index)
     dev->done = true;
 
   return epc;
 }
 
-// Inicializa una NVM: habilita PCIe, carga las colas, registra la MSI y arranca
+// Inicializa una NVM: aloja colas, habilita PCIe, registra MSI y arranca
 // el dispositivo.
-static void initNvm(uint32_t base, uint32_t num) {
+static void initNvm(uint32_t base, uint32_t num, bool *detected) {
   NvmDev *dev = &nvmDevs[num];
   dev->ID = num;
   dev->done = false;
   dev->index = 0;
 
+  void *queuePage = NULL;
+
+  if (allocatePages(ANY_MEMORY, DEVICE_QUEUES, 1, &queuePage) != 0 ||
+      queuePage == NULL) {
+    biosWrite("\nError alojando paginas DMA para NVM", 0);
+    dev->booteable = false;
+    return;
+  }
+
+  dev->head = (NvmHeadEntry *)queuePage;
+  dev->tail = (NvmTailEntry *)((uintptr_t)queuePage + 2048);
+
   ECAM_W(base, 0x04, 3); // memory space + bus master
   dev->regs = (NvmRegisters *)(uintptr_t)ECAM_R(base, 0x10); // BAR0
-  dev->regs->head = (uint32_t)(uintptr_t)HEAD_Q[num];
-  dev->regs->tail = (uint32_t)(uintptr_t)TAIL_Q[num];
+  dev->regs->head = (uint32_t)(uintptr_t)dev->head;
+  dev->regs->tail = (uint32_t)(uintptr_t)dev->tail;
 
   initMSI(base, NVM_MSI_NUM - num, nvm_IRQHandler);
   dev->regs->command = 1; // habilitar al final, con todo ya configurado
 
   // Revisamos que la unidad sea booteable
-  dev->booteable = (fat_mount(dev) != -1);
+  // dev->booteable = (fat_mount(dev) != -1);
 
-  if (NvmDetected == false)
-    NvmDetected = dev->booteable;
+  if (*detected == false)
+    *detected = dev->booteable;
 }
 
 // Busca las NVM en el bus PCIe y las inicializa; devuelve true si encontró al
 // menos una booteable
 bool nvmSearch(void) {
   uint32_t found[NVM_MAX_DEVS];
-  nvmCount = search(NVM_CLASS_CODE, found);
+  bool detected = false;
+  Globals->nvm_selected = search(NVM_CLASS_CODE, found);
 
-  for (int i = 0; i < nvmCount; i++) {
-    nvm_selected = i;
-    initNvm(found[i], i);
+  if (Globals->nvm_selected == 0) {
+    return false;
   }
 
-  return NvmDetected;
+  if (allocatePool(DEVICE_DATA, sizeof(NvmDev) * (Globals->nvm_selected),
+                   (void **)&nvmDevs) != 0 ||
+      nvmDevs == NULL) {
+    biosWrite("\nError alojando memoria para tabla NVM", 0);
+    Globals->nvm_selected = 0;
+    return false;
+  }
+
+  for (uint32_t i = 0; i < Globals->nvm_selected; i++) {
+    Globals->nvm_selected = i;
+    initNvm(found[i], i, &detected);
+  }
+
+  return detected;
 }
 
 // Envía un comando (lectura o escritura) y no retorna hasta que el dispositivo
@@ -102,7 +102,7 @@ static int NvmAccess(uint32_t option, uint32_t disp, uint32_t *pointer,
     biosWrite("\nComando de NVM no reconocido", 0);
     return NVM_INVALID_OPTION;
   }
-  if (disp >= nvmCount) {
+  if (disp >= Globals->nvm_selected || nvmDevs == NULL) {
     biosWrite("\nDispositivo NVM inexistente", 0);
     return NVM_DEVICE_NOT_RECOGNIZED;
   }
@@ -111,11 +111,11 @@ static int NvmAccess(uint32_t option, uint32_t disp, uint32_t *pointer,
   uint32_t idx = dev->index;
   uint32_t flags = enterCriticalSection();
 
-  TAIL_Q[disp][idx].opcode_ID =
+  dev->tail[idx].opcode_ID =
       NVM_ENTRY_EMPTY; // descarta cualquier finalización vieja
   dev->done = false;
 
-  NvmHeadEntry *cmd = &HEAD_Q[disp][idx];
+  NvmHeadEntry *cmd = &dev->head[idx];
   cmd->addr = (uint32_t)(uintptr_t)pointer;
   cmd->SLBA = SLBA;
   cmd->NLBA = Cant;

@@ -3,13 +3,12 @@
 #include "../drivers/tty/tty.h"
 #include "../hal/lapic.h"
 
-
 // Manejador de la excepcion Page Fault (fallo de pagina): imprime error fatal y
 // detiene la CPU.
 uint32_t pageFault(uint32_t eflags, uint32_t epc, uint32_t cause) {
   (void)eflags;
   irqOff();
-  system_panic = true;
+  Globals->system_panic = true;
   biosWrite("\nFatal Error: Page Fault without MMU", 0);
   __asm__ volatile("HLT");
   return epc;
@@ -20,7 +19,7 @@ uint32_t pageFault(uint32_t eflags, uint32_t epc, uint32_t cause) {
 uint32_t alignamentFault(uint32_t eflags, uint32_t epc, uint32_t cause) {
   (void)eflags;
   irqOff();
-  system_panic = true;
+  Globals->system_panic = true;
   biosWrite("\nFatal Error: Alignament Fault", 0);
   __asm__ volatile("HLT");
   return epc;
@@ -31,7 +30,7 @@ uint32_t alignamentFault(uint32_t eflags, uint32_t epc, uint32_t cause) {
 uint32_t generalProtectionFault(uint32_t eflags, uint32_t epc, uint32_t cause) {
   (void)eflags;
   irqOff();
-  system_panic = true;
+  Globals->system_panic = true;
   biosWrite("\nFatal Error: General Protection Fault", 0);
   __asm__ volatile("HLT");
   return epc;
@@ -42,7 +41,7 @@ uint32_t generalProtectionFault(uint32_t eflags, uint32_t epc, uint32_t cause) {
 uint32_t invalidOpCode(uint32_t eflags, uint32_t epc, uint32_t cause) {
   (void)eflags;
   irqOff();
-  system_panic = true;
+  Globals->system_panic = true;
   biosWrite("\nFatal Error: Invalid OpCode", 0);
   __asm__ volatile("HLT");
   return epc;
@@ -53,7 +52,7 @@ uint32_t invalidOpCode(uint32_t eflags, uint32_t epc, uint32_t cause) {
 uint32_t doubleFault(uint32_t eflags, uint32_t epc, uint32_t cause) {
   (void)eflags;
   irqOff();
-  system_panic = true;
+  Globals->system_panic = true;
   biosWrite("\nFatal Error: Double Fault", 0);
   __asm__ volatile("HLT");
   return epc;

@@ -1,16 +1,33 @@
 #include "format.h"
 #include "../hal/lapic.h"
+#include "../lib/uefiCalls.h"
 
 #define ASCII_POOL_SIZE 8
 #define ASCII_BUF_SIZE 32
 
-static char ascii_pool[ASCII_POOL_SIZE][ASCII_BUF_SIZE];
-static int current_pool_index = 0;
+static char (*ascii_pool)[ASCII_BUF_SIZE] = NULL;
+static int *current_pool_index = NULL;
 
 char *ToAscii(uint32_t num, int fmt) {
+
   uint32_t flags_guardadas = enterCriticalSection();
-  char *ascii_buffer = ascii_pool[current_pool_index];
-  current_pool_index = (current_pool_index + 1) % ASCII_POOL_SIZE;
+
+  if (current_pool_index == NULL) {
+    if (allocatePool(BOOT_ONLY_DATA, sizeof(*current_pool_index),
+                     (void **)&current_pool_index) != 0 ||
+        allocatePool(BOOT_ONLY_DATA,
+                     ASCII_POOL_SIZE * ASCII_BUF_SIZE * sizeof(char),
+                     (void **)&ascii_pool) != 0) {
+      // No hay memoria disponible para la función
+      exitCriticalSection(flags_guardadas);
+      final();
+    }
+
+    *current_pool_index = 0;
+  }
+
+  char *ascii_buffer = ascii_pool[*current_pool_index];
+  *current_pool_index = (*current_pool_index + 1) % ASCII_POOL_SIZE;
   exitCriticalSection(flags_guardadas);
 
   char *p = ascii_buffer + ASCII_BUF_SIZE - 1;

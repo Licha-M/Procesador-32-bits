@@ -1,20 +1,20 @@
 #include "keyboard.h"
 #include "../../hal/ecam.h"
 #include "../../hal/lapic.h"
+#include "../../lib/uefiCalls.h"
 #include "../tty/tty.h"
 #include <stddef.h>
 
-#define MAX_LINE 256
-volatile char line_buffer[MAX_LINE];
-volatile int line_index = 0;
-volatile bool line_ready = false;
-volatile bool KeyboardDetected;
-
 #define KEYQ_SIZE 64
 #define KEYQ_MASK (KEYQ_SIZE - 1)
-static volatile char key_queue[KEYQ_SIZE];
-static volatile uint8_t kq_head = 0;
-static volatile uint8_t kq_tail = 0;
+
+typedef struct {
+  volatile char queue[KEYQ_SIZE];
+  volatile uint8_t head;
+  volatile uint8_t tail;
+} KeyQueueState;
+
+static KeyQueueState *kq = NULL;
 
 typedef struct {
   volatile uint32_t comand;
@@ -26,16 +26,20 @@ static volatile KeyboardRegisters *kb_registers;
 // encola.
 uint32_t keyboard_IRQHandler(uint32_t eflags, uint32_t epc, uint32_t cause) {
   (void)eflags;
+  (void)cause;
+  if (kq == NULL)
+    return epc;
+
   char key = kb_registers->data;
   // Envia comando 0x2 para limpiar/confirmar la interrupcion en el controlador
   // de teclado.
   kb_registers->comand = 0x2;
   // Calcula la siguiente posicion en la cola circular usando mascara de bits
   // (modulo rapido).
-  uint8_t next = (kq_head + 1) & KEYQ_MASK;
-  if (next != kq_tail) {
-    key_queue[kq_head] = key;
-    kq_head = next;
+  uint8_t next = (kq->head + 1) & KEYQ_MASK;
+  if (next != kq->tail) {
+    kq->queue[kq->head] = key;
+    kq->head = next;
   }
   return epc;
 }
@@ -46,7 +50,18 @@ static inline void waitForKey(void) { __asm__ volatile("HLT"); }
 
 // Configura el dispositivo de teclado PCIe: mapea sus registros MMIO y activa
 // MSI.
-static void initKeyboard(uint32_t base) {
+static bool initKeyboard(uint32_t base) {
+  // Aloja memoria dinamica para la cola circular y los indices kq_head /
+  // kq_tail
+  if (allocatePool(DEVICE_QUEUES, sizeof(KeyQueueState), (void **)&kq) != 0 ||
+      kq == NULL) {
+    biosWrite("\nError alojando memoria para el buffer de teclado", 0);
+    return false;
+  }
+
+  kq->head = 0;
+  kq->tail = 0;
+
   ECAM_W(base, 0x04, 1);
   // Lee la direccion base fisica (BAR0) asignada al teclado en la configuracion
   // PCIe.
@@ -55,6 +70,7 @@ static void initKeyboard(uint32_t base) {
   kb_registers = (volatile KeyboardRegisters *)(uintptr_t)bar0;
   initMSI(base, KEYBOARD_MSI_NUM, keyboard_IRQHandler);
   kb_registers->comand = 1;
+  return true;
 }
 
 // Busca el dispositivo de teclado en el arbol PCIe por su Class Code y lo
@@ -62,17 +78,16 @@ static void initKeyboard(uint32_t base) {
 bool keyboardSearch(void) {
   int offset = searchFirst(0x00090000);
   if (offset < 0)
-    return KeyboardDetected = false;
+    return false;
   uint32_t base =
       ECAM_ADDR(mapa[offset].bus, mapa[offset].dev, mapa[offset].func);
-  initKeyboard(base);
-  return KeyboardDetected = true;
+  return initKeyboard(base);
 }
 
 // Lee una linea de texto desde el teclado hasta presionar Enter, gestionando
 // eco y backspace.
 int readInput(char *out_buffer, int max_size) {
-  if (out_buffer == NULL || max_size <= 0)
+  if (out_buffer == NULL || max_size <= 0 || kq == NULL)
     return -1;
   out_buffer[0] = '\0';
   uint32_t eflags;
@@ -89,17 +104,18 @@ int readInput(char *out_buffer, int max_size) {
   bool done = false;
   while (!done) {
     // Si la cola circular esta vacia, suspende la CPU hasta que ocurra una IRQ.
-    while (kq_tail == kq_head)
+    while (kq->tail == kq->head)
       waitForKey();
-    while (!done && kq_tail != kq_head) {
-      char key = key_queue[kq_tail];
+    while (!done && kq->tail != kq->head) {
+      char key = kq->queue[kq->tail];
       // Avanza el indice de lectura de la cola circular.
-      kq_tail = (kq_tail + 1) & KEYQ_MASK;
+      kq->tail = (kq->tail + 1) & KEYQ_MASK;
       if (key == '\n' || key == '\r') {
         // Si viene una secuencia CRLF (\r\n), descarta el '\n' siguiente para
         // evitar saltos dobles.
-        if (key == '\r' && kq_tail != kq_head && key_queue[kq_tail] == '\n') {
-          kq_tail = (kq_tail + 1) & KEYQ_MASK;
+        if (key == '\r' && kq->tail != kq->head &&
+            kq->queue[kq->tail] == '\n') {
+          kq->tail = (kq->tail + 1) & KEYQ_MASK;
         }
         done = true;
         break;

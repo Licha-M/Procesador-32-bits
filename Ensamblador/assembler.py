@@ -28,9 +28,10 @@
              • Etiquetas entre comillas dobles (nombres mangled C++)
              • Pseudo-operadores %hi(label) y %lo(label)
   [NUEVO]  Modo de datos configurable: ROM (defecto) | RAM
-             • Modo ROM: Datos iniciales de .data grabados en ROM, símbolos
-               mapeados a RAM (0x04000000+), rutina .start inyectada para
-               copiar .data de ROM a RAM antes de saltar a main.
+             • Modo ROM: .rodata queda en ROM (acceso solo CPU), .bss se mapea
+               a RAM desde 0x00000000 (la RAM arranca en cero, no se copia
+               nada) y .data NO está soportada (error).  La rutina .start
+               solo inicializa SP = 0x00001000 y salta a main.
              • Modo RAM: Secciones .data y .bss ensabladas de forma contigua
                en el mapa de direcciones ROM/RAM, salto directo a main.
   [NUEVO]  Modo multi-archivo .c → .s → ROM (sección 4 del spec)
@@ -258,22 +259,34 @@ def build_word(tipo: int, opcode: int, operands: int) -> int:
 #          de pseudo-operadores, en lugar de expandir instrucciones completas.
 # =============================================================================
 
+# Mapa de memoria (modo ROM)
+ROM_PHYS_BASE = 0xFFF00000    # ROM: dirección de byte = ROM_PHYS_BASE | (palabra*4)
+BSS_BASE      = 0x00000000    # .bss comienza al inicio de la RAM
+STACK_TOP     = 0x00001000    # SP inicial; deja 4 KB para .bss
+BSS_SIZE_MAX  = STACK_TOP - BSS_BASE
+# Las etiquetas de ROM se guardan como ÍNDICE DE PALABRA; las de RAM se guardan
+# como RAM_TAG | dirección_física_de_byte para distinguirlas sin ambigüedad
+# (con .bss en 0x0 ya no sirve comparar contra un umbral numérico).
+RAM_TAG       = 1 << 32
+
+
 def compute_hi_lo(address: int) -> tuple[int, int]:
     """
     Calcula los valores de %hi y %lo para una etiqueta o dirección.
 
-    Si address < 0x01000000, se asume dirección de palabra en ROM
-    (base 0xFFF00000; dirección de byte = (address * 4) | 0xFFF00000).
-    Si address >= 0x01000000, se asume dirección física de byte (ej. RAM 0x04000000+).
+    Si address < RAM_TAG, se asume índice de palabra en ROM
+    (dirección de byte = (address * 4) | 0xFFF00000).
+    Si address >= RAM_TAG, es una etiqueta de RAM: dirección física de byte
+    en los 32 bits bajos (ej. .bss desde 0x00000000).
 
     La compensación de signo es necesaria porque ADI hace sign-extend de low16.
 
     Devuelve (high16, low16) listos para codificarse en H LDI / SLT ADI.
     """
-    if address >= 0x01000000:
-        target_addr = address
+    if address >= RAM_TAG:
+        target_addr = address & 0xFFFFFFFF
     else:
-        target_addr = (address * 4) | 0xFFF00000
+        target_addr = (address * 4) | ROM_PHYS_BASE
 
     high16 = (target_addr >> 16) & 0xFFFF
     low16  =  target_addr        & 0xFFFF
@@ -799,8 +812,20 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
         if current_section == 'text' and text_start_word is None:
             text_start_word = rom_address
 
-    # Rastreos de offset en RAM para MODO ROM (base RAM = 0x04000000)
-    RAM_BASE = 0x04000000
+    # Rastreos de offset en RAM para MODO ROM (.bss desde BSS_BASE = 0x0)
+    data_error_reported = False
+
+    def _forbid_data(line_num: int) -> None:
+        nonlocal data_error_reported
+        if not data_error_reported:
+            errors.append(
+                f"[Línea {line_num}] La sección .data no está soportada en modo ROM "
+                f"(no se copia nada a RAM, la RAM arranca en cero). Use .bss (variables "
+                f"sin inicializar o en cero) o const (.rodata) y asigne los valores "
+                f"iniciales por código."
+            )
+            data_error_reported = True
+
     rom_data_bytes: list[int] = []  # Bytes crudos de .data para guardar en ROM
     ram_data_offset = 0            # Offset en RAM para .data (en bytes)
     ram_bss_offset = 0             # Offset en RAM para .bss (en bytes, relativo a fin de .data)
@@ -860,7 +885,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
             current_section = 'text'
             continue
         if _RODATA_SECTION_RE.match(code_line):
-            current_section = 'data'  # Mapped to data so it gets copied to RAM
+            current_section = 'rodata'  # Queda en ROM (solo lectura, solo CPU)
             continue
         if _DATA_SECTION_RE.match(code_line):
             current_section = 'data'
@@ -889,7 +914,7 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                     align_bytes = align_val if align_val > 0 else 1
                     pad = (align_bytes - (ram_bss_offset % align_bytes)) % align_bytes
                     ram_bss_offset += pad
-                    label_map[sym_name] = 0x0B550000 + ram_bss_offset
+                    label_map[sym_name] = RAM_TAG | (BSS_BASE + ram_bss_offset)
                     ram_bss_offset += size_val
                 else: # mode == 'ram'
                     align_words = max(1, align_val // 4)
@@ -906,6 +931,14 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
                         pending.append(PendingInstruction(is_raw_word=True, raw_value=0, src_line=line_num))
                     rom_address += words_needed
             continue
+
+        # ── [MODO ROM] .data prohibida: cualquier contenido en .data es error ──
+        if mode == 'rom' and current_section == 'data':
+            if (_LONG_RE.match(code_line) or _SHORT_RE.match(code_line)
+                    or _BYTE_RE.match(code_line) or _ASCIZ_RE.match(code_line)
+                    or _ASCII_RE.match(code_line) or _ZERO_RE.match(code_line)):
+                _forbid_data(line_num)
+                continue
 
         # ── Directivas de alineación (.p2align / .align) ────────────────────
         mp2 = _P2ALIGN_RE.match(code_line)
@@ -1098,9 +1131,10 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
             # Asignar dirección según sección y modo
             if mode == 'rom':
                 if current_section == 'data':
-                    label_map[name] = RAM_BASE + ram_data_offset
+                    _forbid_data(line_num)   # error único; etiqueta ficticia para no encadenar errores
+                    label_map[name] = RAM_TAG | BSS_BASE
                 elif current_section == 'bss':
-                    label_map[name] = 0x0B550000 + ram_bss_offset
+                    label_map[name] = RAM_TAG | (BSS_BASE + ram_bss_offset)
                 else:
                     label_map[name] = rom_address
             else: # mode == 'ram'
@@ -1143,127 +1177,52 @@ def first_pass(lines: list[str], data_mode: str = 'rom') -> tuple[dict[str, int]
 
     flush_pending_bytes()
 
-    # FIXUP BSS ADDRESSES
-    if mode == 'rom':
-        ram_bss_start = (ram_data_offset + 3) & ~3
-        for name, addr in label_map.items():
-            if 0x0B550000 <= addr < 0x0B600000:
-                label_map[name] = RAM_BASE + ram_bss_start + (addr - 0x0B550000)
-
-    # ── [NUEVO MODO ROM] Inyección de datos crudos de .data y rutina .start ──
-    # [NUEVO] start_listing: listado legible de las instrucciones de .start,
-    # escrito como bloque de comentarios al final del .s para inspección.
+    # ── [MODO ROM] Tamaño de .bss y rutina .start mínima ────────────────────
+    # .bss ya tiene direcciones finales (BSS_BASE + offset): no hay FIXUP.
+    # La RAM arranca en cero, así que no se copia ni se inicializa nada.
     start_listing: list[str] = []
 
-    if mode == 'rom' and (len(rom_data_bytes) > 0 or ram_bss_offset > 0):
-        num_data_words = 0
-        if len(rom_data_bytes) > 0:
-            pad = (4 - (len(rom_data_bytes) % 4)) % 4
-            if pad > 0:
-                rom_data_bytes.extend([0] * pad)
+    if mode == 'rom':
+        if ram_bss_offset > BSS_SIZE_MAX:
+            errors.append(
+                f"[ERROR] .bss ocupa {ram_bss_offset} bytes y solo hay "
+                f"{BSS_SIZE_MAX} disponibles (0x{BSS_BASE:08X}-0x{STACK_TOP - 1:08X}, "
+                f"la pila empieza en 0x{STACK_TOP:08X})."
+            )
 
-            num_data_words = len(rom_data_bytes) // 4
-            rom_data_start_word = rom_address
-
-            # 1. Escribir las palabras crudas de .data en la imagen ROM
-            for i in range(num_data_words):
-                byte_offset = i * 4
-                if hasattr(first_pass, 'rom_data_relocs') and byte_offset in first_pass.rom_data_relocs:
-                    label_expr = first_pass.rom_data_relocs[byte_offset]
-                    pending.append(PendingInstruction(is_raw_word=True, raw_value=0, src_line=0, raw_label_expr=label_expr))
-                else:
-                    b0 = rom_data_bytes[byte_offset + 0]
-                    b1 = rom_data_bytes[byte_offset + 1]
-                    b2 = rom_data_bytes[byte_offset + 2]
-                    b3 = rom_data_bytes[byte_offset + 3]
-                    word_val = b0 | (b1 << 8) | (b2 << 16) | (b3 << 24)
-                    pending.append(PendingInstruction(is_raw_word=True, raw_value=word_val, src_line=0))
-                rom_address += 1
-
-        # Limpiar relocations para futuras ejecuciones de first_pass
-        if hasattr(first_pass, 'rom_data_relocs'):
-            first_pass.rom_data_relocs.clear()
-
-        # 2. Generar etiqueta y rutina .start
         start_word_addr = rom_address
         label_map['.start'] = start_word_addr
-
         start_listing.append(f'; Inicio en palabra ROM {start_word_addr} (byte 0x{start_word_addr*4:06X})')
         start_listing.append('; .start:')
 
-        # ── Parte 1: Copiar .data de ROM a RAM (si hay variables en .data) ──
-        if num_data_words > 0:
-            # R15: Dirección ROM origen de .data (base: rom_data_start_word)
-            # NOTA: R0 está hardwired a 0 en la ISA32_LM; se usa R15 como
-            # registro scratch de dirección, igual que hace el vector de reset.
-            hi_rom, lo_rom = compute_hi_lo(rom_data_start_word)
-            # H LDI R15, hi_rom
-            pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['LDI'], (15 << 20) | hi_rom)], src_line=0))
-            # SLT ADI R15, lo_rom
-            pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (15 << 20) | lo_rom)], src_line=0))
+        # SP (R14) = STACK_TOP
+        pending.append(PendingInstruction(pending_tokens=['H', 'LDI', 'R14', str((STACK_TOP >> 16) & 0xFFFF)], src_line=0))
+        pending.append(PendingInstruction(pending_tokens=['SLT', 'ADI', 'R14', str(STACK_TOP & 0xFFFF)], src_line=0))
+        start_listing.append(f';\tH LDI R14, {(STACK_TOP >> 16) & 0xFFFF}\t\t; SP = 0x{STACK_TOP:08X}')
+        start_listing.append(f';\tSLT ADI R14, {STACK_TOP & 0xFFFF}')
 
-            # R1: Dirección RAM destino (0x04000000)
-            # H LDI R1, 0x0400
-            pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['LDI'], (1 << 20) | 0x0400)], src_line=0))
-            # SLT ADI R1, 0x0000
-            pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (1 << 20) | 0x0000)], src_line=0))
-
-            start_listing.append(f'; ── Fase 1: Copiar {num_data_words} palabra(s) de .data  ROM → RAM ──────────────')
-            start_listing.append(f';\tH LDI R15, 0x{hi_rom:04X}\t\t; Dir. ROM origen .data (palabra {rom_data_start_word}, byte 0x{rom_data_start_word*4:06X})')
-            start_listing.append(f';\tSLT ADI R15, 0x{lo_rom:04X}')
-            start_listing.append(f';\tH LDI R1, 0x0400\t\t; Dir. RAM destino = 0x04000000')
-            start_listing.append(f';\tSLT ADI R1, 0x0000')
-
-            # Copiar cada palabra con LOD (leer ROM a R2) + STR (escribir R2 a RAM)
-            for i in range(num_data_words):
-                offset = i * 4
-                # INT LOD R15, R2, offset  -> ra=15 (base ROM), rb=2 (destino), tipo=0b010 (INT)
-                w_lod = build_word(0b010, OPCODES['LOD'], (15 << 20) | (2 << 16) | (offset & 0xFFFF))
-                # INT STR R1, R2, offset   -> ra=1  (base RAM), rb=2 (origen),  tipo=0b010 (INT)
-                w_str = build_word(0b010, OPCODES['STR'], (1 << 20) | (2 << 16) | (offset & 0xFFFF))
-                pending.append(PendingInstruction(words=[w_lod], src_line=0))
-                pending.append(PendingInstruction(words=[w_str], src_line=0))
-                start_listing.append(f';\tINT LOD R15, R2, {offset}\t\t; Leer palabra {i} de ROM (.data blob)')
-                start_listing.append(f';\tINT STR R1, R2, {offset}\t\t; Escribir en RAM[0x{(0x04000000 + offset):08X}]')
-
-        # ── Parte 2: Zero-inicializar .bss en RAM ──────────────────────────────
-        # La RAM arranca con todos los bytes en 0 por hardware, por lo que no
-        # es necesario emitir instrucciones STR para inicializar .bss.
-        # ram_bss_offset ya fue usado más arriba para el FIXUP de etiquetas .bss,
-        # así que las direcciones RAM quedan correctas sin ningún código extra.
-
-        # ── Parte 3: Saltar a main o a la primera instrucción de .text ─────
+        # Salto a main (o al inicio de .text si no hay main)
         main_entry = None
         for candidate in ('main', '"main"'):
             if candidate in label_map:
                 main_entry = candidate
                 break
-
-        start_listing.append('; ── Fase 3: Saltar a main ──────────────────────────────────────────────────')
-        # NOTA: R0 está hardwired a 0 → se usa R15 para cargar la dirección
-        # de main y saltar, igual que el vector de reset en write_rom_logisim.
         if main_entry:
             pending.append(PendingInstruction(pending_tokens=['H', 'LDI', 'R15', f'%hi({main_entry})'], src_line=0))
             pending.append(PendingInstruction(pending_tokens=['SLT', 'ADI', 'R15', f'%lo({main_entry})'], src_line=0))
-            start_listing.append(f';\tH LDI R15, %hi({main_entry})\t\t; Parte alta de la dirección de {main_entry}')
-            start_listing.append(f';\tSLT ADI R15, %lo({main_entry})\t; Parte baja')
+            start_listing.append(f';\tH LDI R15, %hi({main_entry})')
+            start_listing.append(f';\tSLT ADI R15, %lo({main_entry})')
+        elif text_start_word is not None:
+            hi_text, lo_text = compute_hi_lo(text_start_word)
+            pending.append(PendingInstruction(pending_tokens=['H', 'LDI', 'R15', str(hi_text)], src_line=0))
+            pending.append(PendingInstruction(pending_tokens=['SLT', 'ADI', 'R15', str(lo_text)], src_line=0))
+            start_listing.append(f';\tH LDI R15, 0x{hi_text:04X}\t\t; Inicio de .text (sin función main)')
+            start_listing.append(f';\tSLT ADI R15, 0x{lo_text:04X}')
         else:
-            # Si no existe 'main', el programa arranca en la primera instrucción de .text por diseño.
-            if text_start_word is not None:
-                hi_text, lo_text = compute_hi_lo(text_start_word)
-                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['LDI'], (15 << 20) | hi_text)], src_line=0))
-                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (15 << 20) | lo_text)], src_line=0))
-                start_listing.append(f';\tH LDI R15, 0x{hi_text:04X}\t\t; Inicio de .text (sin función main)')
-                start_listing.append(f';\tSLT ADI R15, 0x{lo_text:04X}')
-            else:
-                errors.append("[ERROR] No se pudo generar la rutina .start: no existe función 'main' ni contenido en la sección .text al que saltar.")
-                hi_zero, lo_zero = compute_hi_lo(0)
-                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['LDI'], (15 << 20) | hi_zero)], src_line=0))
-                pending.append(PendingInstruction(words=[build_word(0b100, OPCODES['ADI'], (15 << 20) | lo_zero)], src_line=0))
-                start_listing.append(';\tH LDI R15, 0x0000\t\t; [ERROR] Sin main ni .text: saltando a dirección 0')
-                start_listing.append(';\tSLT ADI R15, 0x0000')
-
-        pending.append(PendingInstruction(words=[build_word(0b000, OPCODES['JMP'], 15 << 16)], src_line=0))
+            errors.append("[ERROR] No se pudo generar la rutina .start: no existe función 'main' ni contenido en la sección .text al que saltar.")
+            pending.append(PendingInstruction(pending_tokens=['H', 'LDI', 'R15', '0'], src_line=0))
+            pending.append(PendingInstruction(pending_tokens=['SLT', 'ADI', 'R15', '0'], src_line=0))
+        pending.append(PendingInstruction(pending_tokens=['JMP', 'R15'], src_line=0))
         start_listing.append(';\tJMP R15')
 
     return label_map, pending, errors, text_start_word, start_listing
@@ -1300,10 +1259,11 @@ def second_pass(label_map: dict[str, int],
                     # Los labels de código ROM se guardan como ÍNDICE DE PALABRA
                     # (rom_address, avanza de a 1 por instrucción).  Hay que
                     # convertirlos a dirección física igual que hace compute_hi_lo.
-                    # Los labels de RAM ya son direcciones físicas (≥ 0x01000000)
-                    # y no se tocan.
-                    if target_addr < 0x01000000:
-                        target_addr = (target_addr * 4) | 0xFFF00000
+                    # Los labels de RAM llevan RAM_TAG (bit 32) y ya son
+                    # direcciones físicas: se les quita la marca con la
+                    # máscara de 32 bits de abajo.
+                    if target_addr < RAM_TAG:
+                        target_addr = (target_addr * 4) | ROM_PHYS_BASE
                     val = target_addr & 0xFFFFFFFF
                 except AssemblerError as e:
                     e.line_number = instr.src_line
@@ -2079,7 +2039,10 @@ class AssemblerGUI:
         if label_map:
             self._log("\n  Etiquetas definidas:", 'lbl')
             for name, addr in sorted(label_map.items(), key=lambda x: x[1]):
-                self._log(f"    {name:<30} → word {addr:05X}  byte {addr*4:06X}", 'lbl')
+                if addr >= RAM_TAG:
+                    self._log(f"    {name:<30} → RAM  byte {addr & 0xFFFFFFFF:08X}", 'lbl')
+                else:
+                    self._log(f"    {name:<30} → word {addr:05X}  byte {addr*4:06X}", 'lbl')
 
         # Previsualización
         self._log("\n  WADDR BADDR    HEX       BINARIO", 'info')
@@ -2235,7 +2198,10 @@ def main():
         if label_map:
             print("\n[Etiquetas]")
             for name, addr in sorted(label_map.items(), key=lambda x: x[1]):
-                print(f"  {name:<30} -> word 0x{addr:05X}  byte 0x{addr*4:06X}")
+                if addr >= RAM_TAG:
+                    print(f"  {name:<30} -> RAM  byte 0x{addr & 0xFFFFFFFF:08X}")
+                else:
+                    print(f"  {name:<30} -> word 0x{addr:05X}  byte 0x{addr*4:06X}")
         sys.exit(0)
 
     # ── Modo GUI ──────────────────────────────────────────────────────────────

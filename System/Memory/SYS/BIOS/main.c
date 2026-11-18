@@ -4,8 +4,7 @@
 #include "drivers/tty/tty.h"
 #include "hal/ecam.h"
 #include "hal/lapic.h"
-#include "hal/ram.h"
-#include "lib/format.h"
+#include "lib/uefiCalls.h"
 #include "shell/shell.h"
 
 // Detiene el procesador de forma indefinida en un bucle con la instruccion HLT.
@@ -15,12 +14,27 @@ __attribute__((noreturn)) void final(void) {
   }
 }
 
+globalVars *Globals = NULL;
+
+// Inicializador de variables en RAM
+void initGlobalVars() {
+  if (allocatePages(0x00000000, BOOT_ONLY_DATA, 1, NULL) != 0)
+    final();
+  // Alojamos las variables globales
+  if (allocatePool(BOOT_ONLY_DATA, sizeof(*Globals), (void **)&Globals) != 0)
+    final();
+  Globals->CantRamMB = ECAM_R(ECAM_ADDR(0, 0, 0), 0x4);
+}
+
 // Punto de entrada de la BIOS: inicializa interrupciones, PCIe, pantalla,
 // teclado e inicia la shell.
 int main(void) {
 
-  if (initRAM() != 0)
+  // Testeamos la RAM e inicializamos variables
+  if (ECAM_R(ECAM_ADDR(0, 0, 0), 0x0) == 0xFFFFFFFF)
     final();
+  else
+    initGlobalVars();
 
   initLAPIC();
 
@@ -28,12 +42,6 @@ int main(void) {
 
   if (!displaySearch())
     final();
-
-  biosWrite("Enumeracion de buses finalizada.\n", 0);
-  biosWrite("Hay ", 0);
-  biosWrite(ToAscii(map_size, FMT_INT), 0);
-  biosWrite(" dispositivos conectados.\n\n", 0);
-  biosWrite("LAPIC e IRQs inicializadas.\n\n", 0);
 
   if (!nvmSearch()) {
     biosWrite("No se encontraron Memorias secundarias\n", 0);

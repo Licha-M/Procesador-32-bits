@@ -1,5 +1,5 @@
 #include "ecam.h"
-#include <stdint.h>
+#include "../lib/uefiCalls.h"
 
 #define MIN_BAR_POS 0xC0000000
 
@@ -13,13 +13,12 @@
 #define OFF_ROM 0x20
 #define OFF_CAP_PTR_DEV 0x24
 
-volatile PCIe_Map *mapa = (volatile PCIe_Map *)(TABLE_Addr);
-int map_size = 0;
+volatile PCIe_Map *mapa = NULL;
 
 void bus_Enumeration(uint32_t bus, int *next_bus_number, int *offset_BAR_Pos) {
   if (bus >= 256)
     return;
-  for (uint32_t dev = 0; dev < 32; dev++) {
+  for (uint32_t dev = 1; dev < 32; dev++) {
     for (uint32_t func = 0; func < 8; func++) {
       uintptr_t base = ECAM_ADDR(bus, dev, func);
       uint32_t vendor_device = ECAM_R(base, OFF_VENDOR_DEVICE);
@@ -28,10 +27,10 @@ void bus_Enumeration(uint32_t bus, int *next_bus_number, int *offset_BAR_Pos) {
           return;
         break;
       }
-      if (map_size >= MAX_PCIE_DEVICES)
+      if (Globals->map_size >= MAX_PCIE_DEVICES)
         return;
 
-      int current_idx = map_size;
+      int current_idx = Globals->map_size;
       mapa[current_idx].start_address = MIN_BAR_POS + *offset_BAR_Pos;
       mapa[current_idx].bus = (uint8_t)bus;
       mapa[current_idx].dev = (uint8_t)dev;
@@ -59,12 +58,12 @@ void bus_Enumeration(uint32_t bus, int *next_bus_number, int *offset_BAR_Pos) {
         mapa[current_idx].size =
             (MIN_BAR_POS + *offset_BAR_Pos) - mapa[current_idx].start_address;
         mapa[current_idx].end_address = MIN_BAR_POS + *offset_BAR_Pos;
-        (map_size)++;
+        (Globals->map_size)++;
         return;
       } else if (tipo_cabecera == 0x01) {
         *offset_BAR_Pos = (*offset_BAR_Pos + 0xFFFF) & 0xFFFF0000;
         mapa[current_idx].start_address = MIN_BAR_POS + *offset_BAR_Pos;
-        (map_size)++;
+        (Globals->map_size)++;
         uint32_t secondary_bus = (uint32_t)*next_bus_number;
         uint32_t pss = ECAM_R(base, OFF_PSS);
         pss &= ~0x00FFFFFF;
@@ -108,12 +107,19 @@ void PCIe_Bus_Enumeration(void) {
   uint32_t bus = 0;
   int next_bus_number = 1;
   int offset_BAR_Pos = 0;
+
+  if (allocatePages(TABLE_Addr, DEVICE_TABLE, 1, (void **)&mapa) != 0) {
+    // Sino devuelve 0 se toma como error cantidad de memoria insuficiente
+    final();
+  }
+
+  Globals->map_size = 0;
   bus_Enumeration(bus, &next_bus_number, &offset_BAR_Pos);
 }
 
 // Busca y devuelve el offset del primer dispositivo encontrado
 int searchFirst(uint32_t tipo) {
-  for (int i = 0; i < map_size; i++) {
+  for (int i = 0; i < Globals->map_size; i++) {
     if ((mapa[i].ClassCode & 0x00FFFFFF) == tipo) {
       return i;
     }
@@ -127,7 +133,7 @@ uint32_t search(uint32_t tipo, uint32_t buffer[MAX_SEARCH_CAPACITY]) {
 
   uint32_t count = 0;
 
-  for (int i = 0; i < map_size; i++) {
+  for (int i = 0; i < Globals->map_size; i++) {
     if ((mapa[i].ClassCode & 0x00FFFFFF) == tipo) {
       buffer[count] = ECAM_ADDR(mapa[i].bus, mapa[i].dev, mapa[i].func);
       count++;
