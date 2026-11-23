@@ -12,7 +12,7 @@
 
 // Tamano de cada buffer de rebote (incluye el '\0'). Las cadenas en ROM mas
 // largas se envian en varios trozos. El string mas largo actual mide 69 B.
-#define BOUNCE_SIZE 80
+#define BOUNCE_SIZE 128
 
 typedef struct {
   void (*write)(char word[], int option, int length);
@@ -40,15 +40,9 @@ typedef struct {
 
 typedef struct {
   DisplayRequest items[QUEUE_SIZE];
-  volatile uint8_t head;
-  volatile uint8_t tail;
-  volatile uint8_t count;
-  // Un buffer de rebote por posicion de la cola: items[i] usa bounce[i]. Se
-  // libera solo cuando el IRQ handler retira el item (avanza head), asi que no
-  // hace falta free().
-  char bounce[QUEUE_SIZE][BOUNCE_SIZE];
-  // Buffer exclusivo para la ruta de panico (no depende de la cola).
-  char panic_bounce[BOUNCE_SIZE];
+  volatile uint8_t head, tail, count;
+  char bounce[QUEUE_SIZE][BOUNCE_SIZE] __attribute__((aligned(64)));
+  char panic_bounce[BOUNCE_SIZE] __attribute__((aligned(64)));
 } RequestQueue;
 
 static RequestQueue *display_queue;
@@ -56,16 +50,25 @@ static RequestQueue *display_queue;
 // Indica si un puntero apunta a ROM (inaccesible para el periferico).
 static inline bool in_rom(const char *p) { return (uintptr_t)p >= ROM_BASE; }
 
-// Copia hasta BOUNCE_SIZE-1 caracteres de src a dst y agrega '\0'.
-// Devuelve la cantidad de caracteres copiados (sin contar el '\0').
-static uint32_t copy_to_bounce(char *dst, const char *src) {
-  uint32_t i = 0;
-  while (i < BOUNCE_SIZE - 1 && src[i] != '\0') {
-    dst[i] = src[i];
-    i++;
+#define HAS_ZERO(w) ((((w) - 0x01010101U) & ~(w) & 0x80808080U) != 0)
+
+// Copia palabras desde *srcp (alineado a 4). Devuelve true si el string
+// termino (la palabra con el '\0' ya esta copiada); si no, avanza *srcp.
+static bool copy_to_bounce(char *dst, const char **srcp) {
+  const uint32_t *s = (const uint32_t *)*srcp;
+  uint32_t *d = (uint32_t *)dst;
+  const uint32_t n = BOUNCE_SIZE / 4 - 1; // deja 1 palabra para el cero
+  for (uint32_t i = 0; i < n; i++) {
+    uint32_t w = s[i];
+    d[i] = w;
+    if (HAS_ZERO(w)) {
+      d[i + 1] = 0; // por si el TTY corta en palabra cero
+      return true;
+    }
   }
-  dst[i] = '\0';
-  return i;
+  d[n] = 0;
+  *srcp += n * 4;
+  return false;
 }
 
 // Envia una solicitud de comando y parametros a los registros MMIO del
@@ -132,11 +135,12 @@ static inline bool tty_requires_irq(int option, int length) {
 static void ttyWrite(char word[], int option, int length) {
   // En caso de panico del sistema, procesa de forma directa e inmediata para
   // asegurar el volcado del mensaje. No usa el asignador ni la cola; los
-  // mensajes de panico en ROM se truncan a BOUNCE_SIZE-1 caracteres.
+  // mensajes de panico en ROM se truncan a BOUNCE_SIZE-4 bytes.
   if (__builtin_expect(Globals->system_panic, 0)) {
     const char *src = word;
     if (option == 4 && in_rom(word)) {
-      copy_to_bounce(display_queue->panic_bounce, word);
+      const char *p = word;
+      copy_to_bounce(display_queue->panic_bounce, &p);
       src = display_queue->panic_bounce;
     }
     DisplayRequest panic_req = {
@@ -161,8 +165,10 @@ static void ttyWrite(char word[], int option, int length) {
   }
 
   bool rom_str = (option == 4) && in_rom(word);
-  // Si la cadena esta en ROM se envia en trozos de hasta BOUNCE_SIZE-1
-  // caracteres; si esta en RAM se envia entera, una sola vez.
+  const char *rom_src = word; // cursor de lectura en ROM (alineado a 4)
+  bool more = false;          // true si quedan trozos de la cadena por enviar
+  // Si la cadena esta en ROM se envia en trozos de hasta BOUNCE_SIZE-4 bytes;
+  // si esta en RAM se envia entera, una sola vez.
   do {
     while (display_queue->count >= QUEUE_SIZE) {
       __asm__ volatile("HLT");
@@ -173,7 +179,8 @@ static void ttyWrite(char word[], int option, int length) {
     uint8_t slot = display_queue->tail;
     const char *src = word;
     if (rom_str) {
-      word += copy_to_bounce(display_queue->bounce[slot], word);
+      // copy_to_bounce devuelve true cuando copio la palabra con el '\0'.
+      more = !copy_to_bounce(display_queue->bounce[slot], &rom_src);
       src = display_queue->bounce[slot];
     }
     display_queue->items[slot].data = src;
@@ -187,15 +194,16 @@ static void ttyWrite(char word[], int option, int length) {
       tty_execute_request(&display_queue->items[display_queue->head]);
     }
     exitCriticalSection(flags_guardadas);
-  } while (rom_str && *word != '\0');
+  } while (more);
 }
 
 // Configura el hardware de pantalla: resetea la cola, mapea BAR0 y registra el
 // vector MSI del TTY.
 static void initTty(uint32_t base) {
-  if (allocatePool(DEVICE_QUEUES, sizeof(*display_queue),
-                   (void **)&display_queue) != 0)
+  void *raw;
+  if (allocatePool(DEVICE_QUEUES, sizeof(RequestQueue) + 63, &raw) != 0)
     final();
+  display_queue = (RequestQueue *)(((uintptr_t)raw + 63) & ~(uintptr_t)63);
 
   display_queue->head = 0;
   display_queue->tail = 0;

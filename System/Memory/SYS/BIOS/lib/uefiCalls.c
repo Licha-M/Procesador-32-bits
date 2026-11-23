@@ -19,12 +19,16 @@
 // ---------------------------------------------------------------------------
 // Estructura de entrada del mapa de memoria
 // La direccion de inicio se calcula acumulando los tamaños anteriores.
-// 5 bytes por entrada: 4 de size + 1 de tipo.
+// 8 bytes por entrada (2 palabras de 32 bits): cada campo se accede con una
+// sola instruccion de 32 bits. No va packed: queda alineada naturalmente.
 // ---------------------------------------------------------------------------
-typedef struct __attribute__((packed)) {
+typedef struct {
   uint32_t size; // Tamaño del rango en bytes (multiplo de PAGE_SIZE)
-  uint8_t type;  // Tipo de la region
+  uint32_t type; // Tipo de la region
 } MemMapEntry;
+
+// Entradas que caben en la pagina del mapa (4096 / 8 = 512)
+#define MAP_MAX_ENTRIES (PAGE_SIZE / (uint32_t)sizeof(MemMapEntry))
 
 // ---------------------------------------------------------------------------
 // Cabecera del heap pool
@@ -139,16 +143,15 @@ static uint32_t findFreeRegion(uint32_t preferredAddr, uint32_t neededBytes,
 }
 
 // ---------------------------------------------------------------------------
-// Divide una entrada libre para reservar `neededBytes` a partir de `offset`
-// dentro de la entrada `idx`. Puede crear hasta 2 entradas nuevas
-// (prefix/suffix). Modifica el mapa en su lugar. Retorna 0 si ok, -1 si no hay
-// espacio en el mapa.
+// Divide la entrada `idx` para marcar `neededBytes` a partir de `offset` con
+// `newType`. El prefijo y el sufijo sobrantes conservan el tipo original de
+// la entrada. Puede crear hasta 2 entradas nuevas. Modifica el mapa en su
+// lugar. Retorna 0 si ok, -1 si no hay espacio en el mapa.
 // ---------------------------------------------------------------------------
-#define MAP_MAX_ENTRIES 819u // Entradas que caben en una pagina de 4096 bytes
-
 static int splitAndMark(uint32_t idx, uint32_t offset, uint32_t neededBytes,
-                        uint8_t newType) {
+                        uint32_t newType) {
   uint32_t origSize = varMap[idx].size;
+  uint32_t origType = varMap[idx].type;
   uint32_t suffix = origSize - offset - neededBytes;
   uint32_t newSlots = (uint32_t)(offset > 0u) + (uint32_t)(suffix > 0u);
 
@@ -165,21 +168,21 @@ static int splitAndMark(uint32_t idx, uint32_t offset, uint32_t neededBytes,
   uint32_t pos = idx;
 
   if (offset > 0u) {
-    // Prefijo libre antes de la reserva
+    // Prefijo antes de la reserva
     varMap[pos].size = offset;
-    varMap[pos].type = PAGE_FREE;
+    varMap[pos].type = origType;
     pos++;
   }
 
-  // La region reservada
+  // La region marcada
   varMap[pos].size = neededBytes;
   varMap[pos].type = newType;
   pos++;
 
   if (suffix > 0u) {
-    // Sufijo libre despues de la reserva
+    // Sufijo despues de la reserva
     varMap[pos].size = suffix;
-    varMap[pos].type = PAGE_FREE;
+    varMap[pos].type = origType;
   }
 
   mapEntries += newSlots;
@@ -212,34 +215,33 @@ static void coalesceMap(void) {
 //
 // Flujo:
 //   1. Buscar en la free list un bloque ya liberado que encaje.
-//   2. Si no hay, intentar el bump allocator en la pagina activa.
-//   3. Si la pagina activa se agota:
-//      a. Volcar el sobrante de la pagina actual a la free list (no
-//      desperdiciar). b. Pedir una nueva pagina al mapa de memoria. c. Usar el
-//      bump en la nueva pagina.
+//   2. Si no hay, usar el bump allocator en la pagina activa.
+//   3. Si la pagina activa no alcanza:
+//      a. Volcar el sobrante a la free list (no desperdiciar).
+//      b. Pedir una pagina nueva con allocatePages.
+//      c. Usar el bump en la nueva pagina.
 // ---------------------------------------------------------------------------
 int allocatePool(uint32_t type, uint32_t size, void **buffer) {
   if (buffer == NULL)
     return -1;
   if (type > BAR_SECTION || type < BOOT_ONLY_DATA)
     return -1;
-  if (size == 0u)
+  // Un bloque (cabecera + datos) debe caber en una pagina
+  if (size == 0u || size > PAGE_SIZE - (uint32_t)sizeof(PoolBlock))
     return -1;
-
-  uint32_t flags = enterCriticalSection();
-
-  ensureMapInit();
 
   // Alineacion minima a 4 bytes para accesos alineados
   uint32_t alignedSize = (size + 3u) & ~3u;
   uint32_t totalNeeded = alignedSize + (uint32_t)sizeof(PoolBlock);
+
+  uint32_t flags = enterCriticalSection();
 
   // 1. Intentar reutilizar desde la free list
   PoolBlock *prev = NULL;
   PoolBlock *cur = poolFreeList;
   while (cur != NULL) {
     if (cur->size >= alignedSize) {
-      // Encontrado: si sobra espacio para otra cabecera mas al menos 4 bytes,
+      // Si sobra espacio para otra cabecera mas al menos 4 bytes,
       // fragmentar y devolver el resto a la free list.
       if (cur->size >= alignedSize + (uint32_t)sizeof(PoolBlock) + 4u) {
         PoolBlock *remainder =
@@ -266,71 +268,42 @@ int allocatePool(uint32_t type, uint32_t size, void **buffer) {
     cur = cur->next;
   }
 
-  // 2. Bump allocator: usar espacio restante en la pagina activa
-  if (poolBump != NULL && poolRemaining >= totalNeeded) {
-    PoolBlock *blk = (PoolBlock *)poolBump;
-    blk->size = alignedSize;
-    blk->next = NULL;
-    poolBump += totalNeeded;
-    poolRemaining -= totalNeeded;
-    *buffer = (void *)((uint8_t *)blk + sizeof(PoolBlock));
-    exitCriticalSection(flags);
-    return 0;
+  // 2/3. Bump allocator. Si la pagina activa no alcanza, se cambia por otra.
+  if (poolBump == NULL || poolRemaining < totalNeeded) {
+    // Volcar el sobrante de la pagina actual a la free list
+    if (poolBump != NULL && poolRemaining >= (uint32_t)sizeof(PoolBlock) + 4u) {
+      PoolBlock *leftover = (PoolBlock *)poolBump;
+      leftover->size = poolRemaining - (uint32_t)sizeof(PoolBlock);
+      leftover->next = poolFreeList;
+      poolFreeList = leftover;
+    }
+    poolBump = NULL;
+    poolRemaining = 0u;
+
+    // Pedir una pagina nueva al mapa de memoria
+    void *page = NULL;
+    if (allocatePages(ANY_MEMORY, type, 1u, &page) != 0) {
+      exitCriticalSection(flags);
+      return -1;
+    }
+    poolBump = (uint8_t *)page;
+    poolRemaining = PAGE_SIZE;
   }
 
-  // 3. La pagina activa no tiene espacio suficiente
-  if (poolBump != NULL && poolRemaining >= (uint32_t)sizeof(PoolBlock) + 4u) {
-    PoolBlock *leftover = (PoolBlock *)poolBump;
-    leftover->size = poolRemaining - (uint32_t)sizeof(PoolBlock);
-    leftover->next = poolFreeList;
-    poolFreeList = leftover;
-  }
-  // La pagina activa queda agotada
-  poolBump = NULL;
-  poolRemaining = 0u;
+  PoolBlock *blk = (PoolBlock *)poolBump;
+  blk->size = alignedSize;
+  blk->next = NULL;
+  poolBump += totalNeeded;
+  poolRemaining -= totalNeeded;
+  *buffer = (void *)((uint8_t *)blk + sizeof(PoolBlock));
 
-  // Pedir una nueva pagina al mapa de memoria
-  uint32_t idx = 0u;
-  uint32_t foundAddr = findFreeRegion(ANY_MEMORY, PAGE_SIZE, &idx);
-  if (foundAddr == 0xFFFFFFFFu) {
-    exitCriticalSection(flags);
-    return -1;
-  }
-
-  // Calcular offset dentro de la entrada encontrada y marcarla
-  uint32_t cursor = 0u;
-  for (uint32_t i = 0; i < idx; i++)
-    cursor += varMap[i].size;
-  uint32_t offset = foundAddr - cursor;
-
-  if (splitAndMark(idx, offset, PAGE_SIZE, type) != 0) {
-    exitCriticalSection(flags);
-    return -1;
-  }
-
-  // Inicializar bump en la nueva pagina y alojar el bloque pedido
-  poolBump = (uint8_t *)(uintptr_t)foundAddr;
-  poolRemaining = PAGE_SIZE;
-
-  if (poolRemaining >= totalNeeded) {
-    PoolBlock *blk = (PoolBlock *)poolBump;
-    blk->size = alignedSize;
-    blk->next = NULL;
-    poolBump += totalNeeded;
-    poolRemaining -= totalNeeded;
-    *buffer = (void *)((uint8_t *)blk + sizeof(PoolBlock));
-    exitCriticalSection(flags);
-    return 0;
-  }
-
-  // No deberia llegar aqui
   exitCriticalSection(flags);
-  return -1;
+  return 0;
 }
 
 // ---------------------------------------------------------------------------
 // freePool — Devuelve un bloque al pool con fusión de bloques adyacentes
-// y liberación de página al mapa si queda completamente libre.
+// y, si la pagina queda completamente libre, la devuelve con freePages.
 // ---------------------------------------------------------------------------
 void freePool(void **buffer) {
   if (buffer == NULL || *buffer == NULL)
@@ -385,11 +358,10 @@ void freePool(void **buffer) {
   }
 
   // -------------------------------------------------------------------------
-  // 4. Liberar la pagina al mapa si el bloque fusionado la cubre entera.
-  //    Condiciones:
+  // 4. Si el bloque fusionado cubre la pagina entera, devolverla con
+  //    freePages. Condiciones:
   //      a) La cabecera del bloque esta justo al inicio de la pagina.
   //      b) size == PAGE_SIZE - sizeof(PoolBlock)
-  //         (el primer header ocupa sizeof(PoolBlock) desde el inicio).
   // -------------------------------------------------------------------------
   uint32_t blkAddr = (uint32_t)(uintptr_t)blk;
   uint32_t pageBase = blkAddr & ~(PAGE_SIZE - 1u);
@@ -397,35 +369,31 @@ void freePool(void **buffer) {
   if (blkAddr == pageBase &&
       blk->size == PAGE_SIZE - (uint32_t)sizeof(PoolBlock)) {
 
-    // Quitar el bloque de la free list del pool
-    if (blk == poolFreeList) {
-      poolFreeList = blk->next;
-    } else {
-      PoolBlock *p = poolFreeList;
-      while (p != NULL && p->next != blk)
-        p = p->next;
-      if (p != NULL)
-        p->next = blk->next;
-    }
+    // freePages pone `page` en NULL solo si la pagina se libero en el mapa.
+    // Si falla, el bloque se queda en la free list y no se pierde la pagina.
+    void *page = (void *)(uintptr_t)pageBase;
+    freePages(1u, &page);
 
-    // Si el bump activo apuntaba a esta pagina ya no es valido
-    if (poolBump != NULL) {
-      uint32_t bumpPage = (uint32_t)(uintptr_t)poolBump & ~(PAGE_SIZE - 1u);
-      if (bumpPage == pageBase) {
-        poolBump = NULL;
-        poolRemaining = 0u;
+    if (page == NULL) {
+      // Quitar el bloque de la free list del pool
+      if (blk == poolFreeList) {
+        poolFreeList = blk->next;
+      } else {
+        PoolBlock *p = poolFreeList;
+        while (p != NULL && p->next != blk)
+          p = p->next;
+        if (p != NULL)
+          p->next = blk->next;
       }
-    }
 
-    // Marcar la pagina como PAGE_FREE en el mapa y fusionar vecinos
-    uint32_t cursor = 0u;
-    for (uint32_t i = 0; i < mapEntries; i++) {
-      if (cursor == pageBase && varMap[i].size == PAGE_SIZE) {
-        varMap[i].type = PAGE_FREE;
-        coalesceMap();
-        break;
+      // Si el bump activo apuntaba a esta pagina ya no es valido
+      if (poolBump != NULL) {
+        uint32_t bumpPage = (uint32_t)(uintptr_t)poolBump & ~(PAGE_SIZE - 1u);
+        if (bumpPage == pageBase) {
+          poolBump = NULL;
+          poolRemaining = 0u;
+        }
       }
-      cursor += varMap[i].size;
     }
   }
 
@@ -474,7 +442,9 @@ int allocatePages(uint32_t address, uint32_t type, uint32_t cant,
 }
 
 // ---------------------------------------------------------------------------
-// freePages — Libera paginas marcandolas como libres y fusionando vecinos
+// freePages — Libera paginas marcandolas como libres y fusionando vecinos.
+// El rango puede ser parte de una entrada mas grande (el mapa fusiona
+// regiones contiguas del mismo tipo). Si se libera, *buffer queda en NULL.
 // ---------------------------------------------------------------------------
 void freePages(uint32_t cant, void **buffer) {
   if (buffer == NULL || *buffer == NULL || cant == 0u)
@@ -489,10 +459,14 @@ void freePages(uint32_t cant, void **buffer) {
   uint32_t cursor = 0u;
 
   for (uint32_t i = 0; i < mapEntries; i++) {
-    if (cursor == targetAddr && varMap[i].size == targetBytes) {
-      varMap[i].type = PAGE_FREE;
-      coalesceMap();
-      *buffer = NULL;
+    // El rango debe caer entero dentro de la entrada i (sin desbordar)
+    if (targetAddr >= cursor &&
+        targetAddr - cursor + targetBytes <= varMap[i].size) {
+      if (varMap[i].type != PAGE_FREE &&
+          splitAndMark(i, targetAddr - cursor, targetBytes, PAGE_FREE) == 0) {
+        coalesceMap();
+        *buffer = NULL;
+      }
       exitCriticalSection(flags);
       return;
     }
@@ -503,62 +477,94 @@ void freePages(uint32_t cant, void **buffer) {
 }
 
 // ---------------------------------------------------------------------------
-// allocateIOMemory — Marca el rango [min, max] como BAR_SECTION en el mapa
+// allocateIOMemory — Marca el rango [min, max) como BAR_SECTION en el mapa.
 // ---------------------------------------------------------------------------
 int allocateIOMemory(uint32_t min, uint32_t max) {
   if (min >= max)
     return -1;
-  // Alinear a pagina
+
+  // Redondear hacia arriba no debe desbordar uint32_t
+  if (max > 0u - PAGE_SIZE)
+    return -1;
+
   uint32_t alignedMin = min & ~(PAGE_SIZE - 1u);
   uint32_t alignedMax = (max + PAGE_SIZE - 1u) & ~(PAGE_SIZE - 1u);
-  if (alignedMax < alignedMax - 1u) // desborde
-    return -1;
 
   uint32_t flags = enterCriticalSection();
 
   ensureMapInit();
 
-  uint32_t rangeSize = alignedMax - alignedMin;
+  // Pasada 1: verificar que todo lo que se solapa es libre o ya BAR_SECTION
   uint32_t cursor = 0u;
+  for (uint32_t i = 0u; i < mapEntries; i++) {
+    uint32_t entryStart = cursor;
+    uint32_t size = varMap[i].size;
+    if (entryStart >= alignedMax)
+      break;
+    // Solapa si alignedMin cae antes del fin de la entrada (sin sumar, para
+    // no desbordar en la ultima entrada)
+    if (alignedMin < entryStart || (alignedMin - entryStart) < size) {
+      uint32_t t = varMap[i].type;
+      if (t != PAGE_FREE && t != BAR_SECTION) {
+        exitCriticalSection(flags);
+        return -1;
+      }
+    }
+    cursor += size;
+  }
 
-  // Recorrer el mapa buscando entradas que se solapen con [alignedMin,
-  // alignedMax)
+  // Cada marcado agrega como maximo 2 entradas en total (prefijo de la primera
+  // entrada solapada y sufijo de la ultima). Comprobarlo antes de empezar para
+  // no dejar el rango marcado a medias.
+  if (mapEntries + 2u > MAP_MAX_ENTRIES) {
+    exitCriticalSection(flags);
+    return -1;
+  }
+
+  // Pasada 2: marcar
+  cursor = 0u;
   uint32_t i = 0u;
   while (i < mapEntries) {
     uint32_t entryStart = cursor;
-    uint32_t entryEnd = cursor + varMap[i].size;
+    uint32_t size = varMap[i].size;
+    if (entryStart >= alignedMax)
+      break;
 
-    // Sin solapamiento: avanzar
-    if (entryEnd <= alignedMin || entryStart >= alignedMax) {
-      cursor += varMap[i].size;
+    // Sin solapamiento (la entrada termina antes de alignedMin)
+    if (alignedMin >= entryStart && (alignedMin - entryStart) >= size) {
+      cursor += size;
       i++;
       continue;
     }
 
-    // Hay solapamiento: calcular la interseccion
+    // Ya es BAR_SECTION: nada que dividir
+    if (varMap[i].type == BAR_SECTION) {
+      cursor += size;
+      i++;
+      continue;
+    }
+
+    // Entrada PAGE_FREE solapada: calcular la interseccion sin desbordes
     uint32_t overlapStart = (entryStart > alignedMin) ? entryStart : alignedMin;
-    uint32_t overlapEnd = (entryEnd < alignedMax) ? entryEnd : alignedMax;
-    uint32_t overlapSize = overlapEnd - overlapStart;
+    uint32_t overlapEnd =
+        ((alignedMax - entryStart) < size) ? alignedMax : (entryStart + size);
     uint32_t offsetInEntry = overlapStart - entryStart;
+    uint32_t overlapSize = overlapEnd - overlapStart;
 
     if (splitAndMark(i, offsetInEntry, overlapSize, BAR_SECTION) != 0) {
+      // No deberia ocurrir (capacidad verificada arriba)
       exitCriticalSection(flags);
       return -1;
     }
 
-    // Tras el split, la entrada marcada es la que sigue a las partes de
-    // prefijo. Recalcular cursor y avanzar mas alla de la parte marcada.
-    cursor = entryStart + offsetInEntry + overlapSize;
-    // El indice despues del split apunta al sufijo (si existe) o a la siguiente
-    // entrada. Sumamos las partes que se crearon:
-    uint32_t partsCreated = (uint32_t)(offsetInEntry > 0u) + 1u;
-    i += partsCreated;
+    // Despues del split: [prefijo?][marcada][sufijo?]. Saltar hasta justo
+    // despues de la marcada; el sufijo (si existe) empieza en overlapEnd.
+    cursor = overlapEnd;
+    i += (offsetInEntry > 0u) ? 2u : 1u;
   }
 
-  // Fusionar entradas contiguas del mismo tipo para mantener el mapa compacto
   coalesceMap();
 
-  (void)rangeSize; // calculado pero no necesario explicitamente
   exitCriticalSection(flags);
   return 0;
 }

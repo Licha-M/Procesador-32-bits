@@ -23,9 +23,11 @@ typedef struct {
   volatile uint32_t nvm_selected;
   volatile uint32_t nvmCount;
   uint32_t CantRamMB;
+  uint32_t *STACK;
+  uint32_t *BSS;
 } globalVars;
 
-extern globalVars *Globals;
+extern globalVars *volatile Globals;
 
 __attribute__((noreturn)) void final(void);
 

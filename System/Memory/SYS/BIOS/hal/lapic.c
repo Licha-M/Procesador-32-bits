@@ -32,10 +32,8 @@ static uint32_t defaultIRQHandler(uint32_t eflags, uint32_t epc,
                                   uint32_t cause) {
   (void)eflags;
   irqOff();
-  if (cause < MAX_IRQS)
-    biosWrite("Fatal Error: Unhandled IRQ", 0);
-  else
-    biosWrite("Fatal Error: Over Limit IRQ", 0);
+  Globals->system_panic = true;
+  biosWrite("Fatal Error: Unhandled IRQ", 0);
   __asm__ volatile("HLT");
   return epc;
 }

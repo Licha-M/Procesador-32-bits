@@ -5,7 +5,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-
 #define EFLAGS_KMODE_MASK (1u << 0)
 #define EFLAGS_PREV_KMODE_MASK (1u << 1)
 #define EFLAGS_EN_INTS_MASK (1u << 2)
@@ -42,5 +41,6 @@ exitCriticalSection(uint32_t flags) {
 
 void initLAPIC(void);
 void initMSI(uint32_t base, uint32_t irq_num, IRQHandler handler);
+__attribute__((naked)) void entryHandler(void);
 
 #endif

@@ -14,18 +14,33 @@ __attribute__((noreturn)) void final(void) {
   }
 }
 
-globalVars *Globals = NULL;
+globalVars *volatile Globals;
 
 // Inicializador de variables en RAM
 void initGlobalVars() {
-  uint32_t *pointer = (uint32_t *)0xFFFFFFFF;
-  if (allocatePages(0x00000000, BOOT_ONLY_DATA, 1, (void **)&pointer) != 0 ||
-      pointer != 0x00000000)
+  Globals = NULL;
+  uint32_t *pointerBSS = NULL;
+  uint32_t *pointerSTACK = NULL;
+
+  // Pedimos memoria para el stack
+  if (allocatePages(0x00001000, BOOT_ONLY_DATA, 1, (void **)&pointerSTACK) != 0)
     final();
+
+  // Pedimos espacio para .bss
+  if (allocatePages(0x00000000, BOOT_ONLY_DATA, 1, (void **)&pointerBSS) != 0)
+    final();
+
   // Alojamos las variables globales
   if (allocatePool(BOOT_ONLY_DATA, sizeof(*Globals), (void **)&Globals) != 0)
     final();
+
   Globals->CantRamMB = ECAM_R(ECAM_ADDR(0, 0, 0), 0x4);
+  Globals->STACK = pointerSTACK;
+  Globals->BSS = pointerBSS;
+  Globals->map_size = 0;
+  Globals->nvm_selected = 0;
+  Globals->nvmCount = 0;
+  Globals->system_panic = false;
 }
 
 // Punto de entrada de la BIOS: inicializa interrupciones, PCIe, pantalla,
@@ -52,8 +67,7 @@ int main(void) {
 
   if (!keyboardSearch()) {
     biosWrite("No hay teclado conectado\n", 0);
-    final();
+  } else {
+    BiosShell();
   }
-
-  BiosShell();
 }

@@ -72,21 +72,21 @@ static void initNvm(uint32_t base, uint32_t num, bool *detected) {
 bool nvmSearch(void) {
   uint32_t found[NVM_MAX_DEVS];
   bool detected = false;
-  Globals->nvm_selected = search(NVM_CLASS_CODE, found);
+  Globals->nvmCount = search(NVM_CLASS_CODE, found);
 
-  if (Globals->nvm_selected == 0) {
+  if (Globals->nvmCount == 0) {
     return false;
   }
 
-  if (allocatePool(DEVICE_DATA, sizeof(NvmDev) * (Globals->nvm_selected),
+  if (allocatePool(DEVICE_DATA, sizeof(NvmDev) * (Globals->nvmCount),
                    (void **)&nvmDevs) != 0 ||
       nvmDevs == NULL) {
     biosWrite("\nError alojando memoria para tabla NVM", 0);
-    Globals->nvm_selected = 0;
+    Globals->nvmCount = 0;
     return false;
   }
 
-  for (uint32_t i = 0; i < Globals->nvm_selected; i++) {
+  for (uint32_t i = 0; i < Globals->nvmCount; i++) {
     Globals->nvm_selected = i;
     initNvm(found[i], i, &detected);
   }
@@ -102,7 +102,7 @@ static int NvmAccess(uint32_t option, uint32_t disp, uint32_t *pointer,
     biosWrite("\nComando de NVM no reconocido", 0);
     return NVM_INVALID_OPTION;
   }
-  if (disp >= Globals->nvm_selected || nvmDevs == NULL) {
+  if (disp > Globals->nvmCount || nvmDevs == NULL) {
     biosWrite("\nDispositivo NVM inexistente", 0);
     return NVM_DEVICE_NOT_RECOGNIZED;
   }
