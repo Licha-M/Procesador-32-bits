@@ -1,10 +1,12 @@
 #include "nvm.h"
+#include "../../boot/boot.h"
 #include "../../hal/ecam.h"
 #include "../../hal/lapic.h"
 #include "../../lib/uefiCalls.h"
 #include "../tty/tty.h"
 #include <stdbool.h>
 #include <stdint.h>
+
 
 #define NVM_CLASS_CODE 0x00010802
 #define NVM_MAX_DEVS 32
@@ -22,7 +24,7 @@ NvmDev *nvmDevs = NULL;
 static uint32_t nvm_IRQHandler(uint32_t eflags, uint32_t epc, uint32_t cause) {
   (void)eflags;
   uint32_t id = NVM_MSI_NUM - cause; // inverso de la IRQ asignada en initNvm
-  if (id >= Globals->nvm_selected || nvmDevs == NULL)
+  if (id >= Globals->nvmCount || nvmDevs == NULL)
     return epc;
 
   NvmDev *dev = &nvmDevs[id];
@@ -39,6 +41,7 @@ static void initNvm(uint32_t base, uint32_t num, bool *detected) {
   dev->ID = num;
   dev->done = false;
   dev->index = 0;
+  dev->booteable = false; // la memoria del pool no viene en cero
 
   void *queuePage = NULL;
 
@@ -60,8 +63,8 @@ static void initNvm(uint32_t base, uint32_t num, bool *detected) {
   initMSI(base, NVM_MSI_NUM - num, nvm_IRQHandler);
   dev->regs->command = 1; // habilitar al final, con todo ya configurado
 
-  // Revisamos que la unidad sea booteable
-  // dev->booteable = (fat_mount(dev) != -1);
+  // Revisamos que la unidad sea booteable (ya se pueden hacer lecturas)
+  dev->booteable = (bootScanDisk(num) > 0); // anota sus bootloaders en la tabla
 
   if (*detected == false)
     *detected = dev->booteable;
@@ -86,6 +89,9 @@ bool nvmSearch(void) {
     return false;
   }
 
+  if (bootInit() != 0)
+    biosWrite("\nError alojando tabla de bootloaders", 0);
+
   for (uint32_t i = 0; i < Globals->nvmCount; i++) {
     Globals->nvm_selected = i;
     initNvm(found[i], i, &detected);
@@ -102,7 +108,7 @@ static int NvmAccess(uint32_t option, uint32_t disp, uint32_t *pointer,
     biosWrite("\nComando de NVM no reconocido", 0);
     return NVM_INVALID_OPTION;
   }
-  if (disp > Globals->nvmCount || nvmDevs == NULL) {
+  if (disp >= Globals->nvmCount || nvmDevs == NULL) {
     biosWrite("\nDispositivo NVM inexistente", 0);
     return NVM_DEVICE_NOT_RECOGNIZED;
   }

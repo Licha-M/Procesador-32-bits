@@ -73,6 +73,7 @@ def log(msg, tag=""):
 # ============================================================================
 SECTOR_SIZE = 512
 ALIGN_SECTORS = 2048                 # 1 MB
+PAGE_SECTORS = 8                     # 8 x 512 B = 4 KB (alineación de página SSD)
 RESERVED_SECTORS = 8                 # 8 x 512 B = 4 KB (una página de SSD)
 DEFAULT_CLUSTER_BYTES = 512
 DEFAULT_NUM_FATS = 1
@@ -287,6 +288,7 @@ def compute_geometry(total_sectors, spc, num_fats) -> Geometry:
     # Cota superior de clústeres -> tamaño de FAT suficiente (sin oscilaciones)
     upper = avail // spc
     fat_sectors = math.ceil((upper + 2) * 4 / SECTOR_SIZE)
+    fat_sectors = -(-fat_sectors // PAGE_SECTORS) * PAGE_SECTORS
     clusters = (avail - num_fats * fat_sectors) // spc
     clusters = min(clusters, MAX_CLUSTER_INDEX - 1)
     if clusters < 1:

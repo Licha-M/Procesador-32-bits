@@ -1,5 +1,6 @@
 #include "shell.h"
 #include "../bios_types.h"
+#include "../boot/boot.h"
 #include "../drivers/keyboard/keyboard.h"
 #include "../drivers/nvm/nvm.h"
 #include "../drivers/tty/tty.h"
@@ -79,8 +80,8 @@ void sysOff(void) {
 }
 
 // Reinicia el sistema llamando de nuevo a la funcion main().
-__attribute__((noreturn)) void reset(void) {
-  // Ponemos el SP en 0 y saltamos a main
+void reset(void) {
+  // Ponemos el SP en 4KB y saltamos a main
   asm volatile("H LDI R14, 0\n"
                "SLT ADI R14, 4096\n"
                "H LDI R15, %hi(main) \n"
@@ -88,8 +89,51 @@ __attribute__((noreturn)) void reset(void) {
                "JMP R15");
 }
 
-// Inicia el sistema operativo (reserva para futura implementacion).
-void initSO(void) { return; }
+// Convierte una cadena de dígitos decimales en un entero. false si está vacía,
+// tiene otros caracteres o es demasiado larga.
+static bool parseUInt(const char *s, uint32_t *out) {
+  uint32_t v = 0;
+  int digits = 0;
+  for (; *s; s++, digits++) {
+    if (*s < '0' || *s > '9' || digits >= 9)
+      return false;
+    v = v * 10 + (uint32_t)(*s - '0');
+  }
+  *out = v;
+  return digits > 0;
+}
+
+// Carga el bootloader elegido con setboot y le entrega el control.
+void initSO(void) {
+  if (bootSelected < 0) {
+    biosWrite("Primero seleccione un bootloader con 'setboot'\n", 0);
+    return;
+  }
+  const BootEntry *e = &bootEntries[bootSelected];
+  biosWrite("Cargando ", 0);
+  biosWrite((char *)e->folder, 0);
+  biosWrite("/", 0);
+  biosWrite((char *)e->file, 0);
+  biosWrite("...\n", 0);
+
+  switch (bootRun((uint32_t)bootSelected)) {
+  case BOOT_OK:
+    biosWrite("El bootloader devolvio el control a la BIOS\n", 0);
+    break;
+  case BOOT_ERR_FS:
+    biosWrite("Error: no se pudo montar la particion EFI\n", 0);
+    break;
+  case BOOT_ERR_FILE:
+    biosWrite("Error: no se pudo leer el bootloader\n", 0);
+    break;
+  case BOOT_ERR_MEM:
+    biosWrite("Error: no hay memoria para cargar el bootloader\n", 0);
+    break;
+  default:
+    biosWrite("Error: bootloader inexistente\n", 0);
+    break;
+  }
+}
 
 // Muestra en una tabla paginada los dispositivos PCIe enumerados con su Class
 // Code y direccion ECAM.
@@ -115,42 +159,60 @@ void enumdisp(void) {
   }
 }
 
-// Lista los dispositivos de arranque disponibles
+// Lista los bootloaders (.bin) de las particiones EFI de todas las NVM.
 void lsboot(void) {
   const int page_size = 3;
 
+  if (bootCount == 0) {
+    biosWrite("No hay bootloaders en las particiones EFI\n", 0);
+    return;
+  }
   biosWrite("Hay ", 0);
-  biosWrite(ToAscii(Globals->nvm_selected, FMT_INT), 0);
-  biosWrite(" NVMs conectados\n", 0);
-  biosWrite("ID    Nombre\n", 0);
-  biosWrite("--    -----------\n", 0);
+  biosWrite(ToAscii(bootCount, FMT_INT), 0);
+  biosWrite(" bootloaders\n", 0);
+  biosWrite("ID    Carpeta         Bootloader\n", 0);
+  biosWrite("--    -------         ----------\n", 0);
 
-  int printed_count = 0;
+  for (uint32_t i = 0; i < bootCount; i++) {
+    writePadded(ToAscii(i, FMT_INT), 6);
+    writePadded(bootEntries[i].folder, 16);
+    biosWrite(bootEntries[i].file, 0);
+    biosWrite("\n", 0);
 
-  for (int i = 0; i < Globals->nvm_selected; i++) {
-    NvmDev *dev = &nvmDevs[i];
-
-    if (dev->booteable == true) {
-      writePadded(ToAscii(i, FMT_INT), 6);
-      biosWrite(dev->name, 0);
-      biosWrite("\n", 0);
-      printed_count++;
-
-      // Paginación basada estrictamente en elementos impresos
-      if (printed_count < Globals->nvm_selected &&
-          printed_count % page_size == 0) {
-        if (!paginate())
-          return;
-        biosWrite("ID    Nombre\n", 0);
-        biosWrite("--    -----------\n", 0);
-      }
+    if ((i + 1) < bootCount && (i + 1) % page_size == 0) {
+      if (!paginate())
+        return;
+      biosWrite("ID    Carpeta         Bootloader\n", 0);
+      biosWrite("--    -------         ----------\n", 0);
     }
   }
 }
 
-// Configura el dispositivo de arranque preferido (reserva para futura
-// implementacion).
-void setboot(void) { return; }
+// Pide un ID de lsboot y lo deja elegido para initSO.
+void setboot(void) {
+  if (bootCount == 0) {
+    biosWrite("No hay bootloaders para elegir\n", 0);
+    return;
+  }
+  char resp[8];
+  uint32_t id;
+  biosWrite("ID del bootloader (Enter para cancelar): ", 0);
+  readInput(resp, sizeof(resp));
+  if (resp[0] == '\0') {
+    biosWrite("Cancelado\n", 0);
+    return;
+  }
+  if (!parseUInt(resp, &id) || id >= bootCount) {
+    biosWrite("ID invalido. Use 'lsboot' para ver los IDs\n", 0);
+    return;
+  }
+  bootSelected = (int32_t)id;
+  biosWrite("Seleccionado: ", 0);
+  biosWrite(bootEntries[id].folder, 0);
+  biosWrite("/", 0);
+  biosWrite(bootEntries[id].file, 0);
+  biosWrite("\n", 0);
+}
 
 // Limpia la pantalla de la terminal.
 void cls(void) { biosClear(); }

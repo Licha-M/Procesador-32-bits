@@ -14,6 +14,7 @@
 #define DEVICE_DATA 4     // Datos de dispositivos: decide el SO
 #define DEVICE_QUEUES 5   // Colas de dispositivos: el SO decide si las mantiene
 #define BAR_SECTION 6     // Regiones de memoria IO
+#define BOOTLOADER_CODE 7 // Codigo del bootloader
 
 // Aloja porciones pequeñas de RAM, medidas en Bytes
 int allocatePool(uint32_t type, uint32_t size, void **buffer);
